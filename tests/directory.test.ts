@@ -5,7 +5,8 @@ import {
   formatPhoneNumber,
   formatUzbekDate,
 } from '../src/lib/utils/formatters';
-import { ReportSchema, DigitalService, Contact } from '../src/lib/types/directory';
+import { isNewlyVerified, getTelegramShareUrl, getWhatsappShareUrl } from '../src/lib/utils/badges';
+import { ReportSchema, SuggestionSchema, DigitalService, Contact } from '../src/lib/types/directory';
 
 describe('Bog‘lanish Directory & Digital Services Utilities', () => {
   it('normalizes search terms accurately', () => {
@@ -36,15 +37,43 @@ describe('Bog‘lanish Directory & Digital Services Utilities', () => {
     expect(formatted).toContain('25-Avgust, 2026');
   });
 
-  it('validates organization report schema with Zod', () => {
+  it('evaluates newly verified 30-day rule correctly', () => {
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+
+    expect(isNewlyVerified(tenDaysAgo)).toBe(true);
+    expect(isNewlyVerified(fortyDaysAgo)).toBe(false);
+    expect(isNewlyVerified(null)).toBe(false);
+    expect(isNewlyVerified(undefined)).toBe(false);
+  });
+
+  it('generates valid social share URLs', () => {
+    const tgUrl = getTelegramShareUrl('https://boglanish.uz/organizations/sqb', 'SQB Bank');
+    expect(tgUrl).toContain('https://t.me/share/url?url=https%3A%2F%2Fboglanish.uz');
+    expect(tgUrl).toContain('text=SQB%20Bank');
+
+    const waUrl = getWhatsappShareUrl('https://boglanish.uz/organizations/sqb', 'SQB Bank');
+    expect(waUrl).toContain('https://api.whatsapp.com/send?text=SQB%20Bank');
+  });
+
+  it('validates organization report and suggestion schemas with Zod', () => {
     const validReport = {
       organization_id: 10,
       report_type: 'wrong_phone',
       message: 'Telefon raqami o‘zgargan, yangi raqam: +998 71 200-00-00',
     };
 
-    const parsed = ReportSchema.safeParse(validReport);
-    expect(parsed.success).toBe(true);
+    const parsedReport = ReportSchema.safeParse(validReport);
+    expect(parsedReport.success).toBe(true);
+
+    const validSuggestion = {
+      name: 'O‘zsuvta’minot AJ',
+      phone_number: '+998 71 200-00-00',
+      website_url: 'https://uzsuv.uz',
+    };
+
+    const parsedSuggestion = SuggestionSchema.safeParse(validSuggestion);
+    expect(parsedSuggestion.success).toBe(true);
   });
 
   it('validates contact types and digital service purpose descriptions', () => {

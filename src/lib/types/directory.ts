@@ -40,6 +40,7 @@ export interface Location {
   id: number;
   organization_id: number;
   address: string;
+  city_district?: string | null;
   map_url?: string | null;
   working_hours?: string | null;
 }
@@ -89,12 +90,54 @@ export interface OrganizationReport {
   organization_id: number;
   report_type: 'wrong_phone' | 'wrong_address' | 'closed' | 'other';
   message: string;
+  internal_notes?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
   status?: 'pending' | 'reviewed' | 'resolved';
   created_at?: string;
+}
+
+export interface AdminNotification {
+  id: number;
+  type: 'report' | 'suggestion' | 'system';
+  title: string;
+  summary: string;
+  link_url: string;
+  target_id?: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface OrganizationSuggestion {
+  id: number;
+  name: string;
+  category_id?: number | null;
+  region_id?: number | null;
+  city_district?: string | null;
+  phone_number?: string | null;
+  website_url?: string | null;
+  source_url?: string | null;
+  note?: string | null;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+  category?: Category | null;
+  region?: Region | null;
 }
 
 export const ReportSchema = z.object({
   organization_id: z.number({ required_error: 'Tashkilot ID tanlanmagan' }),
   report_type: z.enum(['wrong_phone', 'wrong_address', 'closed', 'other']),
   message: z.string().min(5, 'Xabar kamida 5 ta belgidan iborat bo‘lishi kerak'),
+});
+
+export const SuggestionSchema = z.object({
+  name: z.string().min(3, 'Tashkilot nomi kamida 3 ta belgidan iborat bo‘lishi kerak'),
+  category_id: z.number().optional().nullable(),
+  region_id: z.number().optional().nullable(),
+  city_district: z.string().optional().nullable(),
+  phone_number: z.string().optional().nullable(),
+  website_url: z.string().optional().nullable(),
+  source_url: z.string().optional().nullable(),
+  note: z.string().optional().nullable(),
+  honeypot: z.string().optional(), // Anti-spam honeypot
 });

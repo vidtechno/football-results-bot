@@ -3,9 +3,12 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getOrganizationBySlug } from '@/lib/db/directory';
 import { formatPhoneNumber, formatUzbekDate } from '@/lib/utils/formatters';
+import { isNewlyVerified } from '@/lib/utils/badges';
 import { OrganizationDetailClient } from './client';
 import { DigitalServicesSection } from '@/components/directory/DigitalServicesSection';
 import { OrganizationAvatar } from '@/components/ui/OrganizationAvatar';
+import { CopyButton } from '@/components/ui/CopyButton';
+import { ShareButton } from '@/components/ui/ShareButton';
 import {
   Phone,
   CheckCircle2,
@@ -24,6 +27,7 @@ import {
   Building,
   Briefcase,
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 
 interface OrganizationDetailProps {
@@ -50,19 +54,26 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
 
   const primaryContact = contacts.find((c) => c.is_primary) || contacts[0];
   const primaryPhoneObj = primaryContact ? formatPhoneNumber(primaryContact.phone_number) : null;
+  const newlyVerified = isNewlyVerified(org.last_verified_at);
+
+  const fullUrl = `https://boglanish.uz/organizations/${org.slug}`;
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-12">
-      {/* Back Link */}
-      <Link
-        href="/search"
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Qidiruvga qaytish</span>
-      </Link>
+      {/* Navigation & Action Top Bar */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/search"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Qidiruvga qaytish</span>
+        </Link>
 
-      {/* Visually Strong Top Profile Banner */}
+        <ShareButton title={org.name} url={fullUrl} description={org.description || undefined} />
+      </div>
+
+      {/* Visually Strong Profile Banner */}
       <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-lg shadow-blue-950/5 space-y-6 relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="flex items-start gap-4 sm:gap-6">
@@ -77,6 +88,14 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900">{org.name}</h1>
+
+                {newlyVerified && (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
+                    <span>Yangi tekshirildi</span>
+                  </span>
+                )}
+
                 {org.is_verified && (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -117,7 +136,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
           <OrganizationDetailClient organizationId={org.id} organizationName={org.name} />
         </div>
 
-        {/* Primary Call CTA Button */}
+        {/* Primary Call CTA Button & Copy Button */}
         {primaryPhoneObj ? (
           <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -130,13 +149,16 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
               </div>
             </div>
 
-            <a
-              href={primaryPhoneObj.href}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/30 active:scale-95 transition-all"
-            >
-              <Phone className="w-4 h-4" />
-              <span>Qo‘ng‘iroq qilish</span>
-            </a>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <a
+                href={primaryPhoneObj.href}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/30 active:scale-95 transition-all"
+              >
+                <Phone className="w-4 h-4" />
+                <span>Qo‘ng‘iroq qilish</span>
+              </a>
+              <CopyButton textToCopy={primaryContact!.phone_number} className="bg-white py-3 px-3.5" />
+            </div>
           </div>
         ) : (
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3 text-slate-500 text-xs font-medium">
@@ -152,22 +174,29 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
           </div>
         )}
 
-        {/* Verification & Source Meta */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-slate-400 gap-2 pt-3 border-t border-slate-100 font-medium">
+        {/* Verification & Official Source Link */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-slate-500 gap-2 pt-3 border-t border-slate-100 font-medium">
           <span className="flex items-center gap-1">
-            <Calendar className="w-3.5 h-3.5" />
-            Oxirgi tekshirilgan sana: <strong>{formatUzbekDate(org.last_verified_at || org.updated_at)}</strong>
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            Oxirgi tekshirildi: <strong className="text-slate-900">{formatUzbekDate(org.last_verified_at || org.updated_at)}</strong>
           </span>
-          {org.source_name && (
-            <span className="flex items-center gap-1 text-slate-500">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              Tasdiqlangan manba: <strong className="text-slate-800">{org.source_name}</strong>
-            </span>
+
+          {org.source_url && (
+            <a
+              href={org.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 font-extrabold text-blue-600 hover:underline"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Rasmiy manba ({org.source_name || 'Hujjat'})</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
           )}
         </div>
       </div>
 
-      {/* Visually Prominent Digital Services Section */}
+      {/* Digital Services Section */}
       <DigitalServicesSection
         services={digitalServices}
         sourceUrl={org.source_url}
@@ -216,13 +245,17 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                       </span>
                       <strong className="text-base font-black text-slate-900 block">{formatted.display}</strong>
                     </div>
-                    <a
-                      href={formatted.href}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-1.5 flex-shrink-0 active:scale-95"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      <span>Qo‘ng‘iroq</span>
-                    </a>
+
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <CopyButton textToCopy={c.phone_number} />
+                      <a
+                        href={formatted.href}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-1 active:scale-95"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Qo‘ng‘iroq</span>
+                      </a>
+                    </div>
                   </div>
                 );
               })}
@@ -239,18 +272,21 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
 
           <div className="space-y-3">
             {org.website_url && (
-              <a
-                href={org.website_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between p-3.5 rounded-2xl bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Globe className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-bold truncate">{org.website_url.replace(/^https?:\/\//, '')}</span>
-                </div>
-                <ExternalLink className="w-4 h-4 text-blue-600" />
-              </a>
+              <div className="flex items-center gap-2">
+                <a
+                  href={org.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-between p-3.5 rounded-2xl bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Globe className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-bold truncate">{org.website_url.replace(/^https?:\/\//, '')}</span>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-blue-600" />
+                </a>
+                <CopyButton textToCopy={org.website_url} />
+              </div>
             )}
 
             {socialLinks.map((s) => {
@@ -278,19 +314,21 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
               }
 
               return (
-                <a
-                  key={s.id}
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`flex items-center justify-between p-3.5 rounded-2xl border transition-colors ${badgeColor}`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className="w-4 h-4" />
-                    <span className="text-sm font-bold">{label}</span>
-                  </div>
-                  <ExternalLink className="w-4 h-4 opacity-70" />
-                </a>
+                <div key={s.id} className="flex items-center gap-2">
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex-1 flex items-center justify-between p-3.5 rounded-2xl border transition-colors ${badgeColor}`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon className="w-4 h-4" />
+                      <span className="text-sm font-bold">{label}</span>
+                    </div>
+                    <ExternalLink className="w-4 h-4 opacity-70" />
+                  </a>
+                  <CopyButton textToCopy={s.url} />
+                </div>
               );
             })}
 
@@ -312,9 +350,17 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {locations.map((loc) => (
               <div key={loc.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                <div className="flex items-start gap-2 text-sm text-slate-800 font-bold">
-                  <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                  <span>{loc.address}</span>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 text-sm text-slate-800 font-bold">
+                    <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span>{loc.address}</span>
+                      {loc.city_district && (
+                        <span className="block text-xs text-blue-600 font-bold mt-0.5">{loc.city_district}</span>
+                      )}
+                    </div>
+                  </div>
+                  <CopyButton textToCopy={loc.address} />
                 </div>
 
                 {loc.working_hours && (

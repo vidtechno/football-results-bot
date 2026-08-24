@@ -2,8 +2,10 @@ import React from 'react';
 import Link from 'next/link';
 import { Organization } from '@/lib/types/directory';
 import { formatPhoneNumber } from '@/lib/utils/formatters';
+import { isNewlyVerified } from '@/lib/utils/badges';
 import { OrganizationAvatar } from '@/components/ui/OrganizationAvatar';
-import { Phone, CheckCircle2, MapPin, ChevronRight } from 'lucide-react';
+import { CopyButton } from '@/components/ui/CopyButton';
+import { Phone, CheckCircle2, MapPin, ChevronRight, Sparkles } from 'lucide-react';
 
 interface OrganizationCardProps {
   organization: Organization;
@@ -20,6 +22,7 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
   const category = organization.category;
   const region = organization.region;
   const isCompact = variant === 'compact';
+  const newlyVerified = isNewlyVerified(organization.last_verified_at);
 
   if (isCompact) {
     return (
@@ -78,7 +81,7 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
     <div className="app-card p-5 flex flex-col justify-between group relative">
       <div className="space-y-3.5">
         {/* Header Badges & Category */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           {category ? (
             <span className="inline-flex items-center text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
               {category.name}
@@ -87,12 +90,21 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
             <span />
           )}
 
-          {organization.is_verified && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-              <span>Tasdiqlangan</span>
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {newlyVerified && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200">
+                <Sparkles className="w-3 h-3 text-cyan-600" />
+                <span>Yangi tekshirildi</span>
+              </span>
+            )}
+
+            {organization.is_verified && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <span>Tasdiqlangan</span>
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Logo & Org Name */}
@@ -129,23 +141,26 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
         )}
       </div>
 
-      {/* Primary Call CTA & Secondary Batafsil link */}
-      <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+      {/* Primary Call CTA, Copy button, & Secondary Batafsil link */}
+      <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
         {phoneFormatted ? (
-          <a
-            href={phoneFormatted.href}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 font-extrabold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
-          >
-            <Phone className="w-3.5 h-3.5" />
-            <span>{phoneFormatted.display}</span>
-          </a>
+          <div className="flex items-center gap-1.5 flex-1">
+            <a
+              href={phoneFormatted.href}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 font-extrabold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              <span>{phoneFormatted.display}</span>
+            </a>
+            <CopyButton textToCopy={primaryContact!.phone_number} />
+          </div>
         ) : (
           <span className="text-xs text-slate-400 font-medium">Raqam yo‘q</span>
         )}
 
         <Link
           href={`/organizations/${organization.slug}`}
-          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-slate-100 transition-all"
+          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-slate-100 transition-all flex-shrink-0"
         >
           <span>Batafsil</span>
           <ChevronRight className="w-3.5 h-3.5" />

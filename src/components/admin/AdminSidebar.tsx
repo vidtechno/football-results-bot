@@ -3,12 +3,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { AdminNotificationBell } from './AdminNotificationBell';
 import {
   LayoutDashboard,
   Building2,
   FolderTree,
   MapPin,
   Flag,
+  PlusCircle,
   Users,
   Settings,
   LogOut,
@@ -41,6 +43,7 @@ export function AdminSidebar({ username = 'diyoration', role = 'owner' }: AdminS
     { label: 'Tashkilotlar reestri', href: '/diyoration/organizations', icon: Building2 },
     { label: 'Kategoriyalar', href: '/diyoration/categories', icon: FolderTree },
     { label: 'Viloyatlar / Hududlar', href: '/diyoration/regions', icon: MapPin },
+    { label: 'Tashkilot Takliflari', href: '/diyoration/suggestions', icon: PlusCircle },
     { label: 'Xabarnomalar / Moderatorlik', href: '/diyoration/reports', icon: Flag },
     { label: 'Foydalanuvchilar & Rollar', href: '/diyoration/users', icon: Users },
     { label: 'Sozlamalar & Audit', href: '/diyoration/settings', icon: Settings },
@@ -49,18 +52,22 @@ export function AdminSidebar({ username = 'diyoration', role = 'owner' }: AdminS
   return (
     <aside className="w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between flex-shrink-0 min-h-screen hidden md:flex">
       <div className="p-6 space-y-6">
-        {/* Brand Header */}
-        <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-500 text-white flex items-center justify-center font-black shadow-md shadow-blue-600/30">
-            <Zap className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-black text-slate-900 text-base">Bog‘lanish</span>
-              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">ADMIN</span>
+        {/* Brand Header & Notification Bell */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-500 text-white flex items-center justify-center font-black shadow-md shadow-blue-600/30">
+              <Zap className="w-5 h-5" />
             </div>
-            <span className="text-[11px] text-slate-400 font-bold block">Boshqaruv Tizimi</span>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-slate-900 text-base">Bog‘lanish</span>
+                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">ADMIN</span>
+              </div>
+              <span className="text-[11px] text-slate-400 font-bold block">Boshqaruv Tizimi</span>
+            </div>
           </div>
+
+          <AdminNotificationBell />
         </div>
 
         {/* Admin Profile Badge */}

@@ -205,8 +205,12 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
         const descNorm = normalizeSearchTerm(o.description || '');
         const catNorm = normalizeSearchTerm(o.category?.name || '');
         const regNorm = normalizeSearchTerm(o.region?.name || '');
+        const websiteNorm = normalizeSearchTerm(o.website_url || '');
         const typeNorm = normalizeSearchTerm(o.organization_type || '');
         const phones = o.contacts?.map((c) => c.phone_number).join(' ') || '';
+        const locationsNorm = o.locations
+          ?.map((loc) => `${loc.address} ${loc.city_district || ''}`)
+          .join(' ') || '';
         const servicesNorm = o.digital_services
           ?.map((ds) => `${ds.title} ${ds.description || ''} ${ds.service_type} ${ds.platform_name || ''}`)
           .join(' ') || '';
@@ -216,8 +220,10 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
           descNorm.includes(norm) ||
           catNorm.includes(norm) ||
           regNorm.includes(norm) ||
+          websiteNorm.includes(norm) ||
           typeNorm.includes(norm) ||
           phones.includes(norm) ||
+          normalizeSearchTerm(locationsNorm).includes(norm) ||
           normalizeSearchTerm(servicesNorm).includes(norm)
         );
       });
@@ -267,8 +273,9 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
  * Fetch home page dataset
  */
 export async function getHomeData() {
-  const [categories, featuredOrgs, totalOrgs, totalServices] = await Promise.all([
+  const [categories, regions, featuredOrgs, totalOrgs, totalServices] = await Promise.all([
     getCategories(),
+    getRegions(),
     searchOrganizations({ limit: 12 }),
     createAdminClient().from('organizations').select('id', { count: 'exact' }).eq('status', 'published'),
     createAdminClient().from('organization_digital_services').select('id', { count: 'exact' }),
@@ -276,6 +283,7 @@ export async function getHomeData() {
 
   return {
     categories,
+    regions,
     featuredOrgs,
     totalOrganizations: totalOrgs.count || featuredOrgs.length,
     totalDigitalServices: totalServices.count || 0,

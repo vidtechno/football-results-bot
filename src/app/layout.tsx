@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -24,10 +25,12 @@ export default function RootLayout({
     <html lang="uz" className={`${inter.variable}`}>
       <body className="bg-background text-slate-900 min-h-screen flex flex-col antialiased">
         <Navbar />
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* pb-28 ensures bottom navigation on mobile never covers content */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-12">
           {children}
         </main>
         <Footer />
+        <MobileBottomNav />
       </body>
     </html>
   );

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Organization } from '@/lib/types/directory';
 import { formatPhoneNumber } from '@/lib/utils/formatters';
-import { Search, X, Loader2, CheckCircle2, Phone, MapPin, ArrowRight, Building2 } from 'lucide-react';
+import { Search, X, Loader2, CheckCircle2, Phone, MapPin, ArrowRight, Building2, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface RealtimeSearchBoxProps {
@@ -18,7 +18,7 @@ interface RealtimeSearchBoxProps {
 
 export function RealtimeSearchBox({
   initialValue = '',
-  placeholder = 'Tashkilot nomi, sohasi, shahar yoki phone raqamini qidiring...',
+  placeholder = 'Tashkilot nomi, sohasi, shahar yoki telefon raqami...',
   size = 'normal',
   className,
   autoFocus = false,
@@ -34,7 +34,7 @@ export function RealtimeSearchBox({
   const inputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Debounced live search logic
+  // Debounced search logic (280ms)
   useEffect(() => {
     const trimmed = query.trim();
 
@@ -139,11 +139,11 @@ export function RealtimeSearchBox({
       <form onSubmit={handleSubmit} className="relative">
         <div
           className={clsx(
-            'relative flex items-center rounded-2xl bg-white border border-slate-200/90 shadow-lg shadow-blue-950/5 focus-within:border-blue-600 focus-within:ring-4 focus-within:ring-blue-500/15 transition-all duration-200',
+            'relative flex items-center rounded-2xl bg-white border border-slate-200/90 shadow-xl shadow-blue-950/5 focus-within:border-blue-600 focus-within:ring-4 focus-within:ring-blue-500/20 transition-all duration-200',
             isLarge ? 'p-2 sm:p-2.5' : 'p-1.5 sm:p-2',
           )}
         >
-          <div className={clsx('flex items-center justify-center text-blue-600 flex-shrink-0 ml-3', isLarge ? 'w-7 h-7' : 'w-5 h-5')}>
+          <div className={clsx('flex items-center justify-center text-blue-600 flex-shrink-0 ml-3', isLarge ? 'w-6 h-6' : 'w-5 h-5')}>
             {loading ? (
               <Loader2 className="w-full h-full animate-spin text-blue-600" />
             ) : (
@@ -163,7 +163,7 @@ export function RealtimeSearchBox({
             placeholder={placeholder}
             autoFocus={autoFocus}
             className={clsx(
-              'w-full bg-transparent px-3 text-slate-900 placeholder:text-slate-400 font-medium focus:outline-none',
+              'w-full bg-transparent px-3 text-slate-900 placeholder:text-slate-400 font-semibold focus:outline-none',
               isLarge ? 'text-base sm:text-lg' : 'text-sm sm:text-base',
             )}
           />
@@ -186,7 +186,7 @@ export function RealtimeSearchBox({
           <button
             type="submit"
             className={clsx(
-              'flex-shrink-0 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-600/25 flex items-center gap-1.5',
+              'flex-shrink-0 rounded-xl bg-blue-600 text-white font-extrabold hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-600/30 flex items-center gap-1.5',
               isLarge ? 'px-6 py-3 text-base' : 'px-4 py-2 text-sm',
             )}
           >
@@ -196,26 +196,29 @@ export function RealtimeSearchBox({
         </div>
       </form>
 
-      {/* Real-time Results Dropdown */}
+      {/* Command Palette Floating Dropdown */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white rounded-2xl border border-slate-200/90 shadow-2xl shadow-blue-900/10 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute left-0 right-0 top-full mt-2.5 z-50 bg-white rounded-2xl border border-slate-200/90 shadow-2xl command-palette-glow overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
           {loading && results.length === 0 ? (
             <div className="p-4 space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-3 animate-pulse">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 flex-shrink-0" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-4 bg-slate-100 rounded w-1/3" />
-                    <div className="h-3 bg-slate-100 rounded w-2/3" />
+                <div key={i} className="flex items-center gap-3 animate-pulse p-2 rounded-xl bg-slate-50">
+                  <div className="w-10 h-10 rounded-xl bg-slate-200 flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-slate-200 rounded w-1/3" />
+                    <div className="h-3 bg-slate-200 rounded w-2/3" />
                   </div>
                 </div>
               ))}
             </div>
           ) : results.length > 0 ? (
             <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
-              <div className="px-4 py-2 bg-slate-50/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                <span>Topilgan tashkilotlar ({results.length})</span>
-                <span className="text-slate-400 font-normal">Tanlash uchun Enter/Navigatsiya</span>
+              <div className="px-4 py-2 bg-gradient-to-r from-blue-50/90 to-slate-50 text-[11px] font-extrabold text-blue-900 tracking-wider flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  Topilgan natijalar ({results.length})
+                </span>
+                <span className="text-slate-400 font-medium hidden sm:inline">Yo‘nalish berish uchun Enter / Yo‘nalish tugmalari</span>
               </div>
 
               {results.slice(0, 7).map((org, index) => {
@@ -230,13 +233,13 @@ export function RealtimeSearchBox({
                     onClick={() => handleSelectOrg(org.slug)}
                     onMouseEnter={() => setSelectedIndex(index)}
                     className={clsx(
-                      'w-full p-3.5 flex items-center justify-between gap-3 text-left transition-colors',
+                      'w-full p-3.5 flex items-center justify-between gap-3 text-left transition-all',
                       isSelected ? 'bg-blue-50/90' : 'hover:bg-slate-50',
                     )}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {org.logo_url ? (
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200/80 p-1.5 flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200/80 p-1.5 flex items-center justify-center flex-shrink-0 shadow-sm">
                           <Image
                             src={org.logo_url}
                             alt={org.name}
@@ -246,23 +249,23 @@ export function RealtimeSearchBox({
                           />
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center flex-shrink-0 text-sm">
+                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center flex-shrink-0 text-sm">
                           {org.name.charAt(0)}
                         </div>
                       )}
 
-                      <div className="min-w-0">
+                      <div className="min-w-0 space-y-0.5">
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-slate-900 text-sm truncate">{org.name}</span>
                           {org.is_verified && (
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                           )}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                          {org.category && <span>{org.category.name}</span>}
+                        <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
+                          {org.category && <span className="text-blue-600 font-bold">{org.category.name}</span>}
                           {org.region && (
-                            <span className="flex items-center gap-0.5 text-slate-400">
-                              • <MapPin className="w-3 h-3 inline" /> {org.region.name}
+                            <span className="flex items-center gap-0.5 text-slate-400 font-medium">
+                              • <MapPin className="w-3 h-3 inline text-slate-400" /> {org.region.name}
                             </span>
                           )}
                         </div>
@@ -271,7 +274,7 @@ export function RealtimeSearchBox({
 
                     {phoneObj && (
                       <div className="flex-shrink-0 text-right">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-extrabold shadow-sm">
                           <Phone className="w-3 h-3" />
                           <span>{phoneObj.display}</span>
                         </span>
@@ -284,7 +287,7 @@ export function RealtimeSearchBox({
               <button
                 type="button"
                 onClick={() => handleSubmit()}
-                className="w-full p-3 bg-blue-50/50 hover:bg-blue-100/60 text-blue-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full p-3 bg-blue-50/70 hover:bg-blue-100/90 text-blue-700 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors"
               >
                 <span>Barcha natijalarni ko‘rish ({results.length} ta)</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -292,12 +295,12 @@ export function RealtimeSearchBox({
             </div>
           ) : (
             <div className="p-6 text-center space-y-2">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
                 <Building2 className="w-5 h-5" />
               </div>
-              <p className="text-sm font-semibold text-slate-800">Natija topilmadi</p>
-              <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                “{query}” so‘rovi bo‘yicha hech qanday tashkilot topilmadi. Boshqa so‘z bilan sinab ko‘ring.
+              <p className="text-sm font-bold text-slate-800">Bunday tashkilot topilmadi</p>
+              <p className="text-xs text-slate-500 max-w-xs mx-auto font-medium">
+                “{query}” so‘rovi bo‘yicha natija yo‘q. Boshqa kalit so‘z bilan sinab ko‘ring.
               </p>
             </div>
           )}

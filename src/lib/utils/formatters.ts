@@ -1,7 +1,68 @@
-import { toZonedTime, format as formatTz } from 'date-fns-tz';
-import { parseISO } from 'date-fns';
+/**
+ * Normalize search term by lowercasing and stripping non-alphanumeric Uzbek characters
+ */
+export function normalizeSearchTerm(term: string): string {
+  if (!term) return '';
+  return term
+    .toLowerCase()
+    .trim()
+    .replace(/['’‘`]/g, '')
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, ' ');
+}
 
-const TASHKENT_TZ = 'Asia/Tashkent';
+/**
+ * Generate URL-friendly slug with Uzbek Latin character replacement
+ */
+export function slugify(text: string): string {
+  if (!text) return '';
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[gG]['’‘`]/g, 'g')
+    .replace(/[oO]['’‘`]/g, 'o')
+    .replace(/['’‘`]/g, '')
+    .replace(/[^a-z0-9 -]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+/**
+ * Clean and format phone numbers for display & tel: links
+ */
+export function formatPhoneNumber(phone: string): { display: string; href: string } {
+  if (!phone) return { display: '', href: '' };
+
+  const cleaned = phone.replace(/[^\d+]/g, '');
+
+  // If short code (e.g., 1084, 1154, 1344)
+  if (cleaned.length <= 5 && !cleaned.startsWith('+')) {
+    return {
+      display: cleaned,
+      href: `tel:${cleaned}`,
+    };
+  }
+
+  // Uzbek 12-digit number (+998XXXXXXXXX or 998XXXXXXXXX)
+  const digitsOnly = cleaned.replace(/^\+/, '');
+  if (digitsOnly.length === 12 && digitsOnly.startsWith('998')) {
+    const code = digitsOnly.substring(3, 5);
+    const part1 = digitsOnly.substring(5, 8);
+    const part2 = digitsOnly.substring(8, 10);
+    const part3 = digitsOnly.substring(10, 12);
+    return {
+      display: `+998 ${code} ${part1}-${part2}-${part3}`,
+      href: `tel:+${digitsOnly}`,
+    };
+  }
+
+  // Default display
+  return {
+    display: phone.trim(),
+    href: `tel:${cleaned.startsWith('+') ? cleaned : '+' + cleaned}`,
+  };
+}
 
 const UZ_MONTHS: Record<number, string> = {
   0: 'Yanvar',
@@ -18,154 +79,19 @@ const UZ_MONTHS: Record<number, string> = {
   11: 'Dekabr',
 };
 
-const UZ_WEEKDAYS: Record<number, string> = {
-  0: 'Yakshanba',
-  1: 'Dushanba',
-  2: 'Seshanba',
-  3: 'Chorshanba',
-  4: 'Payshanba',
-  5: 'Juma',
-  6: 'Shanba',
-};
-
-export function getTashkentDate(dateInput: string | Date): Date {
-  const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
-  return toZonedTime(date, TASHKENT_TZ);
-}
-
 /**
- * Format date in Tashkent timezone in Uzbek: "25-Avgust, 2026"
+ * Format date into Uzbek Latin string: "25-Avgust, 2026"
  */
 export function formatUzbekDate(dateInput: string | Date): string {
   try {
-    const zoned = getTashkentDate(dateInput);
-    const day = zoned.getDate();
-    const month = UZ_MONTHS[zoned.getMonth()] || '';
-    const year = zoned.getFullYear();
+    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    if (isNaN(d.getTime())) return String(dateInput);
+
+    const day = d.getDate();
+    const month = UZ_MONTHS[d.getMonth()] || '';
+    const year = d.getFullYear();
     return `${day}-${month}, ${year}`;
   } catch {
     return String(dateInput);
   }
-}
-
-/**
- * Format date with weekday in Uzbek: "Dushanba, 25-Avgust"
- */
-export function formatUzbekDateWithWeekday(dateInput: string | Date): string {
-  try {
-    const zoned = getTashkentDate(dateInput);
-    const weekday = UZ_WEEKDAYS[zoned.getDay()] || '';
-    const day = zoned.getDate();
-    const month = UZ_MONTHS[zoned.getMonth()] || '';
-    return `${weekday}, ${day}-${month}`;
-  } catch {
-    return String(dateInput);
-  }
-}
-
-/**
- * Format time in Tashkent timezone: "21:45"
- */
-export function formatUzbekTime(dateInput: string | Date): string {
-  try {
-    const zoned = getTashkentDate(dateInput);
-    return formatTz(zoned, 'HH:mm', { timeZone: TASHKENT_TZ });
-  } catch {
-    return '00:00';
-  }
-}
-
-/**
- * Format date and time: "25-Avgust, 21:45"
- */
-export function formatUzbekDateTime(dateInput: string | Date): string {
-  try {
-    const datePart = formatUzbekDate(dateInput);
-    const timePart = formatUzbekTime(dateInput);
-    return `${datePart} - ${timePart}`;
-  } catch {
-    return String(dateInput);
-  }
-}
-
-export interface FixtureStatusFormatted {
-  label: string;
-  shortLabel: string;
-  isLive: boolean;
-  isFinished: boolean;
-  isPostponed: boolean;
-  badgeText: string;
-  badgeClass: string;
-}
-
-/**
- * Map API-Football status code to Uzbek status representation
- */
-export function mapFixtureStatus(status: string, statusShort?: string): FixtureStatusFormatted {
-  const code = (statusShort || status || 'NS').toUpperCase().trim();
-
-  // In-progress / Live matches
-  if (['1H', 'HT', '2H', 'ET', 'BT', 'P', 'LIVE', 'IN_PLAY'].includes(code)) {
-    let detail = '🟢 O‘yin bo‘lmoqda';
-    if (code === 'HT') detail = 'Tanaffus';
-    if (code === '1H') detail = '1-bo‘lim';
-    if (code === '2H') detail = '2-bo‘lim';
-    if (code === 'ET') detail = 'Qo‘shimcha bo‘lim';
-    if (code === 'P') detail = 'Penaltilar seriyasi';
-
-    return {
-      label: '🟢 O‘yin bo‘lmoqda',
-      shortLabel: detail,
-      isLive: true,
-      isFinished: false,
-      isPostponed: false,
-      badgeText: '🟢 O‘yin bo‘lmoqda',
-      badgeClass: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 animate-pulse',
-    };
-  }
-
-  // Finished matches
-  if (['FT', 'AET', 'PEN'].includes(code)) {
-    let detail = 'Tugadi';
-    if (code === 'AET') detail = 'Qo‘shimcha vaqtda tugadi';
-    if (code === 'PEN') detail = 'Penaltilarda tugadi';
-
-    return {
-      label: 'Tugadi',
-      shortLabel: detail,
-      isLive: false,
-      isFinished: true,
-      isPostponed: false,
-      badgeText: 'Tugadi',
-      badgeClass: 'bg-slate-800 text-slate-400 border-slate-700',
-    };
-  }
-
-  // Postponed / Cancelled matches
-  if (['PST', 'CANC', 'ABD', 'WO', 'INT'].includes(code)) {
-    let label = 'Qoldirildi';
-    if (['CANC', 'ABD'].includes(code)) label = 'Bekor qilindi';
-    if (code === 'WO') label = 'Texnik mag‘lubiyat';
-
-    return {
-      label,
-      shortLabel: label,
-      isLive: false,
-      isFinished: false,
-      isPostponed: true,
-      badgeText: label,
-      badgeClass: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
-    };
-  }
-
-  // Scheduled / Not started (NS, TBD)
-  return {
-    label: 'Boshlanmagan',
-    shortLabel: 'Boshlanmagan',
-    isLive: false,
-    isFinished: false,
-    isPostponed: false,
-    badgeText: 'Boshlanmagan',
-    badgeClass: 'bg-slate-800/60 text-slate-300 border-slate-700',
-  };
 }

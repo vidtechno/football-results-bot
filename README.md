@@ -1,78 +1,76 @@
-# Futbol Natija — Uzbek Latin Football Results Website
+# Bog‘lanish — O‘zbekistondagi Tashkilotlar Aloqa Ma’lumotlari Portali
 
-A production-ready, mobile-first Uzbek-language football results website built with **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, **Supabase PostgreSQL**, **API-Football (API-Sports)**, and **Vercel Cron**.
+A production-ready, mobile-first Uzbek-language public directory website for finding official phone numbers, social media links, websites, addresses, and working hours of organizations in Uzbekistan.
+
+Built with **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, **Supabase PostgreSQL**, **Zod**, and **Vercel**.
 
 ---
 
 ## 🌟 Key Features
 
-- **Uzbek Latin Localization**: All site text, dates, times (`Asia/Tashkent` timezone), and match statuses (`🟢 O‘yin bo‘lmoqda`, `Boshlanmagan`, `Tugadi`, `Qoldirildi`) in Uzbek Latin.
-- **Strict Server-Only API-Football Architecture**: The website UI never calls API-Football directly. All data is synchronized to Supabase via server-side cron jobs (`/api/cron/sync-fixtures`).
-- **Data-First Serving**: Visitors are served directly from normalized Supabase PostgreSQL tables.
-- **No Live Polling**: Match status displays live badges without heavy polling overhead.
-- **Top 10 Competitions**:
-  1. 🇺🇿 O‘zbekiston Superligasi (League 362)
-  2. 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Angliya Premyer-Ligasi (League 39)
-  3. 🇪🇸 Ispaniya La Ligasi (League 140)
-  4. 🇮🇹 Italiya Serie A-si (League 135)
-  5. 🇩🇪 Germaniya Bundesligasi (League 78)
-  6. 🇫🇷 Fransiya Ligue 1-i (League 61)
-  7. 🇪🇺 UEFA Chempionlar Ligasi (League 2)
-  8. 🇪🇺 UEFA Yevropa Ligasi (League 3)
-  9. 🇪🇺 UEFA Konferensiyalar Ligasi (League 848)
-  10. 🇸🇦 Saudiya Pro-Ligasi (League 307)
-- **Local Favorites**: Bookmark favorite competitions and teams locally using `localStorage`.
+- **Uzbek Latin Interface**: 100% of visible UI text, categories, and region names are in Uzbek Latin (`O‘zbekcha`).
+- **Comprehensive Directory**:
+  - Banklar va moliya
+  - Davlat tashkilotlari (DXA, Soliq, Vazirliklar)
+  - Mobil operatorlar (Beeline, Ucell, Mobiuz)
+  - Internet provayderlar (Uztelecom, TPS)
+  - Yetkazib berish xizmatlari (Express24)
+  - Taksi va transport (Yandex Go, MyTaxi)
+  - Kommunal xizmatlar (Elektr 1154, Gaz 1104, Suv ta'minoti)
+  - Ta’lim va universitetlar (TDTU, SamDU, TTA)
+  - Tibbiyot maskanlari va klinikalar
+  - Sug‘urta kompaniyalari (Apex, Gross)
+  - To‘lov tizimlari (Click, Payme)
+  - Onlayn marketpleyslar (Uzum Market)
+- **Click-to-Call**: Direct `tel:` links for desktop and mobile devices.
+- **Official Verification**: Visual `Rasmiy tasdiqlangan` badge for verified entries.
+- **Search & Filters**: Multi-filter search by organization name, category, region/city, phone number, or service type.
+- **User Reporting**: “Ma’lumot noto‘g‘ri?” error reporting feature.
 
 ---
 
 ## 🏗️ Tech Stack
 
-- **Framework**: Next.js 14 (App Router) + React 18 + TypeScript
-- **Styling**: Tailwind CSS + Glassmorphism Dark Theme
+- **Framework**: Next.js 14 (App Router) + React 18 + TypeScript (Strict Mode)
+- **Styling**: Tailwind CSS (Trustworthy light mode theme)
 - **Database**: Supabase PostgreSQL
-- **Data Source**: API-Football (API-Sports)
-- **Validation**: Zod
-- **Testing & Tooling**: Vitest, ESLint, Prettier
+- **Validation & Tooling**: Zod, Vitest, ESLint, Prettier
+
+---
+
+## 🗄️ Supabase Database Migration & Setup
+
+### Step 1: Execute Schema Migration
+1. Open your [Supabase Dashboard](https://supabase.com/dashboard).
+2. Go to **SQL Editor** -> **New Query**.
+3. Copy and run the contents of [supabase/schema.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/schema.sql).
+4. This creates tables for `categories`, `regions`, `organizations`, `organization_contacts`, `organization_social_links`, `organization_locations`, and `organization_reports` along with search indexes and Row Level Security (RLS) policies.
+
+### Step 2: Seed Initial Directory Data
+1. In **SQL Editor** -> **New Query**, copy and run the contents of [supabase/seed.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/seed.sql).
+2. This inserts 12 categories, 14 Uzbekistan regions, and 25+ realistic demo organizations with contacts, locations, and social media links.
 
 ---
 
 ## 🛠️ Local Development Setup
 
-### 1. Prerequisites
+### 1. Environment Variables
 
-- Node.js 18+ and npm
-- A Supabase account and project
-- An API-Football (API-Sports / RapidAPI) API key
-
-### 2. Environment Variables
-
-Create a `.env.local` file in the root directory based on `.env.example`:
+Create `.env.local` based on `.env.example`:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Fill in your secrets:
+Fill in your Supabase credentials:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-
-API_FOOTBALL_KEY=your_api_football_key
-API_FOOTBALL_BASE_URL=https://v3.football.api-sports.io
-
-CRON_SECRET=your_cron_secret_token
 ```
 
-### 3. Supabase Database Setup
-
-1. Open your [Supabase Dashboard](https://supabase.com/dashboard).
-2. Go to **SQL Editor** -> **New Query**.
-3. Copy and execute the SQL migration script from `supabase/schema.sql`.
-4. This creates tables for `competitions`, `teams`, `fixtures`, and `api_sync_state` with index optimizations and RLS policies.
-
-### 4. Install Dependencies & Run Dev Server
+### 2. Install Dependencies & Run Dev Server
 
 ```bash
 npm install
@@ -83,52 +81,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🔄 Triggering Manual Data Sync
+## 🧪 Testing & Code Quality
 
-To manually trigger fixture sync from API-Football into Supabase for today and tomorrow:
-
-```bash
-curl -X GET "http://localhost:3000/api/cron/sync-fixtures?secret=your_cron_secret_token"
-```
-
-Or using an Authorization header:
-
-```bash
-curl -H "Authorization: Bearer your_cron_secret_token" http://localhost:3000/api/cron/sync-fixtures
-```
-
----
-
-## 🚀 Vercel Deployment & Vercel Cron Setup
-
-### 1. Deploy to Vercel
-
-1. Push your code to GitHub.
-2. Connect your GitHub repository to [Vercel](https://vercel.com).
-3. Set the Environment Variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `API_FOOTBALL_KEY`, `CRON_SECRET`) in Vercel Project Settings.
-
-### 2. Vercel Cron Automatic Setup
-
-The repository includes a `vercel.json` configured with:
-
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/sync-fixtures",
-      "schedule": "0 */6 * * *"
-    }
-  ]
-}
-```
-
-Vercel automatically provisions and invokes `/api/cron/sync-fixtures` every 6 hours and attaches the `CRON_SECRET` header.
-
----
-
-## 🧪 Testing, Linting & Build Checks
-
-Run unit tests:
+Run Vitest unit tests:
 ```bash
 npm run test
 ```
@@ -143,15 +98,16 @@ Run ESLint check:
 npm run lint
 ```
 
-Format check:
-```bash
-npm run format:check
-```
-
-Production build test:
+Build production bundle:
 ```bash
 npm run build
 ```
+
+---
+
+## 🚀 Vercel Deployment
+
+Connect your GitHub repository to Vercel. Set the environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) in Vercel project settings. Standard Next.js auto-detection will build and deploy the app.
 
 ---
 

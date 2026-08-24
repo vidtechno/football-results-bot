@@ -1,177 +1,200 @@
 import React from 'react';
 import Link from 'next/link';
-import { getTodayMatches, getUpcomingMatches, getRecentMatches, getCompetitions } from '@/lib/db/queries';
-import { MatchCard } from '@/components/fixtures/MatchCard';
+import { getHomeData } from '@/lib/db/directory';
+import { SearchBox } from '@/components/directory/SearchBox';
+import { OrganizationCard } from '@/components/directory/OrganizationCard';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Calendar, Trophy, ArrowRight, Zap, History } from 'lucide-react';
-import Image from 'next/image';
+import {
+  Landmark,
+  Building2,
+  Smartphone,
+  Wifi,
+  Truck,
+  Car,
+  Zap,
+  GraduationCap,
+  Stethoscope,
+  ShieldCheck,
+  CreditCard,
+  ShoppingBag,
+  ArrowRight,
+  PhoneCall,
+  Search,
+  CheckCircle2,
+} from 'lucide-react';
 
-export const revalidate = 60; // Revalidate home page every 60 seconds
+export const revalidate = 300;
+
+// Dynamic Lucide Icon Mapper
+const iconMap: Record<string, React.ElementType> = {
+  Landmark,
+  Building2,
+  Smartphone,
+  Wifi,
+  Truck,
+  Car,
+  Zap,
+  GraduationCap,
+  Stethoscope,
+  ShieldCheck,
+  CreditCard,
+  ShoppingBag,
+};
 
 export default async function HomePage() {
-  const [todayMatches, upcomingMatches, recentMatches, competitions] = await Promise.all([
-    getTodayMatches(),
-    getUpcomingMatches(undefined, 8),
-    getRecentMatches(undefined, 8),
-    getCompetitions(),
-  ]);
-
-  const liveMatches = todayMatches.filter((f) =>
-    ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'LIVE', 'IN_PLAY'].includes((f.status || '').toUpperCase()),
-  );
+  const { categories, featuredOrgs, totalOrganizations } = await getHomeData();
 
   return (
-    <div className="space-y-10">
-      {/* Hero Banner */}
-      <section className="relative rounded-3xl overflow-hidden glass-panel p-6 sm:p-10 border border-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-slate-950/80 -z-10" />
-        <div className="max-w-2xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-            <span>⚽ Uzbek Latin Futbol Portali</span>
+    <div className="space-y-12">
+      {/* Hero Section */}
+      <section className="relative rounded-3xl bg-gradient-to-b from-sky-900 via-blue-900 to-slate-900 text-white p-6 sm:p-12 overflow-hidden shadow-xl">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-sky-400/20 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="max-w-3xl mx-auto text-center space-y-6 relative z-10">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sky-200 text-xs font-semibold">
+            <PhoneCall className="w-3.5 h-3.5 text-sky-400" />
+            <span>O‘zbekiston Tashkilotlari Aloqa Portali</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Bugungi futbol natijalari va o‘yinlar jadvali
+
+          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+            Rasmiy telefon raqamlari va manzillarni oson toping
           </h1>
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-            O‘zbekiston Superligasi, Premyer-Liga, La Liga va Yevropa Kuboklari haqidagi eng so‘nggi ma’lumotlar hamda rasmiy natijalar.
+
+          <p className="text-sky-100 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+            Banklar, davlat idoralari, mobil operatorlar, tibbiyot markazlari va kommunal xizmatlarning tasdiqlangan aloqa ma’lumotlari.
           </p>
-          <div className="pt-2 flex flex-wrap gap-3">
-            <Link
-              href="/matches"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-sm hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition-all"
-            >
-              <Calendar className="w-4 h-4" />
-              <span>O‘yinlar taqvimi</span>
-            </Link>
-            <Link
-              href="/competitions"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 text-slate-200 font-semibold text-sm hover:bg-slate-700 transition-all"
-            >
-              <Trophy className="w-4 h-4 text-emerald-400" />
-              <span>Musobaqalar</span>
-            </Link>
+
+          {/* Large Hero Search */}
+          <div className="pt-2">
+            <SearchBox size="large" placeholder="Tashkilot yoki xizmatni qidiring (masalan, NBU, Beeline, Soliq)..." />
+          </div>
+
+          {/* Quick Search Badges */}
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-xs text-sky-200">
+            <span className="font-semibold text-slate-300">Tezkor qidiruv:</span>
+            <Link href="/search?q=NBU" className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">NBU Bank</Link>
+            <Link href="/search?q=Beeline" className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Beeline</Link>
+            <Link href="/search?q=Soliq" className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Soliq qidiruvi</Link>
+            <Link href="/search?q=1154" className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">1154 (Elektr)</Link>
+            <Link href="/search?q=Express24" className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Express24</Link>
           </div>
         </div>
       </section>
 
-      {/* Featured Competitions Quick Bar */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-emerald-400" />
-            <span>Asosiy musobaqalar</span>
-          </h2>
-          <Link href="/competitions" className="text-xs font-semibold text-emerald-400 hover:underline flex items-center gap-1">
-            <span>Barchasi</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {competitions.slice(0, 5).map((comp) => (
-            <Link
-              key={comp.slug}
-              href={`/competitions/${comp.slug}`}
-              className="glass-card rounded-xl p-3 flex items-center gap-3 border border-slate-800 hover:border-emerald-500/40"
-            >
-              {comp.logoUrl && (
-                <Image
-                  src={comp.logoUrl}
-                  alt={comp.nameUz}
-                  width={24}
-                  height={24}
-                  className="object-contain"
-                />
-              )}
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-bold text-slate-200 truncate">{comp.nameUz}</span>
-                <span className="text-[10px] text-slate-400">{comp.countryUz}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* Live / Today's Matches Section */}
+      {/* Popular Categories Grid */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Zap className="w-5 h-5 text-emerald-400" />
-              <span>Bugungi o‘yinlar</span>
-            </h2>
-            {liveMatches.length > 0 && (
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold animate-pulse">
-                🟢 {liveMatches.length} ta o‘yin bo‘lmoqda
-              </span>
-            )}
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Ommabop kategoriyalar</h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Soha bo‘yicha kerakli tashkilotni tanlang</p>
           </div>
-          <Link href="/matches" className="text-sm font-semibold text-emerald-400 hover:underline flex items-center gap-1">
-            <span>To‘liq o‘yinlar taqvimi</span>
+          <Link href="/categories" className="text-xs sm:text-sm font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1">
+            <span>Barcha kategoriyalar</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
-        {todayMatches.length === 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          {categories.slice(0, 8).map((cat) => {
+            const IconComponent = (cat.icon && iconMap[cat.icon]) || Building2;
+            return (
+              <Link
+                key={cat.slug}
+                href={`/categories/${cat.slug}`}
+                className="directory-card p-4 flex items-center gap-3.5 group hover:border-sky-500"
+              >
+                <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0 group-hover:bg-sky-600 group-hover:text-white transition-colors">
+                  <IconComponent className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-slate-900 text-sm group-hover:text-sky-600 transition-colors truncate">
+                    {cat.name}
+                  </h3>
+                  <span className="text-xs text-slate-400 font-medium">
+                    {cat.organization_count || 0} ta tashkilot
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Featured Verified Organizations */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <span>Tasdiqlangan tashkilotlar</span>
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              Eng ko‘p murojaat qilinadigan muassasalar aloqa ma’lumotlari
+            </p>
+          </div>
+          <Link href="/search" className="text-xs sm:text-sm font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1">
+            <span>Barchasini ko‘rish</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        {featuredOrgs.length === 0 ? (
           <EmptyState
-            title="Bugun o‘yinlar yo‘q"
-            description="Bugungi kunga belgilanagan rasmiy futbol o‘yinlari mavjud emas. Kelgusi o‘yinlar taqvimini ko‘rishingiz mumkin."
-            icon="calendar"
+            title="Tashkilotlar topilmadi"
+            description="Bazada hozircha faol tashkilotlar mavjud emas."
+            icon="building"
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {todayMatches.map((fixture) => (
-              <MatchCard key={fixture.id || fixture.provider_fixture_id} fixture={fixture} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {featuredOrgs.map((org) => (
+              <OrganizationCard key={org.slug} organization={org} />
             ))}
           </div>
         )}
       </section>
 
-      {/* Upcoming Matches */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-emerald-400" />
-            <span>Kutilayotgan o‘yinlar</span>
+      {/* Platform Features & Explanation */}
+      <section className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 space-y-6">
+        <div className="max-w-2xl space-y-2">
+          <h2 className="text-2xl font-extrabold text-slate-900">
+            Nega aynan “Bog‘lanish” platformasi?
           </h2>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Biz O‘zbekistondagi fuqarolar va tadbirkorlar uchun eng ishonchli va doimiy yangilanib turadigan aloqa katalogini taqdim etamiz.
+          </p>
         </div>
 
-        {upcomingMatches.length === 0 ? (
-          <EmptyState
-            title="Kutilayotgan o‘yinlar topilmadi"
-            description="Yaqin kunlarda rejalashtirilgan yangi o‘yinlar mavjud emas."
-            icon="calendar"
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {upcomingMatches.map((fixture) => (
-              <MatchCard key={fixture.id || fixture.provider_fixture_id} fixture={fixture} />
-            ))}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              ⚡
+            </div>
+            <h3 className="font-bold text-slate-900 text-base">Tezkor qo‘ng‘iroq</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Birgina bosish orqali call-markazlar va qisqa ishonch raqamlariga to‘g‘ridan-to‘g‘ri qo‘ng‘iroq qilish imkoniyati.
+            </p>
           </div>
-        )}
-      </section>
 
-      {/* Recently Finished Matches */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <History className="w-5 h-5 text-slate-400" />
-            <span>Yaqinda yakunlangan o‘yinlar</span>
-          </h2>
+          <div className="space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
+              ✅
+            </div>
+            <h3 className="font-bold text-slate-900 text-base">Rasmiy manbalar</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Telegram kanallar, rasmiy saytlar, ijtimoiy tarmoqlar va geografik joylashuv manzillari saralangan holda beriladi.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              🔍
+            </div>
+            <h3 className="font-bold text-slate-900 text-base">Foydalanuvchilar nazorati</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              O‘zgargan yoki eskirgan telefon raqamlarini birgina tugma orqali bildirib, ma’lumotlarni yangilashga hissa qo‘shing.
+            </p>
+          </div>
         </div>
-
-        {recentMatches.length === 0 ? (
-          <EmptyState
-            title="Tugagan o‘yinlar topilmadi"
-            description="Yaqin soatlarda tugagan o‘yin natijalari mavjud emas."
-            icon="calendar"
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recentMatches.map((fixture) => (
-              <MatchCard key={fixture.id || fixture.provider_fixture_id} fixture={fixture} />
-            ))}
-          </div>
-        )}
       </section>
     </div>
   );

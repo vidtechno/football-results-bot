@@ -1,27 +1,30 @@
 import React from 'react';
-import { CalendarX, Trophy, ShieldAlert } from 'lucide-react';
+import { SearchX, Building2, HelpCircle } from 'lucide-react';
 
 interface EmptyStateProps {
   title?: string;
   description?: string;
-  icon?: 'calendar' | 'trophy' | 'search';
+  icon?: 'search' | 'building' | 'help';
+  action?: React.ReactNode;
 }
 
 export function EmptyState({
-  title = 'O‘yinlar topilmadi',
-  description = 'Ushbu sana yoki musobaqa bo‘yicha hozircha hech qanday o‘yin mavjud emas.',
-  icon = 'calendar',
+  title = 'Ma’lumot topilmadi',
+  description = 'Kechirasiz, so‘rovingizga mos keladigan tashkilot yoki xizmat topilmadi. Boshqa so‘z yoki filtr bilan urinib ko‘ring.',
+  icon = 'search',
+  action,
 }: EmptyStateProps) {
   const IconComponent =
-    icon === 'trophy' ? Trophy : icon === 'search' ? ShieldAlert : CalendarX;
+    icon === 'building' ? Building2 : icon === 'help' ? HelpCircle : SearchX;
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center glass-card rounded-2xl my-4 border border-slate-800/80">
-      <div className="w-14 h-14 rounded-full bg-slate-800/80 flex items-center justify-center mb-4 text-emerald-400">
+    <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm my-4">
+      <div className="w-14 h-14 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center mb-4 text-sky-600">
         <IconComponent className="w-7 h-7" />
       </div>
-      <h3 className="text-lg font-semibold text-slate-200 mb-1">{title}</h3>
-      <p className="text-sm text-slate-400 max-w-sm">{description}</p>
+      <h3 className="text-lg font-bold text-slate-800 mb-1">{title}</h3>
+      <p className="text-sm text-slate-500 max-w-md leading-relaxed">{description}</p>
+      {action && <div className="mt-6">{action}</div>}
     </div>
   );
 }

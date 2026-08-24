@@ -1,0 +1,78 @@
+import { z } from 'zod';
+
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  icon?: string | null;
+  description?: string | null;
+  sort_order: number;
+  organization_count?: number;
+}
+
+export interface Region {
+  id: number;
+  name: string;
+  slug: string;
+  sort_order: number;
+  organization_count?: number;
+}
+
+export interface Contact {
+  id: number;
+  organization_id: number;
+  label?: string | null;
+  phone_number: string;
+  is_primary: boolean;
+}
+
+export interface SocialLink {
+  id: number;
+  organization_id: number;
+  platform: 'telegram' | 'instagram' | 'facebook' | 'youtube' | 'website' | 'other' | string;
+  url: string;
+}
+
+export interface Location {
+  id: number;
+  organization_id: number;
+  address: string;
+  map_url?: string | null;
+  working_hours?: string | null;
+}
+
+export interface Organization {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  logo_url?: string | null;
+  category_id?: number | null;
+  region_id?: number | null;
+  website_url?: string | null;
+  is_verified: boolean;
+  status: 'draft' | 'published' | 'archived';
+  last_verified_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  category?: Category | null;
+  region?: Region | null;
+  contacts?: Contact[];
+  social_links?: SocialLink[];
+  locations?: Location[];
+}
+
+export interface OrganizationReport {
+  id?: number;
+  organization_id: number;
+  report_type: 'wrong_phone' | 'wrong_address' | 'closed' | 'other';
+  message: string;
+  status?: 'pending' | 'reviewed' | 'resolved';
+  created_at?: string;
+}
+
+export const ReportSchema = z.object({
+  organization_id: z.number({ required_error: 'Tashkilot ID tanlanmagan' }),
+  report_type: z.enum(['wrong_phone', 'wrong_address', 'closed', 'other']),
+  message: z.string().min(5, 'Xabar kamida 5 ta belgidan iborat bo‘lishi kerak'),
+});

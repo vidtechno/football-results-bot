@@ -41,19 +41,19 @@ export function OrganizationAvatar({
   const sizeClasses = {
     sm: 'w-9 h-9 text-xs rounded-xl',
     md: 'w-12 h-12 text-sm rounded-2xl',
-    lg: 'w-20 h-20 sm:w-24 sm:h-24 text-xl rounded-2xl',
+    lg: 'w-14 h-14 sm:w-20 sm:h-20 text-base sm:text-xl rounded-2xl',
   };
 
   const iconSizes = {
     sm: 'w-4 h-4',
     md: 'w-5 h-5',
-    lg: 'w-8 h-8',
+    lg: 'w-7 h-7 sm:w-8 sm:h-8',
   };
 
   const pixelDimensions = {
     sm: 36,
     md: 48,
-    lg: 96,
+    lg: 80,
   };
 
   // Determine fallback icon & background theme

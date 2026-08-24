@@ -153,7 +153,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 }
 
 export async function logAdminAction(
-  supabase: { from: (table: string) => { insert: (rows: unknown[]) => Promise<unknown> } },
+  supabase: any,
   adminUsername: string,
   action:
     | 'create'

@@ -41,6 +41,20 @@ export interface Location {
   working_hours?: string | null;
 }
 
+export interface DigitalService {
+  id: number;
+  organization_id: number;
+  title: string;
+  description?: string | null;
+  service_type: 'website' | 'web_portal' | 'android_app' | 'ios_app' | 'telegram_bot' | 'online_service';
+  url: string;
+  platform_name?: string | null;
+  is_official: boolean;
+  source_url?: string | null;
+  last_verified_at?: string | null;
+  sort_order: number;
+}
+
 export interface Organization {
   id: number;
   name: string;
@@ -51,6 +65,10 @@ export interface Organization {
   region_id?: number | null;
   website_url?: string | null;
   is_verified: boolean;
+  organization_type?: 'bank' | 'government' | 'public_service' | 'utility' | 'telecom' | 'private_service';
+  source_url?: string | null;
+  source_name?: string | null;
+  verification_status?: 'verified' | 'pending_review' | 'unverified';
   status: 'draft' | 'published' | 'archived';
   last_verified_at?: string | null;
   created_at: string;
@@ -60,6 +78,7 @@ export interface Organization {
   contacts?: Contact[];
   social_links?: SocialLink[];
   locations?: Location[];
+  digital_services?: DigitalService[];
 }
 
 export interface OrganizationReport {

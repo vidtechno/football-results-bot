@@ -10,12 +10,16 @@ export async function GET(req: NextRequest) {
     const categorySlug = searchParams.get('category') || undefined;
     const regionSlug = searchParams.get('region') || undefined;
     const verifiedOnly = searchParams.get('verified') === 'true';
+    const organizationType = searchParams.get('type') || undefined;
+    const hasDigitalServicesOnly = searchParams.get('digital') === 'true';
 
     const organizations = await searchOrganizations({
       query,
       categorySlug,
       regionSlug,
       verifiedOnly,
+      organizationType,
+      hasDigitalServicesOnly,
     });
 
     return NextResponse.json({

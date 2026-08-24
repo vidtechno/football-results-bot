@@ -1,113 +1,67 @@
-# Bog‘lanish — O‘zbekistondagi Tashkilotlar Aloqa Ma’lumotlari Portali
+# Bog‘lanish — O‘zbekiston Milliy Raqamli Xizmatlar va Aloqa Portali
 
-A production-ready, mobile-first Uzbek-language public directory website for finding official phone numbers, social media links, websites, addresses, and working hours of organizations in Uzbekistan.
+A verified national digital-services and organization directory for Uzbekistan built with **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, **Supabase PostgreSQL**, **Zod**, and **Vercel**.
 
-Built with **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, **Supabase PostgreSQL**, **Zod**, and **Vercel**.
-
----
-
-## 🌟 Key Features
-
-- **Uzbek Latin Interface**: 100% of visible UI text, categories, and region names are in Uzbek Latin (`O‘zbekcha`).
-- **Comprehensive Directory**:
-  - Banklar va moliya
-  - Davlat tashkilotlari (DXA, Soliq, Vazirliklar)
-  - Mobil operatorlar (Beeline, Ucell, Mobiuz)
-  - Internet provayderlar (Uztelecom, TPS)
-  - Yetkazib berish xizmatlari (Express24)
-  - Taksi va transport (Yandex Go, MyTaxi)
-  - Kommunal xizmatlar (Elektr 1154, Gaz 1104, Suv ta'minoti)
-  - Ta’lim va universitetlar (TDTU, SamDU, TTA)
-  - Tibbiyot maskanlari va klinikalar
-  - Sug‘urta kompaniyalari (Apex, Gross)
-  - To‘lov tizimlari (Click, Payme)
-  - Onlayn marketpleyslar (Uzum Market)
-- **Click-to-Call**: Direct `tel:` links for desktop and mobile devices.
-- **Official Verification**: Visual `Rasmiy tasdiqlangan` badge for verified entries.
-- **Search & Filters**: Multi-filter search by organization name, category, region/city, phone number, or service type.
-- **User Reporting**: “Ma’lumot noto‘g‘ri?” error reporting feature.
+Citizens and businesses can find official phone numbers, official websites, state portals, Android/iOS mobile applications, Telegram bots, addresses, and working hours for licensed commercial banks, government ministries, public services, utilities, and telecommunication providers.
 
 ---
 
-## 🏗️ Tech Stack
+## 🔒 Verification & Official Data Standard
 
-- **Framework**: Next.js 14 (App Router) + React 18 + TypeScript (Strict Mode)
-- **Styling**: Tailwind CSS (Trustworthy light mode theme)
-- **Database**: Supabase PostgreSQL
-- **Validation & Tooling**: Zod, Vitest, ESLint, Prettier
+Every record in the directory strictly adheres to primary official source validation:
+
+1. **Licensed Commercial Banks**: Verified directly via the Central Bank of Uzbekistan (CBU) official directory ([https://cbu.uz/en/credit-organizations/banks/](https://cbu.uz/en/credit-organizations/banks/)).
+2. **National Government Bodies**: Verified directly via the Government of Uzbekistan official portal ([https://gov.uz/en/all_ministry/1](https://gov.uz/en/all_ministry/1) & [https://gov.uz/en/all_ministry/4](https://gov.uz/en/all_ministry/4)).
+3. **Official Digital Services & Apps**: Verified via official primary organization websites or verified Google Play Store and Apple App Store listings.
+
+Every record tracks:
+- `source_url`
+- `source_name`
+- `verification_status` (`verified` | `pending_review` | `unverified`)
+- `last_verified_at`
 
 ---
 
 ## 🗄️ Supabase Database Migration & Setup
 
-### Step 1: Execute Schema Migration
-1. Open your [Supabase Dashboard](https://supabase.com/dashboard).
-2. Go to **SQL Editor** -> **New Query**.
-3. Copy and run the contents of [supabase/schema.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/schema.sql).
-4. This creates tables for `categories`, `regions`, `organizations`, `organization_contacts`, `organization_social_links`, `organization_locations`, and `organization_reports` along with search indexes and Row Level Security (RLS) policies.
+### Step 1: Base Schema DDL
+Execute [supabase/schema.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/schema.sql) in your Supabase SQL Editor.
 
-### Step 2: Seed Initial Directory Data
-1. In **SQL Editor** -> **New Query**, copy and run the contents of [supabase/seed.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/seed.sql).
-2. This inserts 12 categories, 14 Uzbekistan regions, and 25+ realistic demo organizations with contacts, locations, and social media links.
+### Step 2: Digital Services Migration
+Execute [supabase/migrations/002_digital_services.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/migrations/002_digital_services.sql) to add `organization_digital_services` table and source metadata fields (`organization_type`, `source_url`, `source_name`, `verification_status`, `last_verified_at`).
+
+### Step 3: Verified Seed Execution
+Execute [supabase/seed_verified_national.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/seed_verified_national.sql) to populate CBU-verified commercial banks, GOV.UZ-verified government bodies, and official digital service apps.
 
 ---
 
-## 🛠️ Local Development Setup
+## 📋 Periodic Verification & Administrative Workflow
 
-### 1. Environment Variables
+To maintain dataset integrity over time:
+1. **Periodic CBU Audit (Quarterly)**: Re-check CBU commercial bank listings to update new licenses or contact changes.
+2. **Periodic GOV.UZ Audit (Semi-Annually)**: Re-check government portal reorganizations or new state service portals.
+3. **User Error Reports**: Review user-submitted reports from the `organization_reports` table via Supabase dashboard or custom admin panel, verifying updates against official primary source URLs before updating `verification_status` to `'verified'`.
 
-Create `.env.local` based on `.env.example`:
+---
 
-```bash
-cp .env.example .env.local
-```
-
-Fill in your Supabase credentials:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-```
-
-### 2. Install Dependencies & Run Dev Server
+## 🛠️ Local Development & Testing
 
 ```bash
+# Install dependencies
 npm install
-npm run dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
-
-## 🧪 Testing & Code Quality
-
-Run Vitest unit tests:
-```bash
+# Run Vitest unit tests
 npm run test
-```
 
-Run TypeScript type check:
-```bash
+# Run TypeScript type check
 npm run typecheck
-```
 
-Run ESLint check:
-```bash
+# Run ESLint check
 npm run lint
-```
 
-Build production bundle:
-```bash
+# Build production bundle
 npm run build
 ```
-
----
-
-## 🚀 Vercel Deployment
-
-Connect your GitHub repository to Vercel. Set the environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) in Vercel project settings. Standard Next.js auto-detection will build and deploy the app.
 
 ---
 

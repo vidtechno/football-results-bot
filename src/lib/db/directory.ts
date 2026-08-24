@@ -7,6 +7,8 @@ export interface SearchFilters {
   categorySlug?: string;
   regionSlug?: string;
   verifiedOnly?: boolean;
+  organizationType?: 'bank' | 'government' | 'public_service' | 'utility' | 'telecom' | 'private_service' | string;
+  hasDigitalServicesOnly?: boolean;
   limit?: number;
 }
 
@@ -115,7 +117,8 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
         region:regions(*),
         contacts:organization_contacts(*),
         social_links:organization_social_links(*),
-        locations:organization_locations(*)
+        locations:organization_locations(*),
+        digital_services:organization_digital_services(*)
       `)
       .eq('status', 'published')
       .order('is_verified', { ascending: false })
@@ -123,6 +126,10 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
 
     if (filters.verifiedOnly) {
       query = query.eq('is_verified', true);
+    }
+
+    if (filters.organizationType) {
+      query = query.eq('organization_type', filters.organizationType);
     }
 
     if (filters.limit) {
@@ -134,6 +141,11 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
 
     let results = data as Organization[];
 
+    // Filter by digital services presence
+    if (filters.hasDigitalServicesOnly) {
+      results = results.filter((o) => o.digital_services && o.digital_services.length > 0);
+    }
+
     // Filter by category slug
     if (filters.categorySlug) {
       results = results.filter((o) => o.category?.slug === filters.categorySlug);
@@ -144,7 +156,7 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
       results = results.filter((o) => o.region?.slug === filters.regionSlug);
     }
 
-    // Filter by search query (name, description, category, region, phone)
+    // Filter by search query (name, description, category, region, phone, digital service title/type)
     if (filters.query && filters.query.trim()) {
       const norm = normalizeSearchTerm(filters.query);
       results = results.filter((o) => {
@@ -152,14 +164,20 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
         const descNorm = normalizeSearchTerm(o.description || '');
         const catNorm = normalizeSearchTerm(o.category?.name || '');
         const regNorm = normalizeSearchTerm(o.region?.name || '');
+        const typeNorm = normalizeSearchTerm(o.organization_type || '');
         const phones = o.contacts?.map((c) => c.phone_number).join(' ') || '';
+        const servicesNorm = o.digital_services
+          ?.map((ds) => `${ds.title} ${ds.description || ''} ${ds.service_type} ${ds.platform_name || ''}`)
+          .join(' ') || '';
 
         return (
           nameNorm.includes(norm) ||
           descNorm.includes(norm) ||
           catNorm.includes(norm) ||
           regNorm.includes(norm) ||
-          phones.includes(norm)
+          typeNorm.includes(norm) ||
+          phones.includes(norm) ||
+          normalizeSearchTerm(servicesNorm).includes(norm)
         );
       });
     }
@@ -185,7 +203,8 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
         region:regions(*),
         contacts:organization_contacts(*),
         social_links:organization_social_links(*),
-        locations:organization_locations(*)
+        locations:organization_locations(*),
+        digital_services:organization_digital_services(*)
       `)
       .eq('slug', slug)
       .single();
@@ -201,16 +220,18 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
  * Fetch home page dataset
  */
 export async function getHomeData() {
-  const [categories, featuredOrgs, totalOrgs] = await Promise.all([
+  const [categories, featuredOrgs, totalOrgs, totalServices] = await Promise.all([
     getCategories(),
     searchOrganizations({ limit: 12 }),
     createAdminClient().from('organizations').select('id', { count: 'exact' }).eq('status', 'published'),
+    createAdminClient().from('organization_digital_services').select('id', { count: 'exact' }),
   ]);
 
   return {
     categories,
     featuredOrgs,
     totalOrganizations: totalOrgs.count || featuredOrgs.length,
+    totalDigitalServices: totalServices.count || 0,
   };
 }
 

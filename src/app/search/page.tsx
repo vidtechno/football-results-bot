@@ -8,6 +8,8 @@ interface SearchPageProps {
     category?: string;
     region?: string;
     verified?: string;
+    type?: string;
+    digital?: string;
   };
 }
 
@@ -18,6 +20,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const categorySlug = searchParams.category || '';
   const regionSlug = searchParams.region || '';
   const verifiedOnly = searchParams.verified === 'true';
+  const organizationType = searchParams.type || '';
+  const hasDigitalServicesOnly = searchParams.digital === 'true';
 
   const [categories, regions, initialOrganizations] = await Promise.all([
     getCategories(),
@@ -27,6 +31,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       categorySlug,
       regionSlug,
       verifiedOnly,
+      organizationType,
+      hasDigitalServicesOnly,
     }),
   ]);
 
@@ -39,6 +45,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       initialCategory={categorySlug}
       initialRegion={regionSlug}
       initialVerified={verifiedOnly}
+      initialType={organizationType}
     />
   );
 }

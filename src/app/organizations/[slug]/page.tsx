@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { getOrganizationBySlug } from '@/lib/db/directory';
 import { formatPhoneNumber, formatUzbekDate } from '@/lib/utils/formatters';
 import { OrganizationDetailClient } from './client';
+import { DigitalServicesSection } from '@/components/directory/DigitalServicesSection';
 import {
   Phone,
   CheckCircle2,
@@ -18,7 +19,9 @@ import {
   Instagram,
   Facebook,
   Youtube,
+  ShieldCheck,
   Building2,
+  Landmark,
 } from 'lucide-react';
 
 interface OrganizationDetailProps {
@@ -41,6 +44,8 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
   const contacts = org.contacts || [];
   const socialLinks = org.social_links || [];
   const locations = org.locations || [];
+  const digitalServices = org.digital_services || [];
+
   const primaryContact = contacts.find((c) => c.is_primary) || contacts[0];
   const primaryPhoneObj = primaryContact ? formatPhoneNumber(primaryContact.phone_number) : null;
 
@@ -101,6 +106,16 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                     {region.name}
                   </span>
                 )}
+                {org.organization_type === 'bank' && (
+                  <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold border border-amber-200">
+                    Tijorat Banki
+                  </span>
+                )}
+                {org.organization_type === 'government' && (
+                  <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
+                    Davlat Organi
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -138,14 +153,28 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
           </div>
         )}
 
-        {/* Verification Meta */}
-        <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-100 font-medium">
+        {/* Verification & Source Meta */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-slate-400 gap-2 pt-3 border-t border-slate-100 font-medium">
           <span className="flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5" />
-            Oxirgi tekshirilgan sana: {org.last_verified_at ? formatUzbekDate(org.last_verified_at) : formatUzbekDate(org.updated_at)}
+            Oxirgi tekshirilgan sana: <strong>{formatUzbekDate(org.last_verified_at || org.updated_at)}</strong>
           </span>
+          {org.source_name && (
+            <span className="flex items-center gap-1 text-slate-500">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              Tasdiqlangan manba: <strong className="text-slate-800">{org.source_name}</strong>
+            </span>
+          )}
         </div>
       </div>
+
+      {/* Visually Prominent Digital Services Section */}
+      <DigitalServicesSection
+        services={digitalServices}
+        sourceUrl={org.source_url}
+        sourceName={org.source_name}
+        lastVerifiedAt={org.last_verified_at}
+      />
 
       {/* Grouped Details Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

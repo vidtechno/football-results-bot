@@ -1,9 +1,18 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getRegions } from '@/lib/db/directory';
 import { MapPin, ChevronRight } from 'lucide-react';
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: 'O‘zbekiston viloyatlari va hududlari — Manbora',
+  description: 'O‘zbekiston Respublikasi viloyatlari va shahar hududlari bo‘yicha tashkilotlar aloqa katalogi.',
+  alternates: {
+    canonical: 'https://manbora.uz/regions',
+  },
+};
 
 export default async function RegionsPage() {
   const regions = await getRegions();

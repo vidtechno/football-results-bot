@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getCategories } from '@/lib/db/directory';
 import {
@@ -19,6 +20,14 @@ import {
 } from 'lucide-react';
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: 'Kategoriyalar katalogi — Manbora',
+  description: 'Manbora kategoriyalar katalogi: banklar, davlat idoralari, mobil operatorlar, kommunal va boshqa xizmatlar ro‘yxati.',
+  alternates: {
+    canonical: 'https://manbora.uz/categories',
+  },
+};
 
 const categoryStyles: Record<string, { bg: string; text: string; border: string; icon: React.ElementType }> = {
   banklar: { bg: 'bg-blue-50/90 hover:bg-blue-100/90', text: 'text-blue-600', border: 'border-blue-200/70', icon: Landmark },

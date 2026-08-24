@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import { getCategories, getRegions, searchOrganizations } from '@/lib/db/directory';
 import { SearchPageClient } from '@/components/directory/SearchPageClient';
 
@@ -14,6 +15,14 @@ interface SearchPageProps {
 }
 
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: 'Qidiruv — Manbora tashkilotlar katalogi',
+  description: 'Manbora orqali banklar, davlat idoralari, mobil operatorlar va xizmatlarni qidiring va aloqa raqamlarini bir zumda toping.',
+  alternates: {
+    canonical: 'https://manbora.uz/search',
+  },
+};
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const query = searchParams.q || '';

@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getCategoryBySlug, searchOrganizations } from '@/lib/db/directory';
@@ -14,6 +15,34 @@ interface CategoryDetailProps {
 }
 
 export const revalidate = 120;
+
+export async function generateMetadata({ params }: CategoryDetailProps): Promise<Metadata> {
+  const category = await getCategoryBySlug(params.slug);
+  if (!category) {
+    return {
+      title: 'Kategoriya topilmadi | Manbora',
+    };
+  }
+
+  const title = `${category.name} tashkilotlari va telefon raqamlari — Manbora`;
+  const description = category.description
+    ? `${category.name}: ${category.description}`
+    : `O‘zbekistondagi ${category.name} sohasidagi tashkilotlar, aloqa raqamlari va rasmiy xizmatlari ro‘yxati.`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `https://manbora.uz/categories/${category.slug}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `https://manbora.uz/categories/${category.slug}`,
+      siteName: 'Manbora',
+    },
+  };
+}
 
 export default async function CategoryDetailPage({ params }: CategoryDetailProps) {
   const category = await getCategoryBySlug(params.slug);

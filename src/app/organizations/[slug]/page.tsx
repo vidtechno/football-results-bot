@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getOrganizationBySlug } from '@/lib/db/directory';
@@ -38,6 +39,40 @@ interface OrganizationDetailProps {
 
 export const revalidate = 60;
 
+export async function generateMetadata({ params }: OrganizationDetailProps): Promise<Metadata> {
+  const org = await getOrganizationBySlug(params.slug);
+  if (!org) {
+    return {
+      title: 'Tashkilot topilmadi | Manbora',
+    };
+  }
+
+  const title = `${org.name} — Telefon raqami, manzil va rasmiy xizmatlar`;
+  const description = org.description
+    ? `${org.name} aloqa ma’lumotlari: ${org.description.slice(0, 140)}...`
+    : `${org.name} rasmiy ishonch telefonlari, manzillari va raqamli xizmatlari Manbora katalogida.`;
+  const canonicalUrl = `https://manbora.uz/organizations/${org.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title: `${org.name} | Manbora`,
+      description,
+      url: canonicalUrl,
+      siteName: 'Manbora',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${org.name} | Manbora`,
+      description,
+    },
+  };
+}
+
 export default async function OrganizationDetailPage({ params }: OrganizationDetailProps) {
   const org = await getOrganizationBySlug(params.slug);
 
@@ -56,10 +91,39 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
   const primaryPhoneObj = primaryContact ? formatPhoneNumber(primaryContact.phone_number) : null;
   const newlyVerified = isNewlyVerified(org.last_verified_at);
 
-  const fullUrl = `https://boglanish.uz/organizations/${org.slug}`;
+  const fullUrl = `https://manbora.uz/organizations/${org.slug}`;
+
+  // Organization / LocalBusiness JSON-LD Structured Data
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: org.name,
+    url: fullUrl,
+    logo: org.logo_url || undefined,
+    description: org.description || undefined,
+    telephone: primaryContact?.phone_number || undefined,
+    sameAs: [
+      org.website_url,
+      ...socialLinks.map((s) => s.url),
+    ].filter(Boolean),
+    address: locations[0]
+      ? {
+          '@type': 'PostalAddress',
+          streetAddress: locations[0].address,
+          addressLocality: locations[0].city_district || region?.name || 'Toshkent',
+          addressCountry: 'UZ',
+        }
+      : undefined,
+  };
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-12">
+      {/* Inject Organization JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       {/* Navigation & Action Top Bar */}
       <div className="flex items-center justify-between">
         <Link

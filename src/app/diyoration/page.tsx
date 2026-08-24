@@ -63,7 +63,7 @@ export default function AdminLoginPage() {
             <Zap className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900">Bog‘lanish Admin Paneli</h1>
+            <h1 className="text-2xl font-black text-slate-900">Manbora Admin Paneli</h1>
             <p className="text-xs text-slate-500 font-medium mt-1">
               Tashkilotlar reestri va raqamli xizmatlarni boshqarish tizimi
             </p>
@@ -136,7 +136,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-center text-[11px] text-slate-400 font-medium">
-          Diyoration Admin System v1.0 • Maxfiy va xavfsiz boshqaruv paneli
+          Manbora Admin System v1.0 • Maxfiy va xavfsiz boshqaruv paneli
         </p>
       </div>
     </div>

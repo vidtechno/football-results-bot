@@ -122,8 +122,31 @@ const categoryThemes: Record<
 export default async function HomePage() {
   const { categories, regions, featuredOrgs, totalOrganizations } = await getHomeData();
 
+  // WebSite + SearchAction JSON-LD Structured Data
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Manbora',
+    url: 'https://manbora.uz',
+    description: 'Manbora — O‘zbekistondagi banklar, davlat tashkilotlari, xizmatlar va ishonch telefonlarini topish uchun qulay katalog.',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: 'https://manbora.uz/search?q={search_term_string}',
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
   return (
     <div className="space-y-10">
+      {/* Inject WebSite JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       {/* High-Impact Hero Section */}
       <section className="relative rounded-3xl bg-mesh-hero text-white p-6 sm:p-12 overflow-hidden shadow-2xl shadow-blue-900/20">
         <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-cyan-400/20 blur-3xl pointer-events-none" />
@@ -132,15 +155,15 @@ export default async function HomePage() {
         <div className="max-w-3xl mx-auto text-center space-y-6 relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-sm">
             <Shield className="w-4 h-4 text-emerald-300" />
-            <span>{totalOrganizations}+ ta rasmiy va tasdiqlangan aloqa manbalari</span>
+            <span>{totalOrganizations}+ ta tekshirilgan va tasdiqlangan aloqa manbalari</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
-            Kerakli tashkilot raqamini bir zumda toping
+            Kerakli tashkilotni tez toping
           </h1>
 
           <p className="text-sky-100 text-sm sm:text-base max-w-xl mx-auto leading-relaxed font-medium">
-            Banklar, davlat idoralari, mobil operatorlar va favqulodda xizmatlarning rasmiy ishonch telefonlari hamda manzillari.
+            Manbora — O‘zbekistondagi banklar, davlat idoralari, mobil operatorlar va favqulodda xizmatlarning rasmiy aloqa ma’lumotlari katalogi.
           </p>
 
           <div className="pt-2">

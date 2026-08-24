@@ -60,7 +60,7 @@ export function AdminSidebar({ username = 'diyoration', role = 'owner' }: AdminS
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-black text-slate-900 text-base">Bog‘lanish</span>
+                <span className="font-black text-slate-900 text-base">Manbora</span>
                 <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">ADMIN</span>
               </div>
               <span className="text-[11px] text-slate-400 font-bold block">Boshqaruv Tizimi</span>

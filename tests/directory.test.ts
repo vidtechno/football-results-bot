@@ -8,7 +8,7 @@ import {
 import { isNewlyVerified, getTelegramShareUrl, getWhatsappShareUrl } from '../src/lib/utils/badges';
 import { ReportSchema, SuggestionSchema, DigitalService, Contact } from '../src/lib/types/directory';
 
-describe('Bog‘lanish Directory & Digital Services Utilities', () => {
+describe('Manbora Directory & Digital Services Utilities', () => {
   it('normalizes search terms accurately', () => {
     expect(normalizeSearchTerm('  O‘zmilliybank (NBU)  ')).toBe('ozmilliybank nbu');
     expect(normalizeSearchTerm('Beeline - Uz!!')).toBe('beeline - uz');
@@ -47,12 +47,12 @@ describe('Bog‘lanish Directory & Digital Services Utilities', () => {
     expect(isNewlyVerified(undefined)).toBe(false);
   });
 
-  it('generates valid social share URLs', () => {
-    const tgUrl = getTelegramShareUrl('https://boglanish.uz/organizations/sqb', 'SQB Bank');
-    expect(tgUrl).toContain('https://t.me/share/url?url=https%3A%2F%2Fboglanish.uz');
+  it('generates valid social share URLs for Manbora', () => {
+    const tgUrl = getTelegramShareUrl('https://manbora.uz/organizations/sqb', 'SQB Bank');
+    expect(tgUrl).toContain('https://t.me/share/url?url=https%3A%2F%2Fmanbora.uz');
     expect(tgUrl).toContain('text=SQB%20Bank');
 
-    const waUrl = getWhatsappShareUrl('https://boglanish.uz/organizations/sqb', 'SQB Bank');
+    const waUrl = getWhatsappShareUrl('https://manbora.uz/organizations/sqb', 'SQB Bank');
     expect(waUrl).toContain('https://api.whatsapp.com/send?text=SQB%20Bank');
   });
 

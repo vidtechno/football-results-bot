@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Grid, MapPin, Info, Home, PhoneCall, Sparkles } from 'lucide-react';
+import { Search, Grid, MapPin, Info, Home, Layers } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export function Navbar() {
@@ -21,24 +21,24 @@ export function Navbar() {
     <header className="sticky top-0 z-40 glass-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Geometric Brand Logo Mark */}
-          <Link href="/" className="flex items-center gap-3 group">
+          {/* Manbora Brand Logo Mark */}
+          <Link href="/" className="flex items-center gap-3 group" aria-label="Manbora Bosh Sahifa">
             <div className="relative w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-700 via-blue-600 to-cyan-500 flex items-center justify-center text-white font-black shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform duration-200">
-              <PhoneCall className="w-5 h-5" />
+              <Layers className="w-5 h-5" />
               <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white animate-pulse" />
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-                Bog‘lanish
+                Manbora
               </span>
               <span className="text-[10px] text-blue-600 tracking-widest uppercase font-extrabold">
-                Aloqa Katalogi
+                Mustaqil Aloqa Katalogi
               </span>
             </div>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1.5">
+          <nav className="hidden md:flex items-center gap-1.5" aria-label="Asosiy menyu">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive =
@@ -75,7 +75,7 @@ export function Navbar() {
             <Link
               href="/search"
               className="sm:hidden p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold"
-              aria-label="Qidirish"
+              aria-label="Tashkilotlarni qidirish"
             >
               <Search className="w-5 h-5" />
             </Link>

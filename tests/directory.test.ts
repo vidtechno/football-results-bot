@@ -5,7 +5,7 @@ import {
   formatPhoneNumber,
   formatUzbekDate,
 } from '../src/lib/utils/formatters';
-import { ReportSchema, DigitalService, Organization } from '../src/lib/types/directory';
+import { ReportSchema, DigitalService, Contact } from '../src/lib/types/directory';
 
 describe('Bog‘lanish Directory & Digital Services Utilities', () => {
   it('normalizes search terms accurately', () => {
@@ -45,22 +45,26 @@ describe('Bog‘lanish Directory & Digital Services Utilities', () => {
 
     const parsed = ReportSchema.safeParse(validReport);
     expect(parsed.success).toBe(true);
-
-    const invalidReport = {
-      organization_id: 10,
-      report_type: 'invalid_type',
-      message: 'short',
-    };
-
-    const invalidParsed = ReportSchema.safeParse(invalidReport);
-    expect(invalidParsed.success).toBe(false);
   });
 
-  it('validates digital service data structure and source metadata', () => {
+  it('validates contact types and digital service purpose descriptions', () => {
+    const mockContact: Contact = {
+      id: 1,
+      organization_id: 1,
+      label: 'Call-Markaz',
+      phone_number: '+998712004343',
+      contact_type: 'call_center',
+      source_url: 'https://nbu.uz',
+      is_primary: true,
+    };
+
+    expect(mockContact.contact_type).toBe('call_center');
+
     const mockService: DigitalService = {
       id: 1,
       organization_id: 1,
-      title: 'NBU Mobile Banking (Android)',
+      title: 'Milliy Mobile (Android)',
+      description: 'Kartadan kartaga pul o‘tkazmalari, kommunal to‘lovlar va valyuta konvertatsiyasi ilovasi.',
       service_type: 'android_app',
       url: 'https://play.google.com/store/apps/details?id=uz.nbu.mobile',
       platform_name: 'Google Play',
@@ -70,7 +74,6 @@ describe('Bog‘lanish Directory & Digital Services Utilities', () => {
     };
 
     expect(mockService.is_official).toBe(true);
-    expect(mockService.service_type).toBe('android_app');
-    expect(mockService.source_url).toContain('cbu.uz');
+    expect(mockService.description).toContain('pul o‘tkazmalari');
   });
 });

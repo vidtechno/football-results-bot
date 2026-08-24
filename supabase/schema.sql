@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS organization_contacts (
   organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   label TEXT,
   phone_number TEXT NOT NULL,
+  contact_type TEXT DEFAULT 'call_center' CHECK (contact_type IN ('call_center', 'head_office', 'business_support', 'fraud_hotline', 'other')),
+  source_url TEXT,
+  last_verified_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   is_primary BOOLEAN DEFAULT false NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -99,7 +102,7 @@ CREATE TABLE IF NOT EXISTS organization_reports (
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- INDEXES for fast search & filtering
+-- INDEXES & UNIQUE CONSTRAINTS
 CREATE INDEX IF NOT EXISTS idx_organizations_name ON organizations(name);
 CREATE INDEX IF NOT EXISTS idx_organizations_slug ON organizations(slug);
 CREATE INDEX IF NOT EXISTS idx_organizations_category_id ON organizations(category_id);
@@ -107,8 +110,12 @@ CREATE INDEX IF NOT EXISTS idx_organizations_region_id ON organizations(region_i
 CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status);
 CREATE INDEX IF NOT EXISTS idx_organizations_type ON organizations(organization_type);
 CREATE INDEX IF NOT EXISTS idx_organizations_verification ON organizations(verification_status);
-CREATE INDEX IF NOT EXISTS idx_digital_services_org_id ON organization_digital_services(organization_id);
-CREATE INDEX IF NOT EXISTS idx_digital_services_type ON organization_digital_services(service_type);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_digital_services 
+  ON organization_digital_services (organization_id, LOWER(service_type), LOWER(url));
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_contacts 
+  ON organization_contacts (organization_id, LOWER(phone_number));
 
 -- ROW LEVEL SECURITY (RLS) POLICIES
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;

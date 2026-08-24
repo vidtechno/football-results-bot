@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server';
-import { Category, Region, Organization, OrganizationReport } from '@/lib/types/directory';
+import { Category, Region, Organization, OrganizationReport, DigitalService, Contact } from '@/lib/types/directory';
 import { normalizeSearchTerm } from '@/lib/utils/formatters';
 
 export interface SearchFilters {
@@ -10,6 +10,44 @@ export interface SearchFilters {
   organizationType?: 'bank' | 'government' | 'public_service' | 'utility' | 'telecom' | 'private_service' | string;
   hasDigitalServicesOnly?: boolean;
   limit?: number;
+}
+
+/**
+ * Deduplicate digital services array by service_type + url
+ */
+function deduplicateDigitalServices(services?: DigitalService[]): DigitalService[] {
+  if (!services || services.length === 0) return [];
+  const seen = new Set<string>();
+  const unique: DigitalService[] = [];
+
+  for (const s of services) {
+    const key = `${s.service_type.toLowerCase()}:${s.url.trim().toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(s);
+    }
+  }
+
+  return unique;
+}
+
+/**
+ * Deduplicate contacts array by phone_number
+ */
+function deduplicateContacts(contacts?: Contact[]): Contact[] {
+  if (!contacts || contacts.length === 0) return [];
+  const seen = new Set<string>();
+  const unique: Contact[] = [];
+
+  for (const c of contacts) {
+    const key = c.phone_number.replace(/\D/g, '');
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(c);
+    }
+  }
+
+  return unique;
 }
 
 /**
@@ -26,7 +64,6 @@ export async function getCategories(): Promise<Category[]> {
 
     if (error || !categories) return [];
 
-    // Fetch counts per category
     const { data: orgs } = await supabase
       .from('organizations')
       .select('category_id')
@@ -139,7 +176,11 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
     const { data, error } = await query;
     if (error || !data) return [];
 
-    let results = data as Organization[];
+    let results = data.map((o: any) => ({
+      ...o,
+      contacts: deduplicateContacts(o.contacts),
+      digital_services: deduplicateDigitalServices(o.digital_services),
+    })) as Organization[];
 
     // Filter by digital services presence
     if (filters.hasDigitalServicesOnly) {
@@ -156,7 +197,7 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
       results = results.filter((o) => o.region?.slug === filters.regionSlug);
     }
 
-    // Filter by search query (name, description, category, region, phone, digital service title/type)
+    // Filter by search query
     if (filters.query && filters.query.trim()) {
       const norm = normalizeSearchTerm(filters.query);
       results = results.filter((o) => {
@@ -210,7 +251,13 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
       .single();
 
     if (error || !data) return null;
-    return data as Organization;
+
+    const org = data as Organization;
+    return {
+      ...org,
+      contacts: deduplicateContacts(org.contacts),
+      digital_services: deduplicateDigitalServices(org.digital_services),
+    };
   } catch {
     return null;
   }

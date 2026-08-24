@@ -27,6 +27,15 @@ export function DigitalServicesSection({
 }: DigitalServicesSectionProps) {
   if (!services || services.length === 0) return null;
 
+  // Deduplicate in component as defensive layer
+  const uniqueServices = services.reduce<DigitalService[]>((acc, current) => {
+    const key = `${current.service_type.toLowerCase()}:${current.url.trim().toLowerCase()}`;
+    if (!acc.some((item) => `${item.service_type.toLowerCase()}:${item.url.trim().toLowerCase()}` === key)) {
+      acc.push(current);
+    }
+    return acc;
+  }, []);
+
   return (
     <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-5">
       {/* Section Header */}
@@ -51,7 +60,7 @@ export function DigitalServicesSection({
 
       {/* Grid of Digital Services */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {services.map((service) => {
+        {uniqueServices.map((service) => {
           let Icon = Globe;
           let badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
           let buttonBg = 'bg-blue-600 hover:bg-blue-700 text-white';
@@ -103,15 +112,17 @@ export function DigitalServicesSection({
                   </div>
                   <div>
                     <h3 className="font-extrabold text-slate-900 text-sm leading-snug">{service.title}</h3>
-                    {service.description && (
-                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{service.description}</p>
+                    {service.description ? (
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">{service.description}</p>
+                    ) : (
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed italic">Rasmiy mobil xizmat va ilova</p>
                     )}
                   </div>
                 </div>
               </div>
 
               <div className="pt-2 flex items-center justify-between border-t border-slate-200/60">
-                <span className="text-[10px] text-slate-400 font-medium">
+                <span className="text-[10px] text-slate-400 font-semibold">
                   {service.platform_name || 'Rasmiy havola'}
                 </span>
                 <a

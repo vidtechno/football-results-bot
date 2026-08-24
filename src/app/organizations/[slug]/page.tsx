@@ -20,6 +20,10 @@ import {
   Facebook,
   Youtube,
   ShieldCheck,
+  Headphones,
+  Building,
+  Briefcase,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface OrganizationDetailProps {
@@ -114,7 +118,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
         </div>
 
         {/* Primary Call CTA Button */}
-        {primaryPhoneObj && (
+        {primaryPhoneObj ? (
           <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-md shadow-emerald-600/20">
@@ -133,6 +137,11 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
               <Phone className="w-4 h-4" />
               <span>Qo‘ng‘iroq qilish</span>
             </a>
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3 text-slate-500 text-xs font-medium">
+            <Phone className="w-4 h-4 text-slate-400" />
+            <span>Ushbu tashkilot uchun ochiq aloqa telefon raqami ko‘rsatilmadi</span>
           </div>
         )}
 
@@ -176,23 +185,40 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
           </h2>
 
           {contacts.length === 0 ? (
-            <p className="text-xs text-slate-400">Telefon raqamlari kiritilmagan</p>
+            <p className="text-xs text-slate-400 italic">Telefon raqamlari kiritilmagan</p>
           ) : (
             <div className="space-y-3">
               {contacts.map((c) => {
                 const formatted = formatPhoneNumber(c.phone_number);
+                let Icon = Headphones;
+                let badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+                if (c.contact_type === 'head_office') {
+                  Icon = Building;
+                  badgeStyle = 'bg-blue-50 text-blue-700 border-blue-200';
+                } else if (c.contact_type === 'business_support') {
+                  Icon = Briefcase;
+                  badgeStyle = 'bg-purple-50 text-purple-700 border-purple-200';
+                } else if (c.contact_type === 'fraud_hotline') {
+                  Icon = AlertTriangle;
+                  badgeStyle = 'bg-rose-50 text-rose-700 border-rose-200';
+                }
+
                 return (
                   <div
                     key={c.id}
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80"
+                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 gap-3"
                   >
-                    <div>
-                      <span className="text-xs text-slate-500 font-bold block">{c.label || 'Aloqa raqami'}</span>
-                      <strong className="text-base font-black text-slate-900">{formatted.display}</strong>
+                    <div className="min-w-0">
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md border mb-1 ${badgeStyle}`}>
+                        <Icon className="w-3 h-3" />
+                        <span>{c.label || 'Aloqa raqami'}</span>
+                      </span>
+                      <strong className="text-base font-black text-slate-900 block">{formatted.display}</strong>
                     </div>
                     <a
                       href={formatted.href}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-1.5"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-1.5 flex-shrink-0 active:scale-95"
                     >
                       <Phone className="w-3.5 h-3.5" />
                       <span>Qo‘ng‘iroq</span>

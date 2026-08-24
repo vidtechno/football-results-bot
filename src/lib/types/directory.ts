@@ -23,6 +23,9 @@ export interface Contact {
   organization_id: number;
   label?: string | null;
   phone_number: string;
+  contact_type?: 'call_center' | 'head_office' | 'business_support' | 'fraud_hotline' | 'other';
+  source_url?: string | null;
+  last_verified_at?: string | null;
   is_primary: boolean;
 }
 

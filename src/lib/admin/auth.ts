@@ -2,7 +2,9 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 
 export const ADMIN_COOKIE_NAME = 'diyoration_session';
-const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7;
+const PBKDF2_ITERATIONS = 100_000;
+const PBKDF2_KEY_LENGTH = 64;
 
 export interface AdminSession {
   username: string;
@@ -10,167 +12,173 @@ export interface AdminSession {
   expiresAt: number;
 }
 
-// In-memory rate limiting map for login attempts
 const loginAttempts = new Map<string, { count: number; firstAttempt: number }>();
 
-/**
- * Check and record login attempt for rate-limiting (max 5 attempts per 15 minutes)
- */
 export function checkRateLimit(ip: string): { allowed: boolean; remainingMs?: number } {
   const now = Date.now();
   const windowMs = 15 * 60 * 1000;
   const record = loginAttempts.get(ip);
 
-  if (!record) {
-    loginAttempts.set(ip, { count: 1, firstAttempt: now });
-    return { allowed: true };
-  }
-
-  if (now - record.firstAttempt > windowMs) {
+  if (!record || now - record.firstAttempt > windowMs) {
     loginAttempts.set(ip, { count: 1, firstAttempt: now });
     return { allowed: true };
   }
 
   if (record.count >= 5) {
-    const remainingMs = windowMs - (now - record.firstAttempt);
-    return { allowed: false, remainingMs };
+    return { allowed: false, remainingMs: windowMs - (now - record.firstAttempt) };
   }
 
   record.count += 1;
   return { allowed: true };
 }
 
-/**
- * Reset rate limit counter on successful login
- */
-export function clearRateLimit(ip: string) {
+export function clearRateLimit(ip: string): void {
   loginAttempts.delete(ip);
 }
 
-/**
- * Hash password string using PBKDF2-SHA512
- */
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
-  const iterations = 100000;
-  const keylen = 64;
-  const digest = 'sha512';
-
-  const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest);
-  return `pbkdf2$${iterations}$${salt}$${derivedKey.toString('hex')}`;
+  const derivedKey = crypto.pbkdf2Sync(
+    password,
+    salt,
+    PBKDF2_ITERATIONS,
+    PBKDF2_KEY_LENGTH,
+    'sha512',
+  );
+  return `pbkdf2${PBKDF2_ITERATIONS}${salt}${derivedKey.toString('hex')}`;
 }
 
-/**
- * Verify plaintext password against stored hash string
- */
 export function verifyPassword(password: string, storedHash?: string): boolean {
   if (!storedHash) return false;
 
+  const parts = storedHash.split('$');
+  if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
+
+  const iterations = Number.parseInt(parts[1], 10);
+  const salt = parts[2];
+  const originalHash = parts[3];
+
+  if (
+    !Number.isInteger(iterations) ||
+    iterations < 100_000 ||
+    !/^[a-f0-9]{32}$/i.test(salt) ||
+    !/^[a-f0-9]{128}$/i.test(originalHash)
+  ) {
+    return false;
+  }
+
   try {
-    const parts = storedHash.split('$');
-    if (parts.length !== 4 || parts[0] !== 'pbkdf2') {
-      // Direct string fallback comparison if hash not formatted
-      return password === storedHash;
-    }
+    const computedHash = crypto.pbkdf2Sync(
+      password,
+      salt,
+      iterations,
+      PBKDF2_KEY_LENGTH,
+      'sha512',
+    );
+    const expectedHash = Buffer.from(originalHash, 'hex');
 
-    const iterations = parseInt(parts[1], 10);
-    const salt = parts[2];
-    const originalHash = parts[3];
-
-    const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, 64, 'sha512');
-    const computedHash = derivedKey.toString('hex');
-
-    return crypto.timingSafeEqual(Buffer.from(computedHash, 'hex'), Buffer.from(originalHash, 'hex'));
+    return (
+      computedHash.length === expectedHash.length &&
+      crypto.timingSafeEqual(computedHash, expectedHash)
+    );
   } catch {
     return false;
   }
 }
 
 function getSessionSecret(): string {
-  return process.env.ADMIN_SESSION_SECRET || 'fallback_diyoration_secret_key_84920491823901923';
+  const secret = process.env.ADMIN_SESSION_SECRET;
+
+  if (!secret || secret.length < 32) {
+    throw new Error('ADMIN_SESSION_SECRET must be set and at least 32 characters long.');
+  }
+
+  return secret;
 }
 
-/**
- * Create a signed HMAC-SHA256 session token
- */
-export function createSessionToken(username: string, role: 'owner' | 'editor' | 'reviewer' = 'owner'): string {
+export function createSessionToken(
+  username: string,
+  role: 'owner' | 'editor' | 'reviewer' = 'owner',
+): string {
   const expiresAt = Date.now() + SESSION_DURATION_SECONDS * 1000;
   const payload: AdminSession = { username, role, expiresAt };
   const payloadBase64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
-
-  const hmac = crypto.createHmac('sha256', getSessionSecret());
-  hmac.update(payloadBase64);
-  const signature = hmac.digest('base64url');
+  const signature = crypto
+    .createHmac('sha256', getSessionSecret())
+    .update(payloadBase64)
+    .digest('base64url');
 
   return `${payloadBase64}.${signature}`;
 }
 
-/**
- * Verify signed session token and return session payload if valid
- */
 export function verifySessionToken(token?: string | null): AdminSession | null {
   if (!token) return null;
 
   try {
-    const parts = token.split('.');
-    if (parts.length !== 2) return null;
+    const [payloadBase64, signature, extra] = token.split('.');
+    if (!payloadBase64 || !signature || extra) return null;
 
-    const [payloadBase64, signature] = parts;
+    const expectedSignature = crypto
+      .createHmac('sha256', getSessionSecret())
+      .update(payloadBase64)
+      .digest('base64url');
 
-    const hmac = crypto.createHmac('sha256', getSessionSecret());
-    hmac.update(payloadBase64);
-    const expectedSignature = hmac.digest('base64url');
+    const signatureBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
 
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    if (
+      signatureBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
+    ) {
       return null;
     }
 
-    const payloadJson = Buffer.from(payloadBase64, 'base64url').toString('utf8');
-    const session: AdminSession = JSON.parse(payloadJson);
+    const session = JSON.parse(
+      Buffer.from(payloadBase64, 'base64url').toString('utf8'),
+    ) as AdminSession;
 
-    if (Date.now() > session.expiresAt) {
-      return null;
-    }
-
-    return session;
+    return Date.now() > session.expiresAt ? null : session;
   } catch {
     return null;
   }
 }
 
-/**
- * Server-side helper to read current admin session from request cookies
- */
 export async function getAdminSession(): Promise<AdminSession | null> {
   try {
-    const cookieStore = cookies();
-    const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
+    const token = cookies().get(ADMIN_COOKIE_NAME)?.value;
     return verifySessionToken(token);
   } catch {
     return null;
   }
 }
 
-/**
- * Create audit log entry in database using service role client
- */
 export async function logAdminAction(
-  supabase: any,
+  supabase: { from: (table: string) => { insert: (rows: unknown[]) => Promise<unknown> } },
   adminUsername: string,
-  action: 'create' | 'update' | 'delete' | 'publish' | 'unpublish' | 'archive' | 'report_resolve' | 'login',
+  action:
+    | 'create'
+    | 'update'
+    | 'delete'
+    | 'publish'
+    | 'unpublish'
+    | 'archive'
+    | 'report_resolve'
+    | 'login',
   targetType: string,
   targetId?: string | number,
-  details?: Record<string, any>,
-) {
+  details?: Record<string, unknown>,
+): Promise<void> {
   try {
-    await supabase.from('admin_audit_logs').insert([{
-      admin_username: adminUsername,
-      action,
-      target_type: targetType,
-      target_id: targetId ? String(targetId) : null,
-      details,
-    }]);
+    await supabase.from('admin_audit_logs').insert([
+      {
+        admin_username: adminUsername,
+        action,
+        target_type: targetType,
+        target_id: targetId ? String(targetId) : null,
+        details,
+      },
+    ]);
   } catch {
-    // Non-blocking log insertion failure
+    // Audit logging must never block the primary admin action.
   }
 }

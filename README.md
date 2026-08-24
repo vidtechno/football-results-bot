@@ -6,41 +6,49 @@ Citizens and businesses can find official phone numbers, official websites, stat
 
 ---
 
+## 🔐 Diyoration Admin Panel (`/diyoration`) Setup & Security
+
+The website includes a production-grade, light-themed admin panel at `/diyoration`. The public site remains 100% open for visitors without registration.
+
+### Step 1: Database Migration
+Execute **[supabase/migrations/004_admin_panel.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/migrations/004_admin_panel.sql)** in your Supabase SQL Editor to create `admin_users` and `admin_audit_logs` tables.
+
+### Step 2: Generate Password Hash
+Generate a secure PBKDF2-SHA512 password hash locally using Node.js:
+
+```bash
+node scripts/generate-password-hash.mjs "Your_Admin_Password_Here"
+```
+
+### Step 3: Configure Environment Variables
+Set the following environment variables in `.env.local` or Vercel Environment Variables:
+
+```env
+ADMIN_USERNAME=diyoration
+ADMIN_PASSWORD_HASH=pbkdf2$100000$your_salt_here$your_derived_key_here
+ADMIN_SESSION_SECRET=your_long_64_character_random_string_here
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+```
+
+---
+
 ## 🔒 Verification & Official Data Standard
 
 Every record in the directory strictly adheres to primary official source validation:
 
 1. **Licensed Commercial Banks**: Verified directly via the Central Bank of Uzbekistan (CBU) official directory ([https://cbu.uz/en/credit-organizations/banks/](https://cbu.uz/en/credit-organizations/banks/)).
-2. **National Government Bodies**: Verified directly via the Government of Uzbekistan official portal ([https://gov.uz/en/all_ministry/1](https://gov.uz/en/all_ministry/1) & [https://gov.uz/en/all_ministry/4](https://gov.uz/en/all_ministry/4)).
+2. **National Government Bodies**: Verified directly via the Government of Uzbekistan official portal ([https://gov.uz/en/all_ministry/1](https://gov.uz/en/all_ministry/1)).
 3. **Official Digital Services & Apps**: Verified via official primary organization websites or verified Google Play Store and Apple App Store listings.
 
-Every record tracks:
-- `source_url`
-- `source_name`
-- `verification_status` (`verified` | `pending_review` | `unverified`)
-- `last_verified_at`
-
 ---
 
-## 🗄️ Supabase Database Migration & Setup
+## 🗄️ Supabase Migrations & Execution Order
 
-### Step 1: Base Schema DDL
-Execute [supabase/schema.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/schema.sql) in your Supabase SQL Editor.
-
-### Step 2: Digital Services Migration
-Execute [supabase/migrations/002_digital_services.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/migrations/002_digital_services.sql) to add `organization_digital_services` table and source metadata fields (`organization_type`, `source_url`, `source_name`, `verification_status`, `last_verified_at`).
-
-### Step 3: Verified Seed Execution
-Execute [supabase/seed_verified_national.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/seed_verified_national.sql) to populate CBU-verified commercial banks, GOV.UZ-verified government bodies, and official digital service apps.
-
----
-
-## 📋 Periodic Verification & Administrative Workflow
-
-To maintain dataset integrity over time:
-1. **Periodic CBU Audit (Quarterly)**: Re-check CBU commercial bank listings to update new licenses or contact changes.
-2. **Periodic GOV.UZ Audit (Semi-Annually)**: Re-check government portal reorganizations or new state service portals.
-3. **User Error Reports**: Review user-submitted reports from the `organization_reports` table via Supabase dashboard or custom admin panel, verifying updates against official primary source URLs before updating `verification_status` to `'verified'`.
+1. **[supabase/schema.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/schema.sql)** — Base database schema DDL.
+2. **[supabase/migrations/002_digital_services.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/migrations/002_digital_services.sql)** — Digital services schema and source verification fields.
+3. **[supabase/migrations/003_verified_banks_schema.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/migrations/003_verified_banks_schema.sql)** — Contact types schema, digital service deduplication & unique constraints.
+4. **[supabase/migrations/004_admin_panel.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/migrations/004_admin_panel.sql)** — Diyoration admin panel tables and audit logging.
+5. **[supabase/seed_verified_banks.sql](file:///Users/abdulaziz/Desktop/futbol%20natija/supabase/seed_verified_banks.sql)** — CBU-verified commercial bank dataset seed.
 
 ---
 

@@ -65,7 +65,7 @@ export async function PUT(req: NextRequest) {
   try {
     const supabase = createAdminClient();
     const body = await req.json();
-    const { id, name, slug, description, category_id, region_id, organization_type, website_url, source_url, source_name, status, is_verified, verification_status, contacts, digital_services, social_links, locations } = body;
+    const { id, name, slug, description, category_id, region_id, organization_type, website_url, source_url, source_name, status, is_verified, verification_status, contacts, emails, digital_services, social_links, locations } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Tashkilot ID tanlanmagan' }, { status: 400 });
@@ -110,7 +110,36 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // 3. Sync Digital Services if provided
+    // 3. Sync Emails if provided
+    if (Array.isArray(emails)) {
+      await supabase.from('organization_emails').delete().eq('organization_id', id);
+      if (emails.length > 0) {
+        const emailRows = emails
+          .filter((e: any) => e.email && e.email.trim())
+          .map((e: any, idx: number) => ({
+            organization_id: id,
+            email: e.email.trim().toLowerCase(),
+            label: e.label || 'Umumiy murojaatlar',
+            is_primary: Boolean(e.is_primary),
+            is_verified: e.is_verified !== false,
+            sort_order: idx + 1,
+          }));
+
+        // Deduplicate rows by email to prevent unique constraint error
+        const seenEmails = new Set<string>();
+        const uniqueEmailRows = emailRows.filter((row: any) => {
+          if (seenEmails.has(row.email)) return false;
+          seenEmails.add(row.email);
+          return true;
+        });
+
+        if (uniqueEmailRows.length > 0) {
+          await supabase.from('organization_emails').insert(uniqueEmailRows);
+        }
+      }
+    }
+
+    // 4. Sync Digital Services if provided
     if (Array.isArray(digital_services)) {
       await supabase.from('organization_digital_services').delete().eq('organization_id', id);
       if (digital_services.length > 0) {

@@ -59,6 +59,17 @@ export interface DigitalService {
   sort_order: number;
 }
 
+export interface OrganizationEmail {
+  id: number;
+  organization_id: number;
+  email: string;
+  label?: string | null;
+  is_primary: boolean;
+  is_verified: boolean;
+  sort_order: number;
+  created_at?: string;
+}
+
 export interface Organization {
   id: number;
   name: string;
@@ -80,6 +91,7 @@ export interface Organization {
   category?: Category | null;
   region?: Region | null;
   contacts?: Contact[];
+  emails?: OrganizationEmail[];
   social_links?: SocialLink[];
   locations?: Location[];
   digital_services?: DigitalService[];

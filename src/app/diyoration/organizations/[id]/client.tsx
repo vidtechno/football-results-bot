@@ -8,6 +8,7 @@ import { DigitalServicesSection } from '@/components/directory/DigitalServicesSe
 import {
   Building2,
   Phone,
+  Mail,
   Smartphone,
   Share2,
   MapPin,
@@ -42,7 +43,7 @@ export function EditOrganizationTabbedClient({
 }: EditOrganizationTabbedClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
-    'basic' | 'contacts' | 'services' | 'social' | 'locations' | 'verification' | 'history'
+    'basic' | 'contacts' | 'emails' | 'services' | 'social' | 'locations' | 'verification' | 'history'
   >('basic');
 
   // Basic Form State
@@ -61,6 +62,9 @@ export function EditOrganizationTabbedClient({
 
   // Contacts List State
   const [contacts, setContacts] = useState<any[]>(organization.contacts || []);
+
+  // Emails List State
+  const [emails, setEmails] = useState<any[]>(organization.emails || []);
 
   // Digital Services State
   const [services, setServices] = useState<any[]>(organization.digital_services || []);
@@ -99,6 +103,7 @@ export function EditOrganizationTabbedClient({
           source_name: sourceName,
           source_url: sourceUrl,
           contacts,
+          emails,
           digital_services: services,
           social_links: socialLinks,
           locations,
@@ -153,6 +158,37 @@ export function EditOrganizationTabbedClient({
     setContacts((prev) => prev.filter((_, idx) => idx !== index));
   };
 
+  // Emails helpers
+  const addEmail = () => {
+    setEmails((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        email: '',
+        label: 'Umumiy murojaatlar',
+        is_primary: prev.length === 0,
+        is_verified: true,
+      },
+    ]);
+  };
+
+  const updateEmail = (index: number, field: string, value: any) => {
+    setEmails((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      if (field === 'is_primary' && value === true) {
+        updated.forEach((e, idx) => {
+          if (idx !== index) e.is_primary = false;
+        });
+      }
+      return updated;
+    });
+  };
+
+  const removeEmail = (index: number) => {
+    setEmails((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
   // Services helpers
   const addService = () => {
     setServices((prev) => [
@@ -194,11 +230,12 @@ export function EditOrganizationTabbedClient({
   const tabs = [
     { key: 'basic', label: '1. Asosiy Ma’lumotlar', icon: Building2 },
     { key: 'contacts', label: `2. Telefon Raqamlar (${contacts.length})`, icon: Phone },
-    { key: 'services', label: `3. Raqamli Xizmatlar (${services.length})`, icon: Smartphone },
-    { key: 'social', label: `4. Ijtimoiy Tarmoqlar (${socialLinks.length})`, icon: Share2 },
-    { key: 'locations', label: `5. Manzil & Ish Rejimi (${locations.length})`, icon: MapPin },
-    { key: 'verification', label: '6. Manba & Verifikatsiya', icon: ShieldCheck },
-    { key: 'history', label: `7. Tarix (${auditLogs.length})`, icon: History },
+    { key: 'emails', label: `3. Elektron Pochta (${emails.length})`, icon: Mail },
+    { key: 'services', label: `4. Raqamli Xizmatlar (${services.length})`, icon: Smartphone },
+    { key: 'social', label: `5. Ijtimoiy Tarmoqlar (${socialLinks.length})`, icon: Share2 },
+    { key: 'locations', label: `6. Manzil & Ish Rejimi (${locations.length})`, icon: MapPin },
+    { key: 'verification', label: '7. Manba & Verifikatsiya', icon: ShieldCheck },
+    { key: 'history', label: `8. Tarix (${auditLogs.length})`, icon: History },
   ];
 
   return (
@@ -391,7 +428,7 @@ export function EditOrganizationTabbedClient({
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-lg font-black text-slate-900">2. Telefon Raqamlar Redaktori</h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Mavjud aloqa raqamlarini tartiblang, turini belgilang va yangi raqamlar qo‘shing</p>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Mavjud aloqa raqamlari tartiblang, turini belgilang va yangi raqamlar qo‘shing</p>
             </div>
             <button
               type="button"
@@ -473,12 +510,102 @@ export function EditOrganizationTabbedClient({
         </div>
       )}
 
-      {/* TAB 3: DIGITAL SERVICES & APPS */}
+      {/* TAB 3: EMAIL ADDRESSES */}
+      {activeTab === 'emails' && (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="text-lg font-black text-slate-900">3. Elektron Pochta Manzillari Redaktori</h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Rasmiy elektron pochta manzillarini kiriting, turini va verifikatsiyasini belgilang
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={addEmail}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 text-white font-extrabold text-xs shadow-sm hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Email qo‘shish</span>
+            </button>
+          </div>
+
+          {emails.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-4">Hali elektron pochta manzillari qo‘shilmagan</p>
+          ) : (
+            <div className="space-y-3">
+              {emails.map((e, index) => (
+                <div
+                  key={e.id || index}
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-5 gap-3 items-center"
+                >
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1">Elektron Pochta Manzili *</label>
+                    <input
+                      type="email"
+                      value={e.email || ''}
+                      onChange={(ev) => updateEmail(index, 'email', ev.target.value)}
+                      placeholder="info@tashkilot.uz"
+                      className="w-full rounded-xl border border-slate-200 p-2 text-xs font-mono font-bold text-slate-900 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1">Nomi / Label</label>
+                    <input
+                      type="text"
+                      value={e.label || ''}
+                      onChange={(ev) => updateEmail(index, 'label', ev.target.value)}
+                      placeholder="Umumiy murojaatlar"
+                      className="w-full rounded-xl border border-slate-200 p-2 text-xs font-bold text-slate-900 bg-white"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(e.is_primary)}
+                        onChange={(ev) => updateEmail(index, 'is_primary', ev.target.checked)}
+                        className="rounded text-blue-600"
+                      />
+                      <span>Asosiy</span>
+                    </label>
+
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(e.is_verified)}
+                        onChange={(ev) => updateEmail(index, 'is_verified', ev.target.checked)}
+                        className="rounded text-emerald-600"
+                      />
+                      <span>Tasdiqlangan</span>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removeEmail(index)}
+                      className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                      title="O‘chirish"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: DIGITAL SERVICES & APPS */}
       {activeTab === 'services' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h3 className="text-lg font-black text-slate-900">3. Raqamli Xizmatlar & Mobil Ilovalar</h3>
+              <h3 className="text-lg font-black text-slate-900">4. Raqamli Xizmatlar & Mobil Ilovalar</h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">Android, iOS ilovalar, veb-portallar va Telegram botlarni maqsadi bilan kiritish</p>
             </div>
             <button
@@ -572,11 +699,11 @@ export function EditOrganizationTabbedClient({
         </div>
       )}
 
-      {/* TAB 4: SOCIAL LINKS */}
+      {/* TAB 5: SOCIAL LINKS */}
       {activeTab === 'social' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-lg font-black text-slate-900">4. Ijtimoiy Tarmoqlar</h3>
+            <h3 className="text-lg font-black text-slate-900">5. Ijtimoiy Tarmoqlar</h3>
             <button
               type="button"
               onClick={addSocial}
@@ -635,11 +762,11 @@ export function EditOrganizationTabbedClient({
         </div>
       )}
 
-      {/* TAB 5: LOCATIONS & WORKING HOURS */}
+      {/* TAB 6: LOCATIONS & WORKING HOURS */}
       {activeTab === 'locations' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-lg font-black text-slate-900">5. Manzil va Ish Rejimi</h3>
+            <h3 className="text-lg font-black text-slate-900">6. Manzil va Ish Rejimi</h3>
             <button
               type="button"
               onClick={addLocation}
@@ -712,10 +839,10 @@ export function EditOrganizationTabbedClient({
         </div>
       )}
 
-      {/* TAB 6: VERIFICATION & OFFICIAL SOURCES */}
+      {/* TAB 7: VERIFICATION & OFFICIAL SOURCES */}
       {activeTab === 'verification' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-5">
-          <h3 className="text-lg font-black text-slate-900 border-b border-slate-100 pb-3">6. Rasmiy Manbalar & Verifikatsiya</h3>
+          <h3 className="text-lg font-black text-slate-900 border-b border-slate-100 pb-3">7. Rasmiy Manbalar & Verifikatsiya</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -764,10 +891,10 @@ export function EditOrganizationTabbedClient({
         </div>
       )}
 
-      {/* TAB 7: ACTIVITY HISTORY AUDIT LOGS */}
+      {/* TAB 8: ACTIVITY HISTORY AUDIT LOGS */}
       {activeTab === 'history' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-4">
-          <h3 className="text-lg font-black text-slate-900 border-b border-slate-100 pb-3">7. O‘zgarishlar va Audit Tarixi</h3>
+          <h3 className="text-lg font-black text-slate-900 border-b border-slate-100 pb-3">8. O‘zgarishlar va Audit Tarixi</h3>
 
           {auditLogs.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-4">Ushbu tashkilot uchun audit yozuvlari yo‘q</p>

@@ -12,6 +12,7 @@ import { CopyButton } from '@/components/ui/CopyButton';
 import { ShareButton } from '@/components/ui/ShareButton';
 import {
   Phone,
+  Mail,
   CheckCircle2,
   MapPin,
   Globe,
@@ -83,6 +84,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
   const category = org.category;
   const region = org.region;
   const contacts = org.contacts || [];
+  const emails = org.emails || [];
   const socialLinks = org.social_links || [];
   const locations = org.locations || [];
   const digitalServices = org.digital_services || [];
@@ -267,6 +269,66 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
         sourceName={org.source_name}
         lastVerifiedAt={org.last_verified_at}
       />
+
+      {/* Email Addresses Section */}
+      {emails.length > 0 && (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm space-y-4">
+          <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+            <Mail className="w-5 h-5 text-blue-600" />
+            <span>Elektron pochta manzillari</span>
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {emails.map((e) => (
+              <div
+                key={e.id}
+                className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                      <Mail className="w-3 h-3" />
+                      <span>{e.label || 'Umumiy murojaatlar'}</span>
+                    </span>
+
+                    {e.is_primary && (
+                      <span className="inline-flex items-center text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                        Asosiy
+                      </span>
+                    )}
+
+                    {e.is_verified && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Tasdiqlangan</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <a
+                    href={`mailto:${e.email}`}
+                    className="text-sm font-black text-slate-900 hover:text-blue-600 transition-colors block truncate font-mono"
+                  >
+                    {e.email}
+                  </a>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <CopyButton textToCopy={e.email} showLabel={false} label="Nusxalash" className="bg-white" />
+                  <a
+                    href={`mailto:${e.email}`}
+                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center justify-center shadow-xs active:scale-95 transition-all"
+                    title={`${e.email} ga xat yuborish`}
+                    aria-label={`${e.email} ga xat yuborish`}
+                  >
+                    <Mail className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Grouped Details Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

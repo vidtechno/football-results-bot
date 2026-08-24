@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server';
-import { Category, Region, Organization, OrganizationReport, DigitalService, Contact } from '@/lib/types/directory';
+import { Category, Region, Organization, OrganizationReport, DigitalService, Contact, OrganizationEmail } from '@/lib/types/directory';
 import { normalizeSearchTerm } from '@/lib/utils/formatters';
 
 export interface SearchFilters {
@@ -44,6 +44,25 @@ function deduplicateContacts(contacts?: Contact[]): Contact[] {
     if (!seen.has(key)) {
       seen.add(key);
       unique.push(c);
+    }
+  }
+
+  return unique;
+}
+
+/**
+ * Deduplicate emails array by email
+ */
+function deduplicateEmails(emails?: OrganizationEmail[]): OrganizationEmail[] {
+  if (!emails || emails.length === 0) return [];
+  const seen = new Set<string>();
+  const unique: OrganizationEmail[] = [];
+
+  for (const e of emails) {
+    const key = e.email.trim().toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(e);
     }
   }
 
@@ -153,6 +172,7 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
         category:categories(*),
         region:regions(*),
         contacts:organization_contacts(*),
+        emails:organization_emails(*),
         social_links:organization_social_links(*),
         locations:organization_locations(*),
         digital_services:organization_digital_services(*)
@@ -179,6 +199,7 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
     let results = data.map((o: any) => ({
       ...o,
       contacts: deduplicateContacts(o.contacts),
+      emails: deduplicateEmails(o.emails),
       digital_services: deduplicateDigitalServices(o.digital_services),
     })) as Organization[];
 
@@ -208,6 +229,7 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
         const websiteNorm = normalizeSearchTerm(o.website_url || '');
         const typeNorm = normalizeSearchTerm(o.organization_type || '');
         const phones = o.contacts?.map((c) => c.phone_number).join(' ') || '';
+        const emailsNorm = o.emails?.map((e) => `${e.email} ${e.label || ''}`).join(' ') || '';
         const locationsNorm = o.locations
           ?.map((loc) => `${loc.address} ${loc.city_district || ''}`)
           .join(' ') || '';
@@ -223,6 +245,7 @@ export async function searchOrganizations(filters: SearchFilters = {}): Promise<
           websiteNorm.includes(norm) ||
           typeNorm.includes(norm) ||
           phones.includes(norm) ||
+          normalizeSearchTerm(emailsNorm).includes(norm) ||
           normalizeSearchTerm(locationsNorm).includes(norm) ||
           normalizeSearchTerm(servicesNorm).includes(norm)
         );
@@ -249,6 +272,7 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
         category:categories(*),
         region:regions(*),
         contacts:organization_contacts(*),
+        emails:organization_emails(*),
         social_links:organization_social_links(*),
         locations:organization_locations(*),
         digital_services:organization_digital_services(*)
@@ -262,6 +286,7 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
     return {
       ...org,
       contacts: deduplicateContacts(org.contacts),
+      emails: deduplicateEmails(org.emails),
       digital_services: deduplicateDigitalServices(org.digital_services),
     };
   } catch {

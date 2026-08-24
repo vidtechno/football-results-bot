@@ -33,6 +33,7 @@ export default async function EditOrganizationPage({ params }: PageProps) {
         category:categories(*),
         region:regions(*),
         contacts:organization_contacts(*),
+        emails:organization_emails(*),
         social_links:organization_social_links(*),
         locations:organization_locations(*),
         digital_services:organization_digital_services(*)

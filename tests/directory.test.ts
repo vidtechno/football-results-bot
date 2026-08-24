@@ -6,7 +6,7 @@ import {
   formatUzbekDate,
 } from '../src/lib/utils/formatters';
 import { isNewlyVerified, getTelegramShareUrl, getWhatsappShareUrl } from '../src/lib/utils/badges';
-import { ReportSchema, SuggestionSchema, DigitalService, Contact } from '../src/lib/types/directory';
+import { ReportSchema, SuggestionSchema, DigitalService, Contact, OrganizationEmail } from '../src/lib/types/directory';
 
 describe('Manbora Directory & Digital Services Utilities', () => {
   it('normalizes search terms accurately', () => {
@@ -104,5 +104,21 @@ describe('Manbora Directory & Digital Services Utilities', () => {
 
     expect(mockService.is_official).toBe(true);
     expect(mockService.description).toContain('pul o‘tkazmalari');
+  });
+
+  it('validates organization email structure and attributes', () => {
+    const mockEmail: OrganizationEmail = {
+      id: 1,
+      organization_id: 1,
+      email: 'info@nbu.uz',
+      label: 'Umumiy murojaatlar',
+      is_primary: true,
+      is_verified: true,
+      sort_order: 1,
+    };
+
+    expect(mockEmail.email).toBe('info@nbu.uz');
+    expect(mockEmail.is_primary).toBe(true);
+    expect(mockEmail.is_verified).toBe(true);
   });
 });

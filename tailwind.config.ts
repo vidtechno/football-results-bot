@@ -1,7 +1,7 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
-  darkMode: 'class',
+  darkMode: 'class', // Disable system prefers-color-scheme dark mode
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -10,25 +10,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#0b0f17',
+        background: '#F6F9FF',
         surface: {
-          50: '#1e293b',
-          100: '#161f30',
-          200: '#111827',
-          300: '#0f172a',
-          400: '#0b0f17',
+          50: '#ffffff',
+          100: '#f8fafc',
+          200: '#f1f5f9',
+          300: '#e2e8f0',
         },
         brand: {
-          50: '#ecfdf5',
-          100: '#d1fae5',
-          400: '#34d399',
-          500: '#10b981',
-          600: '#059669',
-          700: '#047857',
-        },
-        gold: {
-          400: '#fbbf24',
-          500: '#f59e0b',
+          50: '#eff6ff',
+          100: '#dbeafe',
+          500: '#2563eb',
+          600: '#1d4ed8',
+          700: '#1e40af',
         },
       },
       fontFamily: {

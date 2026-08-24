@@ -1,11 +1,11 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { getOrganizationBySlug } from '@/lib/db/directory';
 import { formatPhoneNumber, formatUzbekDate } from '@/lib/utils/formatters';
 import { OrganizationDetailClient } from './client';
 import { DigitalServicesSection } from '@/components/directory/DigitalServicesSection';
+import { OrganizationAvatar } from '@/components/ui/OrganizationAvatar';
 import {
   Phone,
   CheckCircle2,
@@ -20,8 +20,6 @@ import {
   Facebook,
   Youtube,
   ShieldCheck,
-  Building2,
-  Landmark,
 } from 'lucide-react';
 
 interface OrganizationDetailProps {
@@ -64,21 +62,13 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
       <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-lg shadow-blue-950/5 space-y-6 relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="flex items-start gap-4 sm:gap-6">
-            {org.logo_url ? (
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-50 p-3 border border-slate-200/80 flex items-center justify-center flex-shrink-0 shadow-sm">
-                <Image
-                  src={org.logo_url}
-                  alt={org.name}
-                  width={80}
-                  height={80}
-                  className="object-contain max-h-16"
-                />
-              </div>
-            ) : (
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-500 border border-blue-200 flex items-center justify-center text-white font-black text-3xl flex-shrink-0 shadow-md">
-                {org.name.charAt(0)}
-              </div>
-            )}
+            <OrganizationAvatar
+              name={org.name}
+              logoUrl={org.logo_url}
+              type={org.organization_type}
+              categorySlug={category?.slug}
+              size="lg"
+            />
 
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -95,13 +85,13 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                 {category && (
                   <Link
                     href={`/categories/${category.slug}`}
-                    className="px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-colors"
+                    className="px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-colors font-bold"
                   >
                     {category.name}
                   </Link>
                 )}
                 {region && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 font-semibold text-slate-600">
                     <MapPin className="w-3.5 h-3.5 text-slate-400" />
                     {region.name}
                   </span>

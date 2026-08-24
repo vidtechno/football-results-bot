@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Organization } from '@/lib/types/directory';
 import { formatPhoneNumber } from '@/lib/utils/formatters';
+import { OrganizationAvatar } from '@/components/ui/OrganizationAvatar';
 import { Search, X, Loader2, CheckCircle2, Phone, MapPin, ArrowRight, Building2, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -238,25 +238,17 @@ export function RealtimeSearchBox({
                     )}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      {org.logo_url ? (
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200/80 p-1.5 flex items-center justify-center flex-shrink-0 shadow-sm">
-                          <Image
-                            src={org.logo_url}
-                            alt={org.name}
-                            width={28}
-                            height={28}
-                            className="object-contain max-h-7"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center flex-shrink-0 text-sm">
-                          {org.name.charAt(0)}
-                        </div>
-                      )}
+                      <OrganizationAvatar
+                        name={org.name}
+                        logoUrl={org.logo_url}
+                        type={org.organization_type}
+                        categorySlug={org.category?.slug}
+                        size="sm"
+                      />
 
                       <div className="min-w-0 space-y-0.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-900 text-sm truncate">{org.name}</span>
+                          <span className="font-extrabold text-slate-900 text-sm truncate">{org.name}</span>
                           {org.is_verified && (
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                           )}

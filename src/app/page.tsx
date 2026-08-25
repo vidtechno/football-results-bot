@@ -148,9 +148,12 @@ export default async function HomePage() {
       />
 
       {/* High-Impact Hero Section */}
-      <section className="relative rounded-3xl bg-mesh-hero text-white p-5 sm:p-10 overflow-hidden shadow-2xl shadow-blue-900/20">
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-cyan-400/20 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
+      <section className="relative rounded-3xl text-white p-5 sm:p-10 shadow-2xl shadow-blue-900/20 z-20">
+        {/* Background mesh layer with overflow-hidden for decorative blurs */}
+        <div className="absolute inset-0 rounded-3xl bg-mesh-hero overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-cyan-400/20 blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
+        </div>
 
         <div className="max-w-3xl mx-auto text-center space-y-4 sm:space-y-6 relative z-10">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white text-[11px] sm:text-xs font-bold shadow-xs">

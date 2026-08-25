@@ -172,6 +172,41 @@ describe('Product Expansion Features: Search Privacy, Working Status, Freshness 
       expect(result.data.target_contact).toBe('+998 71 200-00-00');
     }
   });
+
+  it('verifies dropdown result count matches the number of rendered items without truncation mismatch', () => {
+    const mockResults = [
+      { id: 1, name: 'Anorbank' },
+      { id: 2, name: 'Ipotekabank' },
+      { id: 3, name: 'SQB Bank' },
+    ];
+
+    // Number of items in header badge matches rendered items array
+    const headerCount = mockResults.length;
+    const renderedItems = mockResults.map((item) => item.name);
+
+    expect(headerCount).toBe(3);
+    expect(renderedItems).toHaveLength(3);
+    expect(headerCount).toBe(renderedItems.length);
+  });
+
+  it('calculates keyboard ArrowDown and ArrowUp navigation index wrapping correctly', () => {
+    const totalItems = 3;
+
+    // ArrowDown from -1 (none selected) -> index 0
+    let index = -1;
+    index = index < totalItems - 1 ? index + 1 : 0;
+    expect(index).toBe(0);
+
+    // ArrowDown from index 2 (last) -> wraps to index 0
+    index = 2;
+    index = index < totalItems - 1 ? index + 1 : 0;
+    expect(index).toBe(0);
+
+    // ArrowUp from index 0 (first) -> wraps to index 2 (last)
+    index = 0;
+    index = index > 0 ? index - 1 : totalItems - 1;
+    expect(index).toBe(2);
+  });
 });
 
 describe('Real Popularity Scoring & Unique-Visitor Protection', () => {

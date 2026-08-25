@@ -119,7 +119,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-4xl mx-auto pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] sm:pb-12 px-4 sm:px-0">
+    <div className="space-y-5 sm:space-y-7 max-w-4xl mx-auto pb-[calc(6rem+env(safe-area-inset-bottom,0px))] sm:pb-12 px-4 sm:px-0">
       {/* Inject Organization JSON-LD */}
       <script
         type="application/ld+json"
@@ -127,24 +127,24 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
       />
 
       {/* Navigation & Single Action Top Bar */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
         <Link
           href="/search"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors py-1"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-blue-600 transition-colors py-2 px-3 rounded-xl bg-white border border-slate-200/80 shadow-2xs active:scale-95 min-h-[44px]"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 text-slate-400" />
           <span>Qidiruvga qaytish</span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <OrganizationDetailClient organizationId={org.id} organizationName={org.name} />
           <ShareButton title={org.name} url={fullUrl} description={org.description || undefined} />
         </div>
       </div>
 
       {/* Visually Strong Profile Hero Card */}
-      <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/90 shadow-md shadow-blue-950/5 space-y-4 sm:space-y-6 relative overflow-hidden">
-        <div className="flex items-start gap-3.5 sm:gap-6 min-w-0 w-full">
+      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-md shadow-blue-950/5 space-y-4 relative overflow-hidden">
+        <div className="flex items-start gap-3.5 sm:gap-5 min-w-0 w-full">
           <OrganizationAvatar
             name={org.name}
             logoUrl={org.logo_url}
@@ -153,22 +153,22 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
             size="lg"
           />
 
-          <div className="space-y-1.5 sm:space-y-2 min-w-0 flex-1">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight tracking-tight break-words">
+          <div className="space-y-1.5 min-w-0 flex-1">
+            <h1 className="text-[22px] xs:text-[24px] sm:text-2xl lg:text-3xl font-black text-slate-900 leading-tight tracking-tight break-words">
               {org.name}
             </h1>
 
             {/* Compact Inline Metadata Badges */}
-            <div className="flex items-center gap-1.5 flex-wrap text-[10px] sm:text-xs pt-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap text-xs pt-0.5">
               {org.is_verified && (
-                <span className="inline-flex items-center gap-1 font-extrabold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                <span className="inline-flex items-center gap-1 font-black px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] sm:text-xs">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600 flex-shrink-0" />
                   <span>Rasmiy tasdiqlangan</span>
                 </span>
               )}
 
               {newlyVerified && (
-                <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-700 border border-cyan-200/80">
+                <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-700 border border-cyan-200/80 text-[11px] sm:text-xs">
                   <Sparkles className="w-3 h-3 text-cyan-600 flex-shrink-0" />
                   <span>Yangi tekshirildi</span>
                 </span>
@@ -177,27 +177,27 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
               {category && (
                 <Link
                   href={`/categories/${category.slug}`}
-                  className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-colors font-extrabold"
+                  className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-colors font-extrabold text-[11px] sm:text-xs"
                 >
                   {category.name}
                 </Link>
               )}
 
               {region && (
-                <span className="inline-flex items-center gap-1 font-semibold text-slate-600 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80">
+                <span className="inline-flex items-center gap-1 font-semibold text-slate-600 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-[11px] sm:text-xs">
                   <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
                   <span>{region.name}</span>
                 </span>
               )}
 
               {org.organization_type === 'bank' && (
-                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-extrabold border border-amber-200/80">
+                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-extrabold border border-amber-200/80 text-[11px] sm:text-xs">
                   Tijorat Banki
                 </span>
               )}
 
               {org.organization_type === 'government' && (
-                <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-extrabold border border-indigo-200/80">
+                <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-extrabold border border-indigo-200/80 text-[11px] sm:text-xs">
                   Davlat Organi
                 </span>
               )}
@@ -205,36 +205,31 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
           </div>
         </div>
 
-        {/* Primary Call CTA Button & Copy Button */}
+        {/* Primary Phone Contact Block */}
         {primaryPhoneObj ? (
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-md shadow-emerald-600/20">
-                <Phone className="w-5 h-5" />
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 rounded-xl bg-emerald-600 text-white flex-shrink-0">
+                <Phone className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] sm:text-xs font-bold text-emerald-900 block truncate">
+                <span className="text-[11px] font-bold text-emerald-800 block truncate">
                   {primaryContact?.label || 'Asosiy ishonch telefoni'}
                 </span>
-                <span className="text-lg sm:text-xl font-black text-emerald-950 block tracking-tight">
+                <a
+                  href={primaryPhoneObj.href}
+                  className="text-base sm:text-lg font-black text-emerald-950 hover:text-emerald-700 transition-colors block tracking-tight truncate hover:underline"
+                  title={`${primaryPhoneObj.display} ga qo‘ng‘iroq qilish`}
+                >
                   {primaryPhoneObj.display}
-                </span>
+                </a>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <a
-                href={primaryPhoneObj.href}
-                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 sm:py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/30 active:scale-95 transition-all min-h-[44px]"
-              >
-                <Phone className="w-4 h-4" />
-                <span>Qo‘ng‘iroq qilish</span>
-              </a>
-              <CopyButton textToCopy={primaryContact!.phone_number} className="bg-white py-2.5 px-3 min-h-[44px] min-w-[44px]" />
-            </div>
+            <CopyButton textToCopy={primaryContact!.phone_number} showLabel={false} label="Nusxalash" className="bg-white min-h-[44px] min-w-[44px] flex-shrink-0" />
           </div>
         ) : (
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-slate-500 text-xs font-medium">
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-2 text-slate-500 text-xs font-medium">
             <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
             <span>Ushbu tashkilot uchun ochiq aloqa telefon raqami ko‘rsatilmadi</span>
           </div>
@@ -248,8 +243,8 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
         )}
 
         {/* Verification & Official Source Link */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] sm:text-xs text-slate-500 gap-2 pt-3 border-t border-slate-100 font-medium">
-          <span className="flex items-center gap-1">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-slate-500 gap-2 pt-3 border-t border-slate-100 font-medium">
+          <span className="flex items-center gap-1 text-[11px] sm:text-xs">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
             Oxirgi tekshirildi: <strong className="text-slate-900">{formatUzbekDate(org.last_verified_at || org.updated_at)}</strong>
           </span>
@@ -259,7 +254,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
               href={org.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 font-extrabold text-blue-600 hover:underline"
+              className="inline-flex items-center gap-1.5 font-extrabold text-blue-600 hover:underline text-[11px] sm:text-xs"
             >
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Rasmiy manba ({org.source_name || 'Hujjat'})</span>
@@ -279,8 +274,8 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
 
       {/* Email Addresses Section */}
       {emails.length > 0 && (
-        <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/90 shadow-sm space-y-4">
-          <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
+          <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
             <Mail className="w-5 h-5 text-blue-600" />
             <span>Elektron pochta manzillari</span>
           </h2>
@@ -289,7 +284,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
             {emails.map((e) => (
               <div
                 key={e.id}
-                className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3"
+                className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap mb-1">
@@ -340,8 +335,8 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
       {/* Grouped Details Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* Contact Numbers List */}
-        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
-          <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
+          <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
             <Phone className="w-5 h-5 text-emerald-600" />
             <span>Barcha aloqa raqamlari</span>
           </h2>
@@ -369,26 +364,23 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                 return (
                   <div
                     key={c.id}
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 gap-3"
+                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200/80 gap-3"
                   >
-                    <div className="min-w-0">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md border mb-1 ${badgeStyle}`}>
+                    <div className="min-w-0 flex-1">
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md border mb-0.5 ${badgeStyle}`}>
                         <Icon className="w-3 h-3" />
                         <span>{c.label || 'Aloqa raqami'}</span>
                       </span>
-                      <strong className="text-sm sm:text-base font-black text-slate-900 block tracking-tight">{formatted.display}</strong>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <CopyButton textToCopy={c.phone_number} className="min-h-[44px] min-w-[44px]" />
                       <a
                         href={formatted.href}
-                        className="px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-1 active:scale-95 min-h-[44px]"
+                        className="text-base sm:text-lg font-black text-slate-900 hover:text-emerald-600 transition-colors block tracking-tight truncate hover:underline"
+                        title={`${formatted.display} ga qo‘ng‘iroq qilish`}
                       >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>Qo‘ng‘iroq</span>
+                        {formatted.display}
                       </a>
                     </div>
+
+                    <CopyButton textToCopy={c.phone_number} showLabel={false} label="Nusxalash" className="bg-white min-h-[44px] min-w-[44px] flex-shrink-0" />
                   </div>
                 );
               })}
@@ -397,8 +389,8 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
         </div>
 
         {/* Web & Social Links */}
-        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
-          <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
+          <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
             <Globe className="w-5 h-5 text-blue-600" />
             <span>Veb-sayt va tarmoqlar</span>
           </h2>
@@ -410,7 +402,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                   href={org.website_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-between p-3.5 rounded-2xl bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 transition-colors min-h-[44px]"
+                  className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100 transition-colors min-h-[44px]"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Globe className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -418,7 +410,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                   </div>
                   <ExternalLink className="w-4 h-4 text-blue-600 flex-shrink-0 ml-1" />
                 </a>
-                <CopyButton textToCopy={org.website_url} className="min-h-[44px] min-w-[44px]" />
+                <CopyButton textToCopy={org.website_url} showLabel={false} label="Nusxalash" className="bg-white min-h-[44px] min-w-[44px] flex-shrink-0" />
               </div>
             )}
 
@@ -452,7 +444,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                     href={s.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`flex-1 flex items-center justify-between p-3.5 rounded-2xl border transition-colors min-h-[44px] ${badgeColor}`}
+                    className={`flex-1 flex items-center justify-between p-3 rounded-2xl border transition-colors min-h-[44px] ${badgeColor}`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Icon className="w-4 h-4 flex-shrink-0" />
@@ -460,7 +452,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                     </div>
                     <ExternalLink className="w-4 h-4 opacity-70 flex-shrink-0 ml-1" />
                   </a>
-                  <CopyButton textToCopy={s.url} className="min-h-[44px] min-w-[44px]" />
+                  <CopyButton textToCopy={s.url} showLabel={false} label="Nusxalash" className="bg-white min-h-[44px] min-w-[44px] flex-shrink-0" />
                 </div>
               );
             })}
@@ -474,15 +466,15 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
 
       {/* Locations & Working Hours */}
       {locations.length > 0 && (
-        <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/90 shadow-sm space-y-4">
-          <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
+          <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
             <MapPin className="w-5 h-5 text-blue-600" />
             <span>Manzil va ish rejimi</span>
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {locations.map((loc) => (
-              <div key={loc.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+              <div key={loc.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2 text-xs sm:text-sm text-slate-800 font-bold">
                     <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
@@ -493,7 +485,7 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                       )}
                     </div>
                   </div>
-                  <CopyButton textToCopy={loc.address} className="min-h-[44px] min-w-[44px]" />
+                  <CopyButton textToCopy={loc.address} showLabel={false} label="Nusxalash" className="bg-white min-h-[44px] min-w-[44px] flex-shrink-0" />
                 </div>
 
                 {loc.working_hours && (

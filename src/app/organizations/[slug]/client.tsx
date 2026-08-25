@@ -19,7 +19,7 @@ export function OrganizationDetailClient({
     <>
       <button
         onClick={() => setReportModalOpen(true)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/80 text-[11px] sm:text-xs font-bold transition-colors active:scale-95 flex-shrink-0"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/80 text-xs font-bold transition-colors active:scale-95 flex-shrink-0 min-h-[44px]"
       >
         <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
         <span>Ma’lumot noto‘g‘ri?</span>

@@ -156,15 +156,15 @@ export function SearchPageClient({
 
         {/* Quick Scope Filter Chips */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-bold text-slate-500">Tezkor filtr:</span>
+          <span className="font-bold text-slate-500 mr-1">Tezkor filtr:</span>
 
           <button
             type="button"
             onClick={() => handleQuickChip('bank')}
             className={clsx(
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold border transition-colors',
+              'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold border transition-colors min-h-[44px] active:scale-95',
               organizationType === 'bank'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100',
             )}
           >
@@ -176,9 +176,9 @@ export function SearchPageClient({
             type="button"
             onClick={() => handleQuickChip('government')}
             className={clsx(
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold border transition-colors',
+              'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold border transition-colors min-h-[44px] active:scale-95',
               organizationType === 'government'
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100',
             )}
           >
@@ -190,9 +190,9 @@ export function SearchPageClient({
             type="button"
             onClick={() => handleQuickChip('', true)}
             className={clsx(
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold border transition-colors',
+              'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold border transition-colors min-h-[44px] active:scale-95',
               hasDigitalServicesOnly
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100',
             )}
           >
@@ -204,9 +204,9 @@ export function SearchPageClient({
             type="button"
             onClick={() => handleQuickChip('utility')}
             className={clsx(
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold border transition-colors',
+              'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold border transition-colors min-h-[44px] active:scale-95',
               organizationType === 'utility'
-                ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100',
             )}
           >
@@ -217,7 +217,7 @@ export function SearchPageClient({
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-4">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
             <Filter className="w-4 h-4 text-blue-600" />
@@ -227,7 +227,7 @@ export function SearchPageClient({
           {hasActiveFilters && (
             <button
               onClick={handleClearFilters}
-              className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700"
+              className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 min-h-[44px] px-2"
             >
               <X className="w-3.5 h-3.5" />
               <span>Filtrlarni tozalash</span>
@@ -242,7 +242,7 @@ export function SearchPageClient({
             <select
               value={categorySlug}
               onChange={handleCategoryChange}
-              className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-600 bg-white"
+              className="w-full rounded-xl border border-slate-200 p-2.5 min-h-[44px] text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-600 bg-white"
             >
               <option value="">Barcha kategoriyalar</option>
               {categories.map((c) => (
@@ -259,7 +259,7 @@ export function SearchPageClient({
             <select
               value={regionSlug}
               onChange={handleRegionChange}
-              className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-600 bg-white"
+              className="w-full rounded-xl border border-slate-200 p-2.5 min-h-[44px] text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-600 bg-white"
             >
               <option value="">Barcha viloyatlar</option>
               {regions.map((r) => (
@@ -276,7 +276,7 @@ export function SearchPageClient({
               type="button"
               onClick={handleVerifiedToggle}
               className={clsx(
-                'w-full flex items-center justify-center gap-2 p-2.5 rounded-xl text-xs font-bold border transition-colors',
+                'w-full flex items-center justify-center gap-2 p-2.5 min-h-[44px] rounded-xl text-xs font-bold border transition-colors active:scale-95',
                 verifiedOnly
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
                   : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100',

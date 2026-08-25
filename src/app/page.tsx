@@ -148,25 +148,25 @@ export default async function HomePage() {
       />
 
       {/* High-Impact Hero Section */}
-      <section className="relative rounded-3xl bg-mesh-hero text-white p-6 sm:p-12 overflow-hidden shadow-2xl shadow-blue-900/20">
+      <section className="relative rounded-3xl bg-mesh-hero text-white p-5 sm:p-10 overflow-hidden shadow-2xl shadow-blue-900/20">
         <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-cyan-400/20 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
 
-        <div className="max-w-3xl mx-auto text-center space-y-6 relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-sm">
-            <Shield className="w-4 h-4 text-emerald-300" />
+        <div className="max-w-3xl mx-auto text-center space-y-4 sm:space-y-6 relative z-10">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white text-[11px] sm:text-xs font-bold shadow-xs">
+            <Shield className="w-4 h-4 text-emerald-300 flex-shrink-0" />
             <span>{totalOrganizations}+ ta tekshirilgan va tasdiqlangan aloqa manbalari</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
+          <h1 className="text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
             Kerakli tashkilotni tez toping
           </h1>
 
-          <p className="text-sky-100 text-sm sm:text-base max-w-xl mx-auto leading-relaxed font-medium">
+          <p className="text-sky-100 text-xs sm:text-base max-w-xl mx-auto leading-relaxed font-medium">
             Manbora — O‘zbekistondagi banklar, davlat idoralari, mobil operatorlar va favqulodda xizmatlarning rasmiy aloqa ma’lumotlari katalogi.
           </p>
 
-          <div className="pt-2">
+          <div className="pt-1 sm:pt-2">
             <RealtimeSearchBox
               size="large"
               placeholder="Tashkilot nomi, sohasi, shahar yoki telefon raqami..."
@@ -175,19 +175,19 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Static Prominent Emergency Numbers Banner (101, 102, 103, 104, 1050) */}
+      {/* Static Prominent Emergency Numbers Banner (Muhim qisqa raqamlar) */}
       <EmergencyNumbersBanner />
 
       {/* Popular Search Shortcuts Section */}
       <PopularSearchSection />
 
       {/* Category Grid */}
-      <section className="space-y-5">
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
               <span>Kategoriyalar bo‘yicha</span>
-              <Sparkles className="w-5 h-5 text-amber-500" />
+              <Sparkles className="w-4.5 h-4.5 text-amber-500" />
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Soha bo‘yicha kerakli tashkilotni tanlang</p>
           </div>
@@ -200,7 +200,7 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {categories.slice(0, 8).map((cat) => {
             const theme = categoryThemes[cat.slug] || {
               bg: 'bg-gradient-to-br from-blue-50 to-sky-100/70 hover:from-blue-100 hover:to-sky-200/80',
@@ -215,18 +215,18 @@ export default async function HomePage() {
               <Link
                 key={cat.slug}
                 href={`/categories/${cat.slug}`}
-                className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 flex items-center gap-3.5 group shadow-sm ${theme.bg} ${theme.border}`}
+                className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 flex items-center gap-3 group shadow-2xs ${theme.bg} ${theme.border}`}
               >
                 <div
-                  className={`w-11 h-11 rounded-2xl ${theme.iconBg} flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform`}
+                  className={`w-10 h-10 rounded-xl ${theme.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform`}
                 >
-                  <IconComponent className="w-5.5 h-5.5" />
+                  <IconComponent className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-extrabold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">
+                  <h3 className="font-extrabold text-slate-900 text-xs sm:text-sm truncate group-hover:text-blue-700 transition-colors">
                     {cat.name}
                   </h3>
-                  <span className="text-[11px] text-slate-500 font-bold">
+                  <span className="text-[11px] text-slate-500 font-bold block truncate">
                     {cat.organization_count || 0} ta tashkilot
                   </span>
                 </div>
@@ -237,12 +237,12 @@ export default async function HomePage() {
       </section>
 
       {/* Featured Organizations */}
-      <section className="space-y-5">
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
               <span>Tasdiqlangan Tashkilotlar</span>
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600" />
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
               Eng ko‘p murojaat qilinadigan muassasalar va birgina bosishda aloqa
@@ -252,7 +252,7 @@ export default async function HomePage() {
             href="/search"
             className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group"
           >
-            <span>Barcha tashkilotlar</span>
+            <span>Barchasi</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>

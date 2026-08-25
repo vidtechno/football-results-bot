@@ -78,8 +78,8 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
   }
 
   return (
-    <div className="app-card p-5 flex flex-col justify-between group relative">
-      <div className="space-y-3.5">
+    <div className="app-card p-4 sm:p-5 flex flex-col justify-between group relative">
+      <div className="space-y-3">
         {/* Header Badges & Category */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           {category ? (
@@ -108,7 +108,7 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
         </div>
 
         {/* Logo & Org Name */}
-        <div className="flex items-start gap-3.5">
+        <div className="flex items-start gap-3">
           <OrganizationAvatar
             name={organization.name}
             logoUrl={organization.logo_url}
@@ -117,10 +117,10 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
             size="md"
           />
 
-          <div className="space-y-1 min-w-0">
+          <div className="space-y-0.5 min-w-0 flex-1">
             <Link
               href={`/organizations/${organization.slug}`}
-              className="font-extrabold text-slate-900 text-base group-hover:text-blue-600 transition-colors line-clamp-1"
+              className="font-extrabold text-slate-900 text-sm sm:text-base group-hover:text-blue-600 transition-colors line-clamp-1 leading-snug"
             >
               {organization.name}
             </Link>
@@ -142,17 +142,17 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
       </div>
 
       {/* Primary Call CTA, Copy button, & Secondary Batafsil link */}
-      <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+      <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
         {phoneFormatted ? (
-          <div className="flex items-center gap-1.5 flex-1">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <a
               href={phoneFormatted.href}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 font-extrabold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 font-extrabold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all min-h-[44px] truncate"
             >
-              <Phone className="w-3.5 h-3.5" />
-              <span>{phoneFormatted.display}</span>
+              <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{phoneFormatted.display}</span>
             </a>
-            <CopyButton textToCopy={primaryContact!.phone_number} />
+            <CopyButton textToCopy={primaryContact!.phone_number} showLabel={false} label="Nusxalash" className="bg-white min-h-[44px] min-w-[44px] flex-shrink-0" />
           </div>
         ) : (
           <span className="text-xs text-slate-400 font-medium">Raqam yo‘q</span>
@@ -160,7 +160,7 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
 
         <Link
           href={`/organizations/${organization.slug}`}
-          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-slate-100 transition-all flex-shrink-0"
+          className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-slate-100 transition-all flex-shrink-0 min-h-[44px]"
         >
           <span>Batafsil</span>
           <ChevronRight className="w-3.5 h-3.5" />

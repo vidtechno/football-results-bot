@@ -41,7 +41,7 @@ export function OrganizationAvatar({
   const sizeClasses = {
     sm: 'w-9 h-9 text-xs rounded-xl',
     md: 'w-12 h-12 text-sm rounded-2xl',
-    lg: 'w-14 h-14 sm:w-20 sm:h-20 text-base sm:text-xl rounded-2xl',
+    lg: 'w-14 h-14 sm:w-16 sm:h-16 text-base sm:text-lg rounded-2xl',
   };
 
   const iconSizes = {
@@ -53,7 +53,7 @@ export function OrganizationAvatar({
   const pixelDimensions = {
     sm: 36,
     md: 48,
-    lg: 80,
+    lg: 64,
   };
 
   // Determine fallback icon & background theme

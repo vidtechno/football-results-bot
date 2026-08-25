@@ -20,18 +20,18 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 glass-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Manbora Brand Logo Mark */}
-          <Link href="/" className="flex items-center gap-3 group" aria-label="Manbora Bosh Sahifa">
-            <div className="relative w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-700 via-blue-600 to-cyan-500 flex items-center justify-center text-white font-black shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform duration-200">
-              <Layers className="w-5 h-5" />
-              <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white animate-pulse" />
+          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group min-w-0" aria-label="Manbora Bosh Sahifa">
+            <div className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-blue-700 via-blue-600 to-cyan-500 flex items-center justify-center text-white font-black shadow-md shadow-blue-600/30 group-hover:scale-105 transition-transform duration-200 flex-shrink-0">
+              <Layers className="w-5.5 h-5.5 sm:w-6 sm:h-6" />
+              <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white animate-pulse" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+            <div className="flex flex-col min-w-0 justify-center">
+              <span className="text-[24px] sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
                 Manbora
               </span>
-              <span className="text-[10px] text-blue-600 tracking-widest uppercase font-extrabold">
+              <span className="text-[10px] text-blue-600 tracking-wide font-extrabold uppercase leading-tight pt-0.5 truncate">
                 Mustaqil Aloqa Katalogi
               </span>
             </div>
@@ -50,7 +50,7 @@ export function Navbar() {
                   className={clsx(
                     'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200',
                     isActive
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200/80 shadow-sm'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200/80 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70',
                   )}
                 >
@@ -62,7 +62,7 @@ export function Navbar() {
           </nav>
 
           {/* Desktop CTA Action Button & Mobile Compact Action */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0">
             <Link
               href="/search"
               className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md shadow-blue-600/25 active:scale-95 transition-all"
@@ -74,7 +74,7 @@ export function Navbar() {
             {/* Mobile Top Compact Search Button */}
             <Link
               href="/search"
-              className="sm:hidden p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold"
+              className="sm:hidden w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold active:scale-95 transition-all"
               aria-label="Tashkilotlarni qidirish"
             >
               <Search className="w-5 h-5" />

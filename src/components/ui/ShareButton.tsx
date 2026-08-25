@@ -52,7 +52,7 @@ export function ShareButton({ title, url, description }: ShareButtonProps) {
       <button
         type="button"
         onClick={handleNativeShare}
-        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-extrabold text-xs transition-colors"
+        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-extrabold text-xs transition-colors min-h-[44px] active:scale-95 flex-shrink-0"
       >
         <Share2 className="w-4 h-4" />
         <span>Ulashish</span>

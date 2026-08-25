@@ -294,14 +294,237 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
   }
 }
 
+export interface PaginatedResult<T> {
+  data: T[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+  startIndex: number;
+  endIndex: number;
+}
+
 /**
- * Fetch home page dataset
+ * Pure calculation helper for pagination bounds & ranges
+ */
+export function calculatePagination(totalCount: number, requestedPage: number, pageSize: number = 20) {
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const validRequestedPage = Number.isInteger(requestedPage) ? requestedPage : 1;
+  const currentPage = Math.min(Math.max(1, validRequestedPage), totalPages);
+  const startIndex = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endIndex = Math.min(currentPage * pageSize, totalCount);
+
+  return {
+    totalPages,
+    currentPage,
+    startIndex,
+    endIndex,
+    pageSize,
+    totalCount,
+  };
+}
+
+/**
+ * Pure popularity calculator function for raw events
+ * Aggregates unique visitor hashes per published organization
+ */
+export function computePopularityScores(
+  events: Array<{ organization_id: number; visitor_hash: string; event_type?: string }>,
+  publishedOrgs: Organization[],
+  limit: number = 5,
+): Organization[] {
+  if (!events || events.length === 0 || !publishedOrgs || publishedOrgs.length === 0) {
+    return [];
+  }
+
+  const publishedMap = new Map<number, Organization>();
+  publishedOrgs.forEach((o) => {
+    if (o.status === 'published') {
+      publishedMap.set(o.id, o);
+    }
+  });
+
+  const visitorSetMap = new Map<number, Set<string>>();
+  events.forEach((ev) => {
+    if (publishedMap.has(ev.organization_id) && ev.visitor_hash) {
+      if (!visitorSetMap.has(ev.organization_id)) {
+        visitorSetMap.set(ev.organization_id, new Set());
+      }
+      visitorSetMap.get(ev.organization_id)!.add(ev.visitor_hash);
+    }
+  });
+
+  const scoredOrgs: Array<{ org: Organization; score: number }> = [];
+  visitorSetMap.forEach((visitors, orgId) => {
+    const org = publishedMap.get(orgId);
+    if (org) {
+      scoredOrgs.push({
+        org,
+        score: visitors.size,
+      });
+    }
+  });
+
+  scoredOrgs.sort((a, b) => b.score - a.score || a.org.name.localeCompare(b.org.name));
+
+  return scoredOrgs.slice(0, limit).map((s) => s.org);
+}
+
+/**
+ * Fetch top popular published organizations calculated from unique visitor behavior in the last N days
+ */
+export async function getPopularOrganizations(limit: number = 5, days: number = 30): Promise<Organization[]> {
+  try {
+    const supabase = createAdminClient();
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: events, error: eventsError } = await supabase
+      .from('organization_popularity_events')
+      .select('organization_id, visitor_hash, event_type')
+      .gte('created_at', startDate);
+
+    if (eventsError || !events || events.length === 0) {
+      return [];
+    }
+
+    const { data: orgs, error: orgsError } = await supabase
+      .from('organizations')
+      .select(`
+        *,
+        category:categories(*),
+        region:regions(*),
+        contacts:organization_contacts(*),
+        emails:organization_emails(*),
+        social_links:organization_social_links(*),
+        locations:organization_locations(*),
+        digital_services:organization_digital_services(*)
+      `)
+      .eq('status', 'published');
+
+    if (orgsError || !orgs) return [];
+
+    const fullOrgs = orgs.map((o: any) => ({
+      ...o,
+      contacts: deduplicateContacts(o.contacts),
+      emails: deduplicateEmails(o.emails),
+      digital_services: deduplicateDigitalServices(o.digital_services),
+    })) as Organization[];
+
+    return computePopularityScores(events, fullOrgs, limit);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Server-side paginated organizations by category
+ */
+export async function getCategoryOrganizationsPaginated(
+  categorySlug: string,
+  requestedPage: number = 1,
+  pageSize: number = 20,
+): Promise<PaginatedResult<Organization> & { category: Category | null }> {
+  try {
+    const category = await getCategoryBySlug(categorySlug);
+    if (!category) {
+      return {
+        data: [],
+        category: null,
+        totalCount: 0,
+        totalPages: 1,
+        currentPage: 1,
+        pageSize,
+        startIndex: 0,
+        endIndex: 0,
+      };
+    }
+
+    const supabase = createAdminClient();
+
+    // Count total published items in this category
+    const { count, error: countError } = await supabase
+      .from('organizations')
+      .select('id', { count: 'exact' })
+      .eq('category_id', category.id)
+      .eq('status', 'published');
+
+    const totalCount = countError || count === null ? 0 : count;
+    const pagination = calculatePagination(totalCount, requestedPage, pageSize);
+
+    if (totalCount === 0) {
+      return {
+        data: [],
+        category,
+        ...pagination,
+      };
+    }
+
+    // Server-side range query with stable multi-column ordering
+    const fromIndex = (pagination.currentPage - 1) * pageSize;
+    const toIndex = fromIndex + pageSize - 1;
+
+    const { data: orgs, error: dataError } = await supabase
+      .from('organizations')
+      .select(`
+        *,
+        category:categories(*),
+        region:regions(*),
+        contacts:organization_contacts(*),
+        emails:organization_emails(*),
+        social_links:organization_social_links(*),
+        locations:organization_locations(*),
+        digital_services:organization_digital_services(*)
+      `)
+      .eq('category_id', category.id)
+      .eq('status', 'published')
+      .order('is_verified', { ascending: false })
+      .order('updated_at', { ascending: false })
+      .order('name', { ascending: true })
+      .range(fromIndex, toIndex);
+
+    if (dataError || !orgs) {
+      return {
+        data: [],
+        category,
+        ...pagination,
+      };
+    }
+
+    const cleanedOrgs = orgs.map((o: any) => ({
+      ...o,
+      contacts: deduplicateContacts(o.contacts),
+      emails: deduplicateEmails(o.emails),
+      digital_services: deduplicateDigitalServices(o.digital_services),
+    })) as Organization[];
+
+    return {
+      data: cleanedOrgs,
+      category,
+      ...pagination,
+    };
+  } catch {
+    return {
+      data: [],
+      category: null,
+      totalCount: 0,
+      totalPages: 1,
+      currentPage: 1,
+      pageSize,
+      startIndex: 0,
+      endIndex: 0,
+    };
+  }
+}
+
+/**
+ * Fetch home page dataset with real popular organizations
  */
 export async function getHomeData() {
-  const [categories, regions, featuredOrgs, totalOrgs, totalServices] = await Promise.all([
+  const [categories, regions, featuredOrgs, popularOrgs, totalOrgs, totalServices] = await Promise.all([
     getCategories(),
     getRegions(),
     searchOrganizations({ limit: 12 }),
+    getPopularOrganizations(5, 30),
     createAdminClient().from('organizations').select('id', { count: 'exact' }).eq('status', 'published'),
     createAdminClient().from('organization_digital_services').select('id', { count: 'exact' }),
   ]);
@@ -310,6 +533,7 @@ export async function getHomeData() {
     categories,
     regions,
     featuredOrgs,
+    popularOrgs,
     totalOrganizations: totalOrgs.count || featuredOrgs.length,
     totalDigitalServices: totalServices.count || 0,
   };

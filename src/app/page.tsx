@@ -120,7 +120,7 @@ const categoryThemes: Record<
 };
 
 export default async function HomePage() {
-  const { categories, regions, featuredOrgs, totalOrganizations } = await getHomeData();
+  const { categories, regions, featuredOrgs, popularOrgs, totalOrganizations } = await getHomeData();
 
   // WebSite + SearchAction JSON-LD Structured Data
   const jsonLd = {
@@ -179,7 +179,7 @@ export default async function HomePage() {
       <EmergencyNumbersBanner />
 
       {/* Popular Search Shortcuts Section */}
-      <PopularSearchSection />
+      <PopularSearchSection organizations={popularOrgs} />
 
       {/* Category Grid */}
       <section className="space-y-4">

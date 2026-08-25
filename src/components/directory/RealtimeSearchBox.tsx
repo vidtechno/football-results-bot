@@ -7,6 +7,7 @@ import { formatPhoneNumber } from '@/lib/utils/formatters';
 import { OrganizationAvatar } from '@/components/ui/OrganizationAvatar';
 import { Search, X, Loader2, CheckCircle2, Phone, MapPin, ArrowRight, Building2, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
+import { trackEvent } from '@/lib/utils/analytics';
 
 interface RealtimeSearchBoxProps {
   initialValue?: string;
@@ -94,7 +95,10 @@ export function RealtimeSearchBox({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelectOrg = useCallback((slug: string) => {
+  const handleSelectOrg = useCallback((slug: string, orgId?: number) => {
+    if (orgId) {
+      trackEvent(orgId, 'search_select');
+    }
     setIsOpen(false);
     router.push(`/organizations/${slug}`);
   }, [router]);
@@ -103,7 +107,7 @@ export function RealtimeSearchBox({
     if (e) e.preventDefault();
     const trimmed = query.trim();
     if (selectedIndex >= 0 && results[selectedIndex]) {
-      handleSelectOrg(results[selectedIndex].slug);
+      handleSelectOrg(results[selectedIndex].slug, results[selectedIndex].id);
     } else if (trimmed) {
       setIsOpen(false);
       router.push(`/search?q=${encodeURIComponent(trimmed)}`);
@@ -230,7 +234,7 @@ export function RealtimeSearchBox({
                   <button
                     key={org.slug}
                     type="button"
-                    onClick={() => handleSelectOrg(org.slug)}
+                    onClick={() => handleSelectOrg(org.slug, org.id)}
                     onMouseEnter={() => setSelectedIndex(index)}
                     className={clsx(
                       'w-full p-3.5 flex items-center justify-between gap-3 text-left transition-all',

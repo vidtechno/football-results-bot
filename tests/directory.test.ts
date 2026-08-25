@@ -6,7 +6,8 @@ import {
   formatUzbekDate,
 } from '../src/lib/utils/formatters';
 import { isNewlyVerified, getTelegramShareUrl, getWhatsappShareUrl } from '../src/lib/utils/badges';
-import { ReportSchema, SuggestionSchema, DigitalService, Contact, OrganizationEmail } from '../src/lib/types/directory';
+import { ReportSchema, SuggestionSchema, DigitalService, Contact, OrganizationEmail, Organization } from '../src/lib/types/directory';
+import { computePopularityScores, calculatePagination } from '../src/lib/db/directory';
 
 describe('Manbora Directory & Digital Services Utilities', () => {
   it('normalizes search terms accurately', () => {
@@ -122,3 +123,95 @@ describe('Manbora Directory & Digital Services Utilities', () => {
     expect(mockEmail.is_verified).toBe(true);
   });
 });
+
+describe('Real Popularity Scoring & Unique-Visitor Protection', () => {
+  const publishedOrgs: Organization[] = [
+    { id: 1, slug: 'nbu', name: 'O‘zmilliybank', status: 'published', is_verified: true, created_at: '', updated_at: '' },
+    { id: 2, slug: 'sqb', name: 'Sanoat Qurilish Bank', status: 'published', is_verified: true, created_at: '', updated_at: '' },
+    { id: 3, slug: 'draft-org', name: 'Loyiha Tashkilot', status: 'draft', is_verified: false, created_at: '', updated_at: '' },
+  ];
+
+  it('calculates popularity scores based on unique visitor hashes and filters non-published orgs', () => {
+    const events = [
+      // Visitor A clicks NBU 3 times (should count as 1 unique visitor)
+      { organization_id: 1, visitor_hash: 'visitor_hash_A', event_type: 'profile_open' },
+      { organization_id: 1, visitor_hash: 'visitor_hash_A', event_type: 'card_click' },
+      { organization_id: 1, visitor_hash: 'visitor_hash_A', event_type: 'search_select' },
+
+      // Visitor B & C click SQB (should count as 2 unique visitors)
+      { organization_id: 2, visitor_hash: 'visitor_hash_B', event_type: 'profile_open' },
+      { organization_id: 2, visitor_hash: 'visitor_hash_C', event_type: 'profile_open' },
+
+      // Visitor D clicks draft org (should be ignored since org is draft)
+      { organization_id: 3, visitor_hash: 'visitor_hash_D', event_type: 'profile_open' },
+    ];
+
+    const results = computePopularityScores(events, publishedOrgs, 5);
+
+    expect(results).toHaveLength(2);
+    expect(results[0].slug).toBe('sqb'); // 2 unique visitors
+    expect(results[1].slug).toBe('nbu'); // 1 unique visitor
+    expect(results.some((o) => o.slug === 'draft-org')).toBe(false);
+  });
+
+  it('returns an empty array when no events exist and never returns fake fallback items', () => {
+    const results = computePopularityScores([], publishedOrgs, 5);
+    expect(results).toHaveLength(0);
+    expect(results).toEqual([]);
+  });
+});
+
+describe('Category 20-Item Server-Side Pagination Logic', () => {
+  it('calculates 20-item pagination boundaries for Page 1, Page 2, and final page', () => {
+    // 45 items in total, 20 items per page => 3 pages total
+    const totalCount = 45;
+
+    // Page 1
+    const p1 = calculatePagination(totalCount, 1, 20);
+    expect(p1.totalPages).toBe(3);
+    expect(p1.currentPage).toBe(1);
+    expect(p1.startIndex).toBe(1);
+    expect(p1.endIndex).toBe(20);
+
+    // Page 2
+    const p2 = calculatePagination(totalCount, 2, 20);
+    expect(p2.currentPage).toBe(2);
+    expect(p2.startIndex).toBe(21);
+    expect(p2.endIndex).toBe(40);
+
+    // Page 3 (Final Page)
+    const p3 = calculatePagination(totalCount, 3, 20);
+    expect(p3.currentPage).toBe(3);
+    expect(p3.startIndex).toBe(41);
+    expect(p3.endIndex).toBe(45);
+  });
+
+  it('safely handles invalid or out-of-range requested page numbers', () => {
+    const totalCount = 35; // 2 pages total (1-20, 21-35)
+
+    // Out of range upper bound (requested page 99 -> clamped to max page 2)
+    const pUpper = calculatePagination(totalCount, 99, 20);
+    expect(pUpper.currentPage).toBe(2);
+    expect(pUpper.startIndex).toBe(21);
+    expect(pUpper.endIndex).toBe(35);
+
+    // Out of range lower bound (requested page 0 or -5 -> clamped to min page 1)
+    const pLower = calculatePagination(totalCount, -5, 20);
+    expect(pLower.currentPage).toBe(1);
+    expect(pLower.startIndex).toBe(1);
+    expect(pLower.endIndex).toBe(20);
+
+    // NaN / invalid requested page -> defaults to page 1
+    const pNaN = calculatePagination(totalCount, NaN, 20);
+    expect(pNaN.currentPage).toBe(1);
+  });
+
+  it('handles empty category results accurately', () => {
+    const pEmpty = calculatePagination(0, 1, 20);
+    expect(pEmpty.totalPages).toBe(1);
+    expect(pEmpty.currentPage).toBe(1);
+    expect(pEmpty.startIndex).toBe(0);
+    expect(pEmpty.endIndex).toBe(0);
+  });
+});
+

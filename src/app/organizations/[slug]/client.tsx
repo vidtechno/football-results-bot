@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { ReportModal } from '@/components/directory/ReportModal';
+import { trackEvent } from '@/lib/utils/analytics';
 
 interface OrganizationDetailClientProps {
   organizationId: number;
@@ -14,6 +15,12 @@ export function OrganizationDetailClient({
   organizationName,
 }: OrganizationDetailClientProps) {
   const [reportModalOpen, setReportModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (organizationId) {
+      trackEvent(organizationId, 'profile_open');
+    }
+  }, [organizationId]);
 
   return (
     <>

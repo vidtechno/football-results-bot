@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { Organization } from '@/lib/types/directory';
@@ -5,6 +7,7 @@ import { formatPhoneNumber } from '@/lib/utils/formatters';
 import { isNewlyVerified } from '@/lib/utils/badges';
 import { OrganizationAvatar } from '@/components/ui/OrganizationAvatar';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { trackEvent } from '@/lib/utils/analytics';
 import { Phone, CheckCircle2, MapPin, ChevronRight, Sparkles } from 'lucide-react';
 
 interface OrganizationCardProps {
@@ -24,6 +27,10 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
   const isCompact = variant === 'compact';
   const newlyVerified = isNewlyVerified(organization.last_verified_at);
 
+  const handleCardClick = () => {
+    trackEvent(organization.id, 'card_click');
+  };
+
   if (isCompact) {
     return (
       <div className="app-card p-4 flex items-center justify-between gap-3 group">
@@ -40,6 +47,7 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
             <div className="flex items-center gap-1.5">
               <Link
                 href={`/organizations/${organization.slug}`}
+                onClick={handleCardClick}
                 className="font-extrabold text-slate-900 text-sm group-hover:text-blue-600 transition-colors truncate"
               >
                 {organization.name}
@@ -67,6 +75,7 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
           ) : (
             <Link
               href={`/organizations/${organization.slug}`}
+              onClick={handleCardClick}
               className="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200"
             >
               Batafsil
@@ -120,6 +129,7 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
           <div className="space-y-0.5 min-w-0 flex-1">
             <Link
               href={`/organizations/${organization.slug}`}
+              onClick={handleCardClick}
               className="font-extrabold text-slate-900 text-sm sm:text-base group-hover:text-blue-600 transition-colors line-clamp-1 leading-snug"
             >
               {organization.name}
@@ -160,6 +170,7 @@ export function OrganizationCard({ organization, variant = 'normal' }: Organizat
 
         <Link
           href={`/organizations/${organization.slug}`}
+          onClick={handleCardClick}
           className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-slate-100 transition-all flex-shrink-0 min-h-[44px]"
         >
           <span>Batafsil</span>

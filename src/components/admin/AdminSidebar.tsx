@@ -16,6 +16,7 @@ import {
   LogOut,
   ShieldCheck,
   Zap,
+  TrendingUp,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -40,6 +41,7 @@ export function AdminSidebar({ username = 'diyoration', role = 'owner' }: AdminS
 
   const navItems = [
     { label: 'Boshqaruv paneli', href: '/diyoration/dashboard', icon: LayoutDashboard },
+    { label: 'Qidiruv & Tahlillar', href: '/diyoration/analytics', icon: TrendingUp },
     { label: 'Tashkilotlar reestri', href: '/diyoration/organizations', icon: Building2 },
     { label: 'Kategoriyalar', href: '/diyoration/categories', icon: FolderTree },
     { label: 'Viloyatlar / Hududlar', href: '/diyoration/regions', icon: MapPin },

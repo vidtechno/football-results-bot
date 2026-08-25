@@ -2,12 +2,13 @@ import React from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getOrganizationBySlug } from '@/lib/db/directory';
+import { getOrganizationBySlug, formatWorkingStatus, formatFreshnessLabel } from '@/lib/db/directory';
 import { formatPhoneNumber, formatUzbekDate } from '@/lib/utils/formatters';
 import { isNewlyVerified } from '@/lib/utils/badges';
 import { OrganizationDetailClient } from './client';
 import { DigitalServicesSection } from '@/components/directory/DigitalServicesSection';
 import { OrganizationAvatar } from '@/components/ui/OrganizationAvatar';
+import { OrganizationCard } from '@/components/directory/OrganizationCard';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { ShareButton } from '@/components/ui/ShareButton';
 import {
@@ -30,6 +31,7 @@ import {
   Briefcase,
   AlertTriangle,
   Sparkles,
+  GitBranch,
 } from 'lucide-react';
 
 interface OrganizationDetailProps {
@@ -88,10 +90,13 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
   const socialLinks = org.social_links || [];
   const locations = org.locations || [];
   const digitalServices = org.digital_services || [];
+  const branches = org.branches || [];
 
   const primaryContact = contacts.find((c) => c.is_primary) || contacts[0];
   const primaryPhoneObj = primaryContact ? formatPhoneNumber(primaryContact.phone_number) : null;
   const newlyVerified = isNewlyVerified(org.last_verified_at);
+  const workingStatus = formatWorkingStatus(org.working_schedule, org.is_24_7);
+  const freshnessText = formatFreshnessLabel(org.updated_at);
 
   const fullUrl = `https://manbora.uz/organizations/${org.slug}`;
 
@@ -142,6 +147,24 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
         </div>
       </div>
 
+      {/* Parent Organization Link if this is a branch */}
+      {org.is_branch && org.parent_org && (
+        <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200/80 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <GitBranch className="w-4 h-4 text-purple-600 flex-shrink-0" />
+            <span className="text-xs font-bold text-purple-900 truncate">
+              Asosiy bosh tashkilot: <strong>{org.parent_org.name}</strong>
+            </span>
+          </div>
+          <Link
+            href={`/organizations/${org.parent_org.slug}`}
+            className="px-3 py-1.5 rounded-xl bg-purple-600 text-white font-extrabold text-xs shadow-xs hover:bg-purple-700 transition-all flex-shrink-0 min-h-[36px] flex items-center"
+          >
+            Bosh ofisni ko‘rish
+          </Link>
+        </div>
+      )}
+
       {/* Visually Strong Profile Hero Card */}
       <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-md shadow-blue-950/5 space-y-4 relative overflow-hidden">
         <div className="flex items-start gap-3.5 sm:gap-5 min-w-0 w-full">
@@ -160,6 +183,13 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
 
             {/* Compact Inline Metadata Badges */}
             <div className="flex items-center gap-1.5 flex-wrap text-xs pt-0.5">
+              {workingStatus.label && (
+                <span className={`inline-flex items-center gap-1 font-extrabold px-2.5 py-0.5 rounded-md border text-[11px] sm:text-xs ${workingStatus.textClass}`}>
+                  <Clock className="w-3 h-3" />
+                  <span>{workingStatus.label}</span>
+                </span>
+              )}
+
               {org.is_verified && (
                 <span className="inline-flex items-center gap-1 font-black px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] sm:text-xs">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600 flex-shrink-0" />
@@ -187,18 +217,6 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
                 <span className="inline-flex items-center gap-1 font-semibold text-slate-600 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/80 text-[11px] sm:text-xs">
                   <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
                   <span>{region.name}</span>
-                </span>
-              )}
-
-              {org.organization_type === 'bank' && (
-                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-extrabold border border-amber-200/80 text-[11px] sm:text-xs">
-                  Tijorat Banki
-                </span>
-              )}
-
-              {org.organization_type === 'government' && (
-                <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-extrabold border border-indigo-200/80 text-[11px] sm:text-xs">
-                  Davlat Organi
                 </span>
               )}
             </div>
@@ -242,11 +260,13 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
           </div>
         )}
 
-        {/* Verification & Official Source Link */}
+        {/* Verification & Freshness Indicator */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-slate-500 gap-2 pt-3 border-t border-slate-100 font-medium">
-          <span className="flex items-center gap-1 text-[11px] sm:text-xs">
+          <span className="flex items-center gap-1.5 text-[11px] sm:text-xs">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            Oxirgi tekshirildi: <strong className="text-slate-900">{formatUzbekDate(org.last_verified_at || org.updated_at)}</strong>
+            <span>{freshnessText}</span>
+            <span className="text-slate-300">•</span>
+            <strong className="text-slate-900">{formatUzbekDate(org.last_verified_at || org.updated_at)}</strong>
           </span>
 
           {org.source_url && (
@@ -263,6 +283,27 @@ export default async function OrganizationDetailPage({ params }: OrganizationDet
           )}
         </div>
       </div>
+
+      {/* Branches Section if this organization has child offices */}
+      {branches.length > 0 && (
+        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
+              <GitBranch className="w-5 h-5 text-purple-600" />
+              <span>Filiallar va hududiy bo‘limlar</span>
+            </h2>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+              {branches.length} ta filial
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {branches.map((branch) => (
+              <OrganizationCard key={branch.id} organization={branch} variant="compact" />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Digital Services Section */}
       <DigitalServicesSection

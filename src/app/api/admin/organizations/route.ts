@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = createAdminClient();
     const body = await req.json();
-    const { name, category_id, region_id, organization_type, description, website_url, source_url, source_name } = body;
+    const { name, category_id, region_id, organization_type, description, website_url, source_url, source_name, parent_id, is_branch, branch_type, working_schedule, is_24_7, latitude, longitude } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Tashkilot nomi kiritilishi shart' }, { status: 400 });
@@ -35,6 +35,13 @@ export async function POST(req: NextRequest) {
           website_url: website_url?.trim() || null,
           source_url: source_url?.trim() || null,
           source_name: source_name?.trim() || null,
+          parent_id: parent_id ? Number(parent_id) : null,
+          is_branch: Boolean(is_branch),
+          branch_type: branch_type || 'main',
+          working_schedule: working_schedule || null,
+          is_24_7: Boolean(is_24_7),
+          latitude: latitude ? Number(latitude) : null,
+          longitude: longitude ? Number(longitude) : null,
           is_verified: true,
           verification_status: 'verified',
           status: 'published',
@@ -65,7 +72,7 @@ export async function PUT(req: NextRequest) {
   try {
     const supabase = createAdminClient();
     const body = await req.json();
-    const { id, name, slug, description, category_id, region_id, organization_type, website_url, source_url, source_name, status, is_verified, verification_status, contacts, emails, digital_services, social_links, locations } = body;
+    const { id, name, slug, description, category_id, region_id, organization_type, website_url, source_url, source_name, status, is_verified, verification_status, contacts, emails, digital_services, social_links, locations, parent_id, is_branch, branch_type, working_schedule, is_24_7, latitude, longitude, aliases, service_keywords } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Tashkilot ID tanlanmagan' }, { status: 400 });
@@ -88,6 +95,13 @@ export async function PUT(req: NextRequest) {
     if (status) updatePayload.status = status;
     if (is_verified !== undefined) updatePayload.is_verified = is_verified;
     if (verification_status) updatePayload.verification_status = verification_status;
+    if (parent_id !== undefined) updatePayload.parent_id = parent_id ? Number(parent_id) : null;
+    if (is_branch !== undefined) updatePayload.is_branch = Boolean(is_branch);
+    if (branch_type) updatePayload.branch_type = branch_type;
+    if (working_schedule !== undefined) updatePayload.working_schedule = working_schedule;
+    if (is_24_7 !== undefined) updatePayload.is_24_7 = Boolean(is_24_7);
+    if (latitude !== undefined) updatePayload.latitude = latitude ? Number(latitude) : null;
+    if (longitude !== undefined) updatePayload.longitude = longitude ? Number(longitude) : null;
 
     const { error: orgErr } = await supabase.from('organizations').update(updatePayload).eq('id', id);
     if (orgErr) {
@@ -125,7 +139,6 @@ export async function PUT(req: NextRequest) {
             sort_order: idx + 1,
           }));
 
-        // Deduplicate rows by email to prevent unique constraint error
         const seenEmails = new Set<string>();
         const uniqueEmailRows = emailRows.filter((row: any) => {
           if (seenEmails.has(row.email)) return false;
@@ -158,7 +171,7 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // 4. Sync Social Links if provided
+    // 5. Sync Social Links if provided
     if (Array.isArray(social_links)) {
       await supabase.from('organization_social_links').delete().eq('organization_id', id);
       if (social_links.length > 0) {
@@ -171,7 +184,7 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // 5. Sync Locations if provided
+    // 6. Sync Locations if provided
     if (Array.isArray(locations)) {
       await supabase.from('organization_locations').delete().eq('organization_id', id);
       if (locations.length > 0) {
@@ -182,6 +195,46 @@ export async function PUT(req: NextRequest) {
           working_hours: l.working_hours || null,
         }));
         await supabase.from('organization_locations').insert(locRows);
+      }
+    }
+
+    // 7. Sync Aliases if provided
+    if (Array.isArray(aliases)) {
+      await supabase.from('organization_aliases').delete().eq('organization_id', id);
+      if (aliases.length > 0) {
+        const seenAliases = new Set<string>();
+        const aliasRows = aliases
+          .filter((a: any) => (typeof a === 'string' ? a.trim() : a.alias && a.alias.trim()))
+          .map((a: any) => ({
+            organization_id: id,
+            alias: (typeof a === 'string' ? a : a.alias).trim(),
+          }))
+          .filter((a: any) => {
+            if (seenAliases.has(a.alias.toLowerCase())) return false;
+            seenAliases.add(a.alias.toLowerCase());
+            return true;
+          });
+
+        if (aliasRows.length > 0) {
+          await supabase.from('organization_aliases').insert(aliasRows);
+        }
+      }
+    }
+
+    // 8. Sync Service Keywords if provided
+    if (Array.isArray(service_keywords)) {
+      await supabase.from('organization_service_keywords').delete().eq('organization_id', id);
+      if (service_keywords.length > 0) {
+        const kwRows = service_keywords
+          .filter((sk: any) => sk.service_title && sk.service_title.trim())
+          .map((sk: any) => ({
+            organization_id: id,
+            service_title: sk.service_title.trim(),
+            keywords: Array.isArray(sk.keywords) ? sk.keywords : [],
+          }));
+        if (kwRows.length > 0) {
+          await supabase.from('organization_service_keywords').insert(kwRows);
+        }
       }
     }
 

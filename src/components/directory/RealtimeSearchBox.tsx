@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Organization } from '@/lib/types/directory';
 import { formatPhoneNumber } from '@/lib/utils/formatters';
 import { OrganizationAvatar } from '@/components/ui/OrganizationAvatar';
@@ -251,10 +252,15 @@ export function RealtimeSearchBox({
                       />
 
                       <div className="min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-extrabold text-slate-900 text-sm truncate">{org.name}</span>
                           {org.is_verified && (
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                          )}
+                          {org.match_reason && (
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200/80">
+                              {org.match_reason}
+                            </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
@@ -290,14 +296,24 @@ export function RealtimeSearchBox({
               </button>
             </div>
           ) : (
-            <div className="p-6 text-center space-y-2">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+            <div className="p-6 text-center space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-100">
                 <Building2 className="w-5 h-5" />
               </div>
-              <p className="text-sm font-bold text-slate-800">Bunday tashkilot topilmadi</p>
-              <p className="text-xs text-slate-500 max-w-xs mx-auto font-medium">
-                “{query}” so‘rovi bo‘yicha natija yo‘q. Boshqa kalit so‘z bilan sinab ko‘ring.
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm font-black text-slate-900">Kerakli tashkilot topilmadimi?</p>
+                <p className="text-xs text-slate-500 max-w-xs mx-auto font-medium">
+                  Uni Manbora’ga qo‘shishni taklif qiling.
+                </p>
+              </div>
+
+              <Link
+                href={`/search?q=${encodeURIComponent(query.trim())}`}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold shadow-md shadow-blue-600/20 transition-all min-h-[44px]"
+              >
+                <span>Tashkilot taklif qilish</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           )}
         </div>

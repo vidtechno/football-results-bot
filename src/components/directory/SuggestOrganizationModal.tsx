@@ -9,6 +9,7 @@ interface SuggestOrganizationModalProps {
   regions: Region[];
   isOpen: boolean;
   onClose: () => void;
+  initialName?: string;
 }
 
 export function SuggestOrganizationModal({
@@ -16,8 +17,9 @@ export function SuggestOrganizationModal({
   regions,
   isOpen,
   onClose,
+  initialName = '',
 }: SuggestOrganizationModalProps) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [categoryId, setCategoryId] = useState('');
   const [regionId, setRegionId] = useState('');
   const [cityDistrict, setCityDistrict] = useState('');
@@ -30,6 +32,12 @@ export function SuggestOrganizationModal({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    if (isOpen && initialName) {
+      setName(initialName);
+    }
+  }, [isOpen, initialName]);
 
   if (!isOpen) return null;
 

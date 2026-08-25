@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: errorMsg }, { status: 400 });
     }
 
-    const { organization_id, report_type, message } = parsed.data;
+    const { organization_id, report_type, message, target_contact } = parsed.data;
     const supabase = createAdminClient();
 
     // 1. Fetch organization name for notification summary
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
           organization_id,
           report_type,
           message: message.trim(),
+          target_contact: target_contact || null,
           status: 'pending',
         },
       ])
@@ -45,11 +46,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Create server-side admin notification
+    const notificationTitle = report_type === 'contact_issue'
+      ? 'Raqam ishlamasligi haqida xabar'
+      : 'Yangi Tuzatish Xabari';
+
+    const detailText = target_contact ? `Raqam: ${target_contact} — ${message}` : message;
+
     await supabase.from('admin_notifications').insert([
       {
         type: 'report',
-        title: 'Yangi Tuzatish Xabari',
-        summary: `“${orgName}” bo‘yicha xabar kelib tushdi: ${message.slice(0, 60)}...`,
+        title: notificationTitle,
+        summary: `“${orgName}” bo‘yicha xabar: ${detailText.slice(0, 75)}...`,
         link_url: '/diyoration/reports',
         target_id: String(newReport.id),
         is_read: false,

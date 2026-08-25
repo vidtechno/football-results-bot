@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchOrganizations } from '@/lib/db/directory';
+import { searchOrganizations, recordSearchQuery } from '@/lib/db/directory';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
     const verifiedOnly = searchParams.get('verified') === 'true';
     const organizationType = searchParams.get('type') || undefined;
     const hasDigitalServicesOnly = searchParams.get('digital') === 'true';
+    const visitorId = req.headers.get('x-visitor-id') || searchParams.get('vid') || 'anon';
 
     const organizations = await searchOrganizations({
       query,
@@ -21,6 +22,10 @@ export async function GET(req: NextRequest) {
       organizationType,
       hasDigitalServicesOnly,
     });
+
+    if (query && query.trim().length >= 2) {
+      recordSearchQuery(query, organizations.length, visitorId).catch(() => {});
+    }
 
     return NextResponse.json({
       count: organizations.length,

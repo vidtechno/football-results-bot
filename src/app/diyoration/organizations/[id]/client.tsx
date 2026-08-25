@@ -75,6 +75,25 @@ export function EditOrganizationTabbedClient({
   // Locations State
   const [locations, setLocations] = useState<any[]>(organization.locations || []);
 
+  // Branch & Parent State
+  const [isBranch, setIsBranch] = useState(Boolean(organization.is_branch));
+  const [parentId, setParentId] = useState(organization.parent_id || '');
+  const [branchType, setBranchType] = useState(organization.branch_type || 'main');
+
+  // Aliases & Service Keywords State
+  const [aliases, setAliases] = useState<any[]>(
+    organization.aliases || [{ alias: '' }]
+  );
+  const [serviceKeywords, setServiceKeywords] = useState<any[]>(
+    organization.service_keywords || [{ service_title: '', keywords: [] }]
+  );
+
+  // Working Hours & Coordinates State
+  const [is247, setIs247] = useState(Boolean(organization.is_24_7));
+  const [workingSchedule, setWorkingSchedule] = useState<any>(organization.working_schedule || {});
+  const [latitude, setLatitude] = useState(organization.latitude || '');
+  const [longitude, setLongitude] = useState(organization.longitude || '');
+
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -102,11 +121,20 @@ export function EditOrganizationTabbedClient({
           is_verified: verificationStatus === 'verified',
           source_name: sourceName,
           source_url: sourceUrl,
+          parent_id: parentId ? Number(parentId) : null,
+          is_branch: isBranch,
+          branch_type: branchType,
+          is_24_7: is247,
+          working_schedule: workingSchedule,
+          latitude: latitude ? Number(latitude) : null,
+          longitude: longitude ? Number(longitude) : null,
           contacts,
           emails,
           digital_services: services,
           social_links: socialLinks,
           locations,
+          aliases: aliases.filter((a) => a.alias && a.alias.trim()),
+          service_keywords: serviceKeywords.filter((sk) => sk.service_title && sk.service_title.trim()),
         }),
       });
 

@@ -1,5 +1,50 @@
 import { z } from 'zod';
 
+export type BranchType = 'main' | 'branch' | 'regional_office' | 'district_office';
+
+export interface DaySchedule {
+  open?: string | null;
+  close?: string | null;
+  lunch_start?: string | null;
+  lunch_end?: string | null;
+  is_closed?: boolean;
+}
+
+export interface WorkingSchedule {
+  monday?: DaySchedule;
+  tuesday?: DaySchedule;
+  wednesday?: DaySchedule;
+  thursday?: DaySchedule;
+  friday?: DaySchedule;
+  saturday?: DaySchedule;
+  sunday?: DaySchedule;
+  note?: string | null;
+}
+
+export interface OrganizationAlias {
+  id: number;
+  organization_id: number;
+  alias: string;
+  created_at?: string;
+}
+
+export interface OrganizationServiceKeyword {
+  id: number;
+  organization_id: number;
+  service_title: string;
+  keywords: string[];
+  created_at?: string;
+}
+
+export interface SearchQueryAnalytic {
+  id: number;
+  query_text: string;
+  has_results: boolean;
+  result_count: number;
+  visitor_hash: string;
+  created_at: string;
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -78,6 +123,8 @@ export interface Organization {
   logo_url?: string | null;
   category_id?: number | null;
   region_id?: number | null;
+  city_district?: string | null;
+  address?: string | null;
   website_url?: string | null;
   is_verified: boolean;
   organization_type?: 'bank' | 'government' | 'public_service' | 'utility' | 'telecom' | 'private_service';
@@ -88,6 +135,21 @@ export interface Organization {
   last_verified_at?: string | null;
   created_at: string;
   updated_at: string;
+
+  // Branch & Location Coordinates
+  parent_id?: number | null;
+  is_branch?: boolean;
+  branch_type?: BranchType;
+  working_schedule?: WorkingSchedule | null;
+  is_24_7?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+
+  // Search Match Context (Runtime)
+  match_reason?: string;
+  distance_km?: number;
+
+  // Joined Relations
   category?: Category | null;
   region?: Region | null;
   contacts?: Contact[];
@@ -95,13 +157,18 @@ export interface Organization {
   social_links?: SocialLink[];
   locations?: Location[];
   digital_services?: DigitalService[];
+  aliases?: OrganizationAlias[];
+  service_keywords?: OrganizationServiceKeyword[];
+  branches?: Organization[];
+  parent_org?: Organization | null;
 }
 
 export interface OrganizationReport {
   id?: number;
   organization_id: number;
-  report_type: 'wrong_phone' | 'wrong_address' | 'closed' | 'other';
+  report_type: 'wrong_phone' | 'wrong_address' | 'closed' | 'contact_issue' | 'other';
   message: string;
+  target_contact?: string | null;
   internal_notes?: string | null;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
@@ -138,8 +205,9 @@ export interface OrganizationSuggestion {
 
 export const ReportSchema = z.object({
   organization_id: z.number({ required_error: 'Tashkilot ID tanlanmagan' }),
-  report_type: z.enum(['wrong_phone', 'wrong_address', 'closed', 'other']),
-  message: z.string().min(5, 'Xabar kamida 5 ta belgidan iborat bo‘lishi kerak'),
+  report_type: z.enum(['wrong_phone', 'wrong_address', 'closed', 'contact_issue', 'other']),
+  message: z.string().min(3, 'Xabar kamida 3 ta belgidan iborat bo‘lishi kerak'),
+  target_contact: z.string().optional().nullable(),
 });
 
 export const SuggestionSchema = z.object({

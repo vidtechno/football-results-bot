@@ -7,7 +7,13 @@ import {
 } from '../src/lib/utils/formatters';
 import { isNewlyVerified, getTelegramShareUrl, getWhatsappShareUrl } from '../src/lib/utils/badges';
 import { ReportSchema, SuggestionSchema, DigitalService, Contact, OrganizationEmail, Organization } from '../src/lib/types/directory';
-import { computePopularityScores, calculatePagination } from '../src/lib/db/directory';
+import {
+  computePopularityScores,
+  calculatePagination,
+  redactSearchTerm,
+  formatWorkingStatus,
+  formatFreshnessLabel,
+} from '../src/lib/db/directory';
 
 describe('Manbora Directory & Digital Services Utilities', () => {
   it('normalizes search terms accurately', () => {
@@ -121,6 +127,50 @@ describe('Manbora Directory & Digital Services Utilities', () => {
     expect(mockEmail.email).toBe('info@nbu.uz');
     expect(mockEmail.is_primary).toBe(true);
     expect(mockEmail.is_verified).toBe(true);
+  });
+});
+
+describe('Product Expansion Features: Search Privacy, Working Status, Freshness & Contact Reports', () => {
+  it('redacts sensitive phone numbers and emails from search logging', () => {
+    expect(redactSearchTerm('Anorbank')).toBe('Anorbank');
+    expect(redactSearchTerm('+998901234567')).toBe('[phone]');
+    expect(redactSearchTerm('712000000')).toBe('[phone]');
+    expect(redactSearchTerm('user@example.com')).toBe('[email]');
+  });
+
+  it('evaluates working status correctly for 24/7 and daily schedules', () => {
+    // 24/7 working status
+    const status247 = formatWorkingStatus(null, true);
+    expect(status247.is247).toBe(true);
+    expect(status247.label).toBe('24/7 ishlaydi');
+
+    // Null when schedule is missing and not 24/7
+    const statusMissing = formatWorkingStatus(null, false);
+    expect(statusMissing.isOpen).toBeNull();
+  });
+
+  it('formats relative update freshness labels accurately', () => {
+    const todayDate = new Date().toISOString();
+    const threeDaysAgoDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+    expect(formatFreshnessLabel(todayDate)).toBe('Bugun yangilandi');
+    expect(formatFreshnessLabel(threeDaysAgoDate)).toBe('3 kun oldin yangilandi');
+  });
+
+  it('validates contact_issue reports with target_contact in ReportSchema', () => {
+    const validContactReport = {
+      organization_id: 15,
+      report_type: 'contact_issue',
+      target_contact: '+998 71 200-00-00',
+      message: 'Ushbu telefon raqamiga ulanib bo‘lmayapti',
+    };
+
+    const result = ReportSchema.safeParse(validContactReport);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.report_type).toBe('contact_issue');
+      expect(result.data.target_contact).toBe('+998 71 200-00-00');
+    }
   });
 });
 

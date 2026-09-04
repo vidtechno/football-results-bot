@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     // Log admin login action
     const supabase = createAdminClient();
-    await logAdminAction(supabase, username, 'login', 'admin_session', undefined, { ip });
+    await logAdminAction(supabase, username, 'login', 'admin_session', 'session', { ip });
 
     return res;
   } catch (err: any) {

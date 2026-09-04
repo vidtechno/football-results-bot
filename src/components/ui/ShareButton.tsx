@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { Share2, Send, MessageCircle, Copy, Check, X } from 'lucide-react';
-import { getTelegramShareUrl, getWhatsappShareUrl } from '@/lib/utils/badges';
 
 interface ShareButtonProps {
   title: string;
@@ -14,7 +13,7 @@ export function ShareButton({ title, url, description }: ShareButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const shareText = `Bog‘lanish katalogida ${title} rasmiy aloqa ma’lumotlari:${description ? ` ${description}` : ''}`;
+  const shareText = `Manbora platformasida “${title}” asarini mutolaa qiling:${description ? ` ${description}` : ''} ${url}`;
 
   const handleNativeShare = async () => {
     if (navigator.share) {
@@ -26,7 +25,7 @@ export function ShareButton({ title, url, description }: ShareButtonProps) {
         });
         return;
       } catch {
-        // Fallback to menu if user cancelled or error
+        // Fallback to menu
       }
     }
     setIsOpen(true);
@@ -47,6 +46,9 @@ export function ShareButton({ title, url, description }: ShareButtonProps) {
     }
   };
 
+  const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(`Manbora platformasida “${title}” asari:`)}`;
+  const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+
   return (
     <div className="relative inline-block">
       <button
@@ -60,12 +62,12 @@ export function ShareButton({ title, url, description }: ShareButtonProps) {
 
       {/* Fallback Share Modal Menu */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full border border-slate-200 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                 <Share2 className="w-5 h-5 text-blue-600" />
-                <span>Ulashish</span>
+                <span>Asarni ulashish</span>
               </h3>
               <button
                 type="button"
@@ -77,12 +79,12 @@ export function ShareButton({ title, url, description }: ShareButtonProps) {
             </div>
 
             <p className="text-xs text-slate-600 font-medium">
-              “{title}” aloqa ma’lumotlarini ijtimoiy tarmoqlar orqali yuboring:
+              “{title}” asarini do‘stlaringiz bilan baham ko‘ring:
             </p>
 
             <div className="space-y-2">
               <a
-                href={getTelegramShareUrl(url, shareText)}
+                href={telegramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setIsOpen(false)}
@@ -93,7 +95,7 @@ export function ShareButton({ title, url, description }: ShareButtonProps) {
               </a>
 
               <a
-                href={getWhatsappShareUrl(url, shareText)}
+                href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setIsOpen(false)}

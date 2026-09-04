@@ -3,20 +3,17 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { AdminNotificationBell } from './AdminNotificationBell';
 import {
   LayoutDashboard,
-  Building2,
-  FolderTree,
-  MapPin,
-  Flag,
-  PlusCircle,
+  Wallet,
+  CreditCard,
+  BookOpen,
+  PenTool,
   Users,
   Settings,
   LogOut,
   ShieldCheck,
   Zap,
-  TrendingUp,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -25,7 +22,7 @@ interface AdminSidebarProps {
   role?: string;
 }
 
-export function AdminSidebar({ username = 'diyoration', role = 'owner' }: AdminSidebarProps) {
+export function AdminSidebar({ username = 'Admin', role = 'owner' }: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -41,20 +38,18 @@ export function AdminSidebar({ username = 'diyoration', role = 'owner' }: AdminS
 
   const navItems = [
     { label: 'Boshqaruv paneli', href: '/diyoration/dashboard', icon: LayoutDashboard },
-    { label: 'Qidiruv & Tahlillar', href: '/diyoration/analytics', icon: TrendingUp },
-    { label: 'Tashkilotlar reestri', href: '/diyoration/organizations', icon: Building2 },
-    { label: 'Kategoriyalar', href: '/diyoration/categories', icon: FolderTree },
-    { label: 'Viloyatlar / Hududlar', href: '/diyoration/regions', icon: MapPin },
-    { label: 'Tashkilot Takliflari', href: '/diyoration/suggestions', icon: PlusCircle },
-    { label: 'Xabarnomalar / Moderatorlik', href: '/diyoration/reports', icon: Flag },
-    { label: 'Foydalanuvchilar & Rollar', href: '/diyoration/users', icon: Users },
+    { label: 'Hisob to‘ldirishlar', href: '/diyoration/dashboard?tab=topups', icon: Wallet },
+    { label: 'Pul yechish (Payout)', href: '/diyoration/dashboard?tab=payouts', icon: CreditCard },
+    { label: 'Asarlar moderatsiyasi', href: '/diyoration/dashboard?tab=works', icon: BookOpen },
+    { label: 'Muallif arizalari', href: '/diyoration/dashboard?tab=authors', icon: PenTool },
+    { label: 'Foydalanuvchilar', href: '/diyoration/dashboard?tab=users', icon: Users },
     { label: 'Sozlamalar & Audit', href: '/diyoration/settings', icon: Settings },
   ];
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between flex-shrink-0 min-h-screen hidden md:flex">
       <div className="p-6 space-y-6">
-        {/* Brand Header & Notification Bell */}
+        {/* Brand Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-500 text-white flex items-center justify-center font-black shadow-md shadow-blue-600/30">
@@ -68,8 +63,6 @@ export function AdminSidebar({ username = 'diyoration', role = 'owner' }: AdminS
               <span className="text-[11px] text-slate-400 font-bold block">Boshqaruv Tizimi</span>
             </div>
           </div>
-
-          <AdminNotificationBell />
         </div>
 
         {/* Admin Profile Badge */}
@@ -90,11 +83,11 @@ export function AdminSidebar({ username = 'diyoration', role = 'owner' }: AdminS
         <nav className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname.startsWith(item.href);
+            const isActive = pathname === item.href.split('?')[0];
 
             return (
               <Link
-                key={item.href}
+                key={item.label}
                 href={item.href}
                 className={clsx(
                   'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition-all duration-150',

@@ -1,87 +1,109 @@
-# Manbora — O‘zbekiston Tashkilotlari Aloqa Katalogi (`https://manbora.uz`)
+# Manbora — O‘zbek kitob va davomli asarlar platformasi (`https://manbora.uz`)
 
-**Manbora** — O‘zbekistondagi banklar, davlat tashkilotlari, xizmatlar va ishonch telefonlarini topish uchun qulay va mustaqil katalog platformasi. Built with **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, **Supabase PostgreSQL**, **Zod**, and **Vercel**.
+**Manbora** — zamonaviy o‘zbek kitobxonlari va mualliflari platformasi. Mualliflar o‘z kitoblari va davomli (serialized) hikoyalarini nashr etadi, kitobxonlar esa erkin mutolaa qiladi hamda Manbora balansi orqali pullik boblar yoki to‘liq asarlarni xarid qiladi.
 
-Citizens and businesses can find official phone numbers, official websites, state portals, Android/iOS mobile applications, Telegram bots, addresses, and working hours for licensed commercial banks, government ministries, public services, utilities, and telecommunication providers.
-
----
-
-## 🌟 Brand Guidelines & Identity
-
-- **Brand Name**: Manbora
-- **Primary Domain**: `https://manbora.uz`
-- **Short Tagline**: “Kerakli tashkilotni tez toping.”
-- **Description**: “Manbora — O‘zbekistondagi banklar, davlat tashkilotlari, xizmatlar va ishonch telefonlarini topish uchun qulay katalog.”
-- **Trust Guarantee**: “Ma’lumotlar rasmiy manbalar asosida tekshiriladi.”
-- **Disclaimer**: “Manbora mustaqil ma’lumotnoma platformasi. Davlatning rasmiy portali emas.”
+Ishlab chiqilgan texnologiyalar: **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, **Supabase PostgreSQL**, **Row Level Security (RLS)**, **Vitest**, va **Zod**.
 
 ---
 
-## 🔐 Diyoration Admin Panel (`/diyoration`) Setup
+## 🌟 Asosiy imkoniyatlar
 
-The website includes a production-grade, light-themed admin panel at `/diyoration`. The public site remains 100% open for visitors without registration.
+1. **Kitobxonlar uchun**:
+   - Badiiy adabiyot, detektiv, fantastika, romantika, tarixiy va boshqa janrlardagi asarlarni qulay qidirish va saralash.
+   - Chalg‘ituvchi elementlarsiz, shrift o‘lchami va intervalini moslash mumkin bo‘lgan mutolaa sahifasi.
+   - Qulay hisob to‘ldirish tizimi: tanlangan summa bo‘yicha so‘rov yaratish va Telegram orqali (@diyorbek_anorboyev) chek yuborish.
+   - Shaxsiy kabinetda hamyon balansi, xaridlar, saqlangan asarlar va mutolaa tarixi.
 
-### Step 1: Execute Database Migrations
-Run the SQL migrations in order in your Supabase SQL Editor:
-1. `supabase/schema.sql`
-2. `supabase/migrations/002_digital_services.sql`
-3. `supabase/migrations/003_verified_banks_schema.sql`
-4. `supabase/migrations/004_admin_panel.sql`
-5. `supabase/migrations/005_directory_engagement.sql`
+2. **Mualliflar uchun (Muallif Studiyasi)**:
+   - Mualliflikka ariza berish va tasdiqlanish.
+   - Asar yaratish (kitob yoki serialized qissa), muqova va annotatsiya kiritish.
+   - Boblar muharriri: boblarni yozish, bepul/pullik holatini va narxini belgilash.
+   - Moderatsiyaga yuborish va e’lon qilish.
+   - Shaffof moliya: jami kitob savdosi, 20% platforma komissiyasi, 80% sof muallif daromadi.
+   - Pul yechib olish (Payout): mavjud daromad kamida 100 000 so‘m bo‘lganda so‘rov yuborish (Uzcard / Humo).
 
-### Step 2: Generate Password Hash
-Generate a secure PBKDF2-SHA512 password hash locally:
+3. **Administrator uchun (`/diyoration`)**:
+   - Foydalanuvchilar va mualliflar statistikasi.
+   - Kitobxonlarning hisob to‘ldirish so‘rovlarini tekshirish, to‘lov chekini biriktirish va balansni atomik ravishda to‘ldirish.
+   - Mualliflarning pul yechish so‘rovlarini to‘lov cheki bilan tasdiqlash yoki rad etish (band qilingan mablag‘ avtomatik qaytariladi).
+   - Asarlar va mualliflik arizalarini moderatsiya qilish.
+   - Platforma komissiyasi va minimal to‘lov summalarini boshqarish.
+   - Audit jurnali.
 
-```bash
-node scripts/generate-password-hash.mjs "Your_Admin_Password_Here"
+---
+
+## 🗄️ Ma’lumotlar bazasi va migratsiya
+
+Yangi ma’lumotlar bazasi tuzilmasi `supabase/migrations/011_manbora_platform_core.sql` faylida to‘liq jamlangan.
+
+### Migratsiyani qo‘llash:
+1. Supabase Dashboard loyihangizga kiring: [https://supabase.com/dashboard](https://supabase.com/dashboard).
+2. **SQL Editor** bo‘limini oching.
+3. `supabase/migrations/011_manbora_platform_core.sql` fayli mazmunini nusxalab SQL Editorga joylang va **Run** tugmasini bosing.
+
+Migratsiya quyidagilarni o‘z ichiga oladi:
+- 14 ta jadval (`profiles`, `author_profiles`, `genres`, `works`, `work_genres`, `chapters`, `library_items`, `wallet_accounts`, `wallet_transactions`, `purchases`, `topup_requests`, `payout_requests`, `platform_settings`, `admin_audit_logs`).
+- Barcha jadvallarda Row Level Security (RLS) siyosatlari.
+- Tranzaksiyaviy atomik funksiyalar:
+  - `handle_new_user()`
+  - `admin_approve_topup(...)`
+  - `purchase_content(...)`
+  - `author_create_payout_request(...)`
+  - `admin_approve_payout_paid(...)`
+  - `admin_reject_payout(...)`
+- Birlamchi janrlar va platforma sozlamalari (`commission_percentage: 20`, `minimum_payout: 100000`).
+
+---
+
+## 🛡️ Birinchi administratorni xavfsiz tayinlash
+
+Foydalanuvchilar o‘zlariga o‘zlari admin maqomini bera olmaydi. Birinchi adminni tayinlash uchun:
+
+1. Foydalanuvchi saytda ro‘yxatdan o‘tadi (masalan: `diyorbek`).
+2. Supabase SQL Editor orqali quyidagi buyruqni bajaring:
+
+```sql
+UPDATE public.profiles
+SET is_admin = true
+WHERE username = 'diyorbek';
 ```
 
-### Step 3: Configure Environment Variables
-Set the following environment variables in `.env.local` or Vercel Environment Variables:
+Shuningdek, `/diyoration` admin paneliga kirish uchun `.env.local` orqali `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` va `ADMIN_SESSION_SECRET` sozlanishi mumkin.
+
+---
+
+## ⚙️ Talab qilinadigan muhit o‘zgaruvchilari (Environment Variables)
+
+`.env.local` faylida quyidagi kalitlar o‘rnatilgan bo‘lishi lozim:
 
 ```env
-ADMIN_USERNAME=diyoration
-ADMIN_PASSWORD_HASH=pbkdf2$100000$your_salt_here$your_derived_key_here
-ADMIN_SESSION_SECRET=your_long_64_character_random_string_here
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+# Supabase Client
 NEXT_PUBLIC_SUPABASE_URL=https://your-supabase-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Supabase Server-Side Secret Key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key-here
+
+# Admin Panel Credentials
+ADMIN_USERNAME=diyoration
+ADMIN_PASSWORD_HASH=pbkdf2$100000$your_salt$your_derived_key
+ADMIN_SESSION_SECRET=your_long_64_character_random_string_here
 ```
 
 ---
 
-## 🌐 SEO & Indexing Infrastructure
-
-- **Robots**: `robots.ts` dynamically generates `robots.txt` (excludes `/diyoration/` and `/api/`).
-- **Sitemap**: `sitemap.ts` dynamically generates `sitemap.xml` for all static and dynamic pages.
-- **Canonical URLs**: Built-in canonical metadata with `metadataBase: new URL('https://manbora.uz')`.
-- **JSON-LD**:
-  - `WebSite` + `SearchAction` JSON-LD on Home Page.
-  - `Organization` / `LocalBusiness` JSON-LD on Organization Profile pages.
-
----
-
-## 🛠️ Local Development & Verification Commands
+## 🧪 Sinov va tekshiruv buyruqlari
 
 ```bash
-# Install dependencies
-npm install
-
-# Run Vitest unit tests
+# Testlarni ishga tushirish (Vitest)
 npm run test
 
-# Run TypeScript type check
+# TypeScript tur tekshiruvi
 npm run typecheck
 
-# Run ESLint check
+# ESLint tekshiruvi
 npm run lint
 
-# Build production bundle
+# Ishchi build yaratish
 npm run build
 ```
-
----
-
-## 📄 License
-
-ISC License.

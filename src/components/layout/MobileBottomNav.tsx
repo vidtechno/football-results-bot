@@ -3,18 +3,22 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Grid, MapPin, Info } from 'lucide-react';
+import { BookOpen, Compass, PenTool, User } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
 
+  // If on reading page, don't show general bottom nav (reader has its own distraction-free controls)
+  if (pathname.includes('/asarlar/') && pathname.split('/').length >= 4) {
+    return null;
+  }
+
   const tabs = [
-    { href: '/', label: 'Bosh sahifa', icon: Home },
-    { href: '/search', label: 'Qidiruv', icon: Search },
-    { href: '/categories', label: 'Kategoriyalar', icon: Grid },
-    { href: '/regions', label: 'Viloyatlar', icon: MapPin },
-    { href: '/about', label: 'Biz haqimizda', icon: Info },
+    { href: '/', label: 'Bosh sahifa', icon: BookOpen },
+    { href: '/asarlar', label: 'Asarlar', icon: Compass },
+    { href: '/muallif', label: 'Mualliflik', icon: PenTool },
+    { href: '/kabinet', label: 'Kabinet', icon: User },
   ];
 
   return (
@@ -30,7 +34,7 @@ export function MobileBottomNav() {
               key={tab.href}
               href={tab.href}
               className={clsx(
-                'flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all duration-200 min-w-[50px] min-h-[44px]',
+                'flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all duration-200 min-w-[56px] min-h-[44px]',
                 isActive
                   ? 'text-blue-600 font-black'
                   : 'text-slate-500 hover:text-slate-800 font-semibold',
@@ -44,7 +48,7 @@ export function MobileBottomNav() {
               >
                 <Icon
                   className={clsx(
-                    'w-4.5 h-4.5 transition-colors',
+                    'w-5 h-5 transition-colors',
                     isActive ? 'text-blue-600 stroke-[2.5]' : 'text-slate-400 stroke-[1.8]',
                   )}
                 />

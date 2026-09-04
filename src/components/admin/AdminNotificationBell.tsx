@@ -43,7 +43,7 @@ export function AdminNotificationBell() {
     }
   };
 
-  const markItemRead = async (id: number) => {
+  const markItemRead = async (id: string | number) => {
     try {
       await fetch('/api/admin/notifications', {
         method: 'PUT',

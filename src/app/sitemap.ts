@@ -1,13 +1,12 @@
 import { MetadataRoute } from 'next';
-import { getCategories, getRegions, searchOrganizations } from '@/lib/db/directory';
+import { getPublishedWorks, getActiveGenres } from '@/lib/db/queries';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://manbora.uz';
 
-  const [categories, regions, organizations] = await Promise.all([
-    getCategories(),
-    getRegions(),
-    searchOrganizations({ limit: 1000 }),
+  const [works, genres] = await Promise.all([
+    getPublishedWorks({ limit: 500 }),
+    getActiveGenres(),
   ]);
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -18,51 +17,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1.0,
     },
     {
-      url: `${baseUrl}/search`,
+      url: `${baseUrl}/asarlar`,
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/categories`,
+      url: `${baseUrl}/muallif`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/regions`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/about`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
     },
   ];
 
-  const categoryRoutes: MetadataRoute.Sitemap = categories.map((c) => ({
-    url: `${baseUrl}/categories/${c.slug}`,
-    lastModified: new Date(),
+  const workRoutes: MetadataRoute.Sitemap = works.map((w) => ({
+    url: `${baseUrl}/asarlar/${w.slug}`,
+    lastModified: new Date(w.updated_at || w.created_at),
     changeFrequency: 'weekly',
     priority: 0.8,
   }));
 
-  const regionRoutes: MetadataRoute.Sitemap = regions.map((r) => ({
-    url: `${baseUrl}/regions/${r.slug}`,
-    lastModified: new Date(),
+  const genreRoutes: MetadataRoute.Sitemap = genres.map((g) => ({
+    url: `${baseUrl}/asarlar?genre=${g.slug}`,
+    lastModified: new Date(g.created_at),
     changeFrequency: 'weekly',
     priority: 0.7,
   }));
 
-  const organizationRoutes: MetadataRoute.Sitemap = organizations.map((o) => ({
-    url: `${baseUrl}/organizations/${o.slug}`,
-    lastModified: new Date(o.updated_at || o.created_at),
-    changeFrequency: 'weekly',
-    priority: 0.9,
-  }));
-
-  return [...staticRoutes, ...categoryRoutes, ...regionRoutes, ...organizationRoutes];
+  return [...staticRoutes, ...workRoutes, ...genreRoutes];
 }

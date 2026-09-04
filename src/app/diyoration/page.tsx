@@ -15,8 +15,8 @@ export default function AdminLoginPage() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await fetch('/api/admin/organizations');
-        if (res.status !== 401) {
+        const res = await fetch('/api/admin/settings');
+        if (res.ok) {
           router.replace('/diyoration/dashboard');
         }
       } catch {
@@ -65,7 +65,7 @@ export default function AdminLoginPage() {
           <div>
             <h1 className="text-2xl font-black text-slate-900">Manbora Admin Paneli</h1>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              Tashkilotlar reestri va raqamli xizmatlarni boshqarish tizimi
+              Nashriyot, kitobxonlar va moliyaviy boshqaruv tizimi
             </p>
           </div>
         </div>
@@ -98,7 +98,7 @@ export default function AdminLoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="diyoration"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:border-blue-600 bg-slate-50/50"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-hidden focus:border-blue-600 bg-slate-50/50"
                 />
               </div>
             </div>
@@ -113,7 +113,7 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:border-blue-600 bg-slate-50/50"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-hidden focus:border-blue-600 bg-slate-50/50"
                 />
               </div>
             </div>
@@ -136,7 +136,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-center text-[11px] text-slate-400 font-medium">
-          Manbora Admin System v1.0 • Maxfiy va xavfsiz boshqaruv paneli
+          Manbora Admin System v2.0 • Maxfiy va xavfsiz boshqaruv paneli
         </p>
       </div>
     </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { redirect } from 'next/navigation';
 import { getAdminSession } from '@/lib/admin/auth';
 import { createAdminClient } from '@/lib/supabase/server';
-import { Users, ShieldCheck, UserCheck } from 'lucide-react';
+import { Users, ShieldCheck } from 'lucide-react';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 
 export const revalidate = 0;
@@ -13,20 +13,21 @@ export default async function AdminUsersPage() {
 
   const supabase = createAdminClient();
 
-  const { data: adminUsers } = await supabase
-    .from('admin_users')
+  const { data: adminProfiles } = await supabase
+    .from('profiles')
     .select('*')
+    .eq('is_admin', true)
     .order('created_at', { ascending: true });
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto pb-16">
       <div>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2">
           <Users className="w-7 h-7 text-blue-600" />
-          <span>Administratorlar & Rollar Boshqaruvi</span>
+          <span>Administratorlar va Ruxsatlar</span>
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-          Tizim administratorlari va kelajakdagi ruxsat darajalari (RBAC) nazorati
+          Manbora platformasi ma’murlari va tizim huquqlari
         </p>
       </div>
 
@@ -35,49 +36,56 @@ export default async function AdminUsersPage() {
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-600" />
-            <span>Tizim Administratorlari ({adminUsers?.length || 1})</span>
+            <span>Platforma Administratorlari ({adminProfiles?.length || 0})</span>
           </h3>
         </div>
 
-        <div className="space-y-3">
-          {adminUsers?.map((u: any) => (
-            <div key={u.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black text-sm flex items-center justify-center">
-                  {u.username.charAt(0).toUpperCase()}
+        {(!adminProfiles || adminProfiles.length === 0) ? (
+          <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl">
+            Ma’lumotlar bazasida hozircha admin bayrog‘i o‘rnatilgan profil yo‘q. (Seans orqali kirilgan: <strong>{session.username}</strong>)
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {adminProfiles.map((u: any) => (
+              <div
+                key={u.id}
+                className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black text-sm flex items-center justify-center">
+                    {u.display_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <strong className="text-sm font-black text-slate-900 block">
+                      {u.display_name} (@{u.username})
+                    </strong>
+                    <span className="text-xs text-slate-500 font-medium font-mono">
+                      ID: {u.public_id} • {formatUzbekDate(u.created_at)}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <strong className="text-sm font-black text-slate-900 block">{u.username}</strong>
-                  <span className="text-xs text-slate-500 font-medium">Qo‘shilgan sana: {formatUzbekDate(u.created_at)}</span>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-extrabold uppercase">
-                  {u.role} (Ega)
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-extrabold uppercase">
+                    Admin
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Role Definitions Explanation */}
+      {/* How to add new admin guidance */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm space-y-3 text-xs">
-        <h4 className="font-extrabold text-slate-900 text-sm">Ruxsat Darajalari (RBAC Framework):</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-          <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/70 space-y-1">
-            <strong className="text-blue-900 font-black block">1. Owner (Ega)</strong>
-            <p className="text-slate-600 font-medium">To‘liq ruxsat: tashkilotlarni tahrirlash, o‘chirish, moderatorlik, adminlar va tizim sozlamalarini boshqarish.</p>
-          </div>
-          <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200/70 space-y-1">
-            <strong className="text-indigo-900 font-black block">2. Editor (Muharrir)</strong>
-            <p className="text-slate-600 font-medium">Tashkilot va raqamli xizmatlar ma’lumotlarini yaratish, tahrirlash va chop etish ruxsati.</p>
-          </div>
-          <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/70 space-y-1">
-            <strong className="text-emerald-900 font-black block">3. Reviewer (Moderator)</strong>
-            <p className="text-slate-600 font-medium">Foydalanuvchi xabarnomalarini ko‘rib chiqish va statusini hal qilish ruxsati.</p>
-          </div>
+        <h4 className="font-extrabold text-slate-900 text-sm">
+          Yangi administrator tayinlash:
+        </h4>
+        <p className="text-slate-600 leading-relaxed font-medium">
+          Xavfsizlik nuqtai nazaridan, oddiy foydalanuvchilar o‘zlariga o‘zlari admin huquqini bera olmaydi. Yangi admin tayinlash uchun Supabase SQL Editor orqali quyidagi buyruqni bajaring:
+        </p>
+        <div className="p-3.5 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto">
+          UPDATE public.profiles SET is_admin = true WHERE username = &apos;foydalanuvchi_nomi&apos;;
         </div>
       </div>
     </div>

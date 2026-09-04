@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Building2, Flag, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, Wallet, CreditCard, BookOpen, Settings } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export function AdminMobileNav() {
@@ -11,9 +11,9 @@ export function AdminMobileNav() {
 
   const navItems = [
     { label: 'Boshqaruv', href: '/diyoration/dashboard', icon: LayoutDashboard },
-    { label: 'Tashkilotlar', href: '/diyoration/organizations', icon: Building2 },
-    { label: 'Hisobotlar', href: '/diyoration/reports', icon: Flag },
-    { label: 'Rollar', href: '/diyoration/users', icon: Users },
+    { label: 'To‘ldirish', href: '/diyoration/dashboard?tab=topups', icon: Wallet },
+    { label: 'Pul yechish', href: '/diyoration/dashboard?tab=payouts', icon: CreditCard },
+    { label: 'Moderatsiya', href: '/diyoration/dashboard?tab=works', icon: BookOpen },
     { label: 'Sozlamalar', href: '/diyoration/settings', icon: Settings },
   ];
 
@@ -22,11 +22,11 @@ export function AdminMobileNav() {
       <nav className="flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname.startsWith(item.href);
+          const isActive = pathname === item.href.split('?')[0];
 
           return (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
               className={clsx(
                 'flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all',

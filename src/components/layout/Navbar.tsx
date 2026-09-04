@@ -51,7 +51,7 @@ export function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 lg:gap-1.5" aria-label="Asosiy menyu">
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 shrink-0" aria-label="Asosiy menyu">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive =
@@ -64,14 +64,14 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   className={clsx(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150',
+                    'flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap shrink-0',
                     isActive
                       ? 'bg-[#FEF3C7] text-[#92400E] font-black shadow-2xs'
                       : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#F5F2EC]',
                   )}
                 >
-                  <Icon className={clsx('w-3.5 h-3.5', isActive ? 'text-[#B45309]' : 'text-[#A8A29E]')} />
-                  <span>{link.label}</span>
+                  <Icon className={clsx('w-3.5 h-3.5 shrink-0', isActive ? 'text-[#B45309]' : 'text-[#A8A29E]')} />
+                  <span className="whitespace-nowrap">{link.label}</span>
                 </Link>
               );
             })}
@@ -80,24 +80,24 @@ export function Navbar() {
               <Link
                 href="/kutubxona"
                 className={clsx(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150',
+                  'hidden xl:flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap shrink-0',
                   pathname.startsWith('/kutubxona') || pathname.includes('tab=library')
                     ? 'bg-[#FEF3C7] text-[#92400E] font-black shadow-2xs'
                     : 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#F5F2EC]',
                 )}
               >
-                <Bookmark className="w-3.5 h-3.5 text-[#A8A29E]" />
-                <span>Kutubxonam</span>
+                <Bookmark className="w-3.5 h-3.5 text-[#A8A29E] shrink-0" />
+                <span className="whitespace-nowrap">Kutubxonam</span>
               </Link>
             )}
           </nav>
 
           {/* User Controls & Actions */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 xl:gap-3 shrink-0">
             {/* Quick Search trigger */}
             <Link
               href="/asarlar"
-              className="p-2 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F2EC] transition-colors"
+              className="p-2 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F2EC] transition-colors shrink-0"
               title="Asarlarni qidirish"
               aria-label="Qidiruv"
             >
@@ -105,16 +105,17 @@ export function Navbar() {
             </Link>
 
             {user ? (
-              <div className="flex items-center gap-2 sm:gap-2.5">
+              <div className="flex items-center gap-1.5 sm:gap-2 xl:gap-2.5 shrink-0">
                 {balance !== null && (
                   <button
+                    id="navbar-balance-btn"
                     type="button"
                     onClick={() => setShowTopupModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FEF3C7]/80 border border-[#FDE68A] text-[#92400E] text-xs font-bold hover:bg-[#FEF3C7] transition-colors min-h-[36px]"
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#FEF3C7]/80 border border-[#FDE68A] text-[#92400E] text-xs font-bold hover:bg-[#FEF3C7] transition-colors min-h-[36px] whitespace-nowrap shrink-0"
                     title="Hisobni to‘ldirish"
                   >
-                    <Wallet className="w-3.5 h-3.5 text-[#B45309]" />
-                    <span>{formatUZS(balance)}</span>
+                    <Wallet className="w-3.5 h-3.5 text-[#B45309] shrink-0" />
+                    <span className="whitespace-nowrap">{formatUZS(balance)}</span>
                   </button>
                 )}
 
@@ -122,11 +123,11 @@ export function Navbar() {
                 {author && author.status === 'approved' && (
                   <Link
                     href="/muallif"
-                    className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#57534E] hover:text-[#1C1917] hover:bg-[#F5F2EC] transition-colors"
+                    className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#57534E] hover:text-[#1C1917] hover:bg-[#F5F2EC] transition-colors whitespace-nowrap shrink-0"
                     title="Mualliflik kabineti"
                   >
-                    <PenTool className="w-3.5 h-3.5 text-[#B45309]" />
-                    <span>Ijodxona</span>
+                    <PenTool className="w-3.5 h-3.5 text-[#B45309] shrink-0" />
+                    <span className="whitespace-nowrap">Ijodxona</span>
                   </Link>
                 )}
 
@@ -134,43 +135,48 @@ export function Navbar() {
                 {isAdmin && (
                   <Link
                     href="/diyoration"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-black shadow-2xs transition-all"
+                    className="flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-black shadow-2xs transition-all whitespace-nowrap shrink-0"
                     title="Manbora Admin Paneli"
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
-                    <span className="hidden sm:inline">Admin paneli</span>
+                    <ShieldCheck className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                    <span className="hidden sm:inline whitespace-nowrap">
+                      <span className="hidden xl:inline">Admin paneli</span>
+                      <span className="xl:hidden">Admin</span>
+                    </span>
                   </Link>
                 )}
 
                 <Link
                   href="/kabinet"
                   className={clsx(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all',
+                    'flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0',
                     pathname.startsWith('/kabinet')
                       ? 'bg-[#1C1917] text-white shadow-xs'
                       : 'bg-[#F5F2EC] text-[#57534E] hover:bg-[#EAE5DD]',
                   )}
+                  title={profile?.display_name || user.email || 'Kabinet'}
+                  aria-label={profile?.display_name || 'Kabinet'}
                 >
-                  <User className="w-4 h-4" />
-                  <span className="hidden sm:inline truncate max-w-[120px]">
+                  <User className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline-block max-w-[80px] xl:max-w-[120px] truncate">
                     {profile?.display_name || 'Kabinet'}
                   </span>
                 </Link>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <Link
                   href="/kirish"
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-[#57534E] hover:text-[#1C1917] hover:bg-[#F5F2EC] transition-all"
+                  className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-[#57534E] hover:text-[#1C1917] hover:bg-[#F5F2EC] transition-all whitespace-nowrap shrink-0"
                 >
-                  <LogIn className="w-3.5 h-3.5 text-[#78716C]" />
-                  <span>Kirish</span>
+                  <LogIn className="w-3.5 h-3.5 text-[#78716C] shrink-0" />
+                  <span className="whitespace-nowrap">Kirish</span>
                 </Link>
                 <Link
                   href="/royxatdan-otish"
-                  className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-[#1C1917] hover:bg-[#292524] text-white font-bold text-xs shadow-xs active:scale-95 transition-all"
+                  className="inline-flex items-center gap-1 px-3 sm:px-3.5 py-1.5 rounded-xl bg-[#1C1917] hover:bg-[#292524] text-white font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap shrink-0"
                 >
-                  <span>Ro‘yxatdan o‘tish</span>
+                  <span className="whitespace-nowrap">Ro‘yxatdan o‘tish</span>
                 </Link>
               </div>
             )}

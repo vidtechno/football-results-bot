@@ -40,6 +40,7 @@ function KabinetContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
+  const topupParam = searchParams.get('topup');
 
   const { user, profile, author, balance, isAdmin, signOut, refreshAuth, isLoading: authLoading } = useAuth();
 
@@ -48,8 +49,14 @@ function KabinetContent() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [library, setLibrary] = useState<LibraryItem[]>([]);
   const [loadingData, setLoadingData] = useState<boolean>(true);
-  const [isTopupOpen, setIsTopupOpen] = useState(false);
+  const [isTopupOpen, setIsTopupOpen] = useState(topupParam === 'true');
   const [idCopied, setIdCopied] = useState(false);
+
+  useEffect(() => {
+    if (topupParam === 'true') {
+      setIsTopupOpen(true);
+    }
+  }, [topupParam]);
 
   const [activeTab, setActiveTab] = useState<'library' | 'topups' | 'transactions' | 'purchases'>(
     tabParam === 'topups'
@@ -236,6 +243,8 @@ function KabinetContent() {
             </div>
 
             <button
+              id="open-topup-modal-btn"
+              type="button"
               onClick={() => setIsTopupOpen(true)}
               className="px-3.5 py-2 rounded-xl bg-[#B45309] hover:bg-[#92400E] text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
             >
@@ -528,16 +537,19 @@ function KabinetContent() {
       )}
 
       {/* Topup Modal */}
-      {profile && (
-        <TopupModal
-          isOpen={isTopupOpen}
-          onClose={() => setIsTopupOpen(false)}
-          userBalance={balance ?? 0}
-          userName={profile.display_name}
-          publicId={profile.public_id}
-          userEmail={user?.email}
-        />
-      )}
+      <TopupModal
+        isOpen={isTopupOpen}
+        onClose={() => {
+          setIsTopupOpen(false);
+          if (topupParam) {
+            router.replace('/kabinet');
+          }
+        }}
+        userBalance={balance ?? 0}
+        userName={profile?.display_name || user?.email || 'Foydalanuvchi'}
+        publicId={profile?.public_id || 'MB-00000000'}
+        userEmail={user?.email}
+      />
     </div>
   );
 }

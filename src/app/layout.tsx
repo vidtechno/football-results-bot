@@ -80,8 +80,8 @@ export default function RootLayout({
       <body className="bg-background text-stone-900 min-h-screen flex flex-col antialiased selection:bg-amber-100 selection:text-amber-950">
         <AuthProvider>
           <Navbar />
-          {/* pb-24 ensures bottom navigation on mobile never covers content with env(safe-area-inset-bottom) */}
-          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-12">
+          {/* pb-24 ensures bottom navigation on mobile/tablet never covers content with env(safe-area-inset-bottom) */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-12">
             {children}
           </main>
           <Footer />

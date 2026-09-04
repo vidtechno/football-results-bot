@@ -233,6 +233,7 @@ export function PaywallUnlockCard({
             </div>
 
             <button
+              id="paywall-topup-btn"
               type="button"
               onClick={() => setShowTopupModal(true)}
               className="inline-flex items-center gap-2 px-7 py-3 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all min-h-[44px]"

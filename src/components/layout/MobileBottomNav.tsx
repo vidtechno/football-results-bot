@@ -27,7 +27,7 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF8F5]/95 backdrop-blur-md border-t border-[#EAE5DD] shadow-lg"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF8F5]/95 backdrop-blur-md border-t border-[#EAE5DD] shadow-lg"
       style={{ paddingBottom: 'max(0.35rem, env(safe-area-inset-bottom))' }}
       aria-label="Mobil pastki menyu"
     >

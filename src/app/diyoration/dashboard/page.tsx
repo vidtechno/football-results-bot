@@ -34,6 +34,7 @@ function AdminDashboardContent() {
     pendingTopupsCount: 0,
     pendingPayoutsCount: 0,
     pendingWorksCount: 0,
+    pendingRevisionsCount: 0,
   });
 
   const [topups, setTopups] = useState<any[]>([]);
@@ -41,6 +42,8 @@ function AdminDashboardContent() {
   const [works, setWorks] = useState<any[]>([]);
   const [authorApps, setAuthorApps] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [workRevisions, setWorkRevisions] = useState<any[]>([]);
+  const [chapterRevisions, setChapterRevisions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Action states
@@ -105,65 +108,61 @@ function AdminDashboardContent() {
         window.location.href = '/diyoration';
         return;
       }
-      // 1. Stats
-      const { count: usersCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
 
-      const { count: authorsCount } = await supabase
-        .from('author_profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved');
+      // Concurrently fetch all dashboard metrics and collections (eliminates sequential latency)
+      const [
+        usersRes,
+        authorsRes,
+        revAccRes,
+        topupsRes,
+        payoutsRes,
+        worksRes,
+        appsRes,
+        allUsersRes,
+        workRevRes,
+        chapRevRes,
+      ] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('author_profiles').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+        supabase.from('wallet_accounts').select('balance').eq('account_type', 'platform_revenue').maybeSingle(),
+        supabase.from('topup_requests').select('*, reader:profiles(id, display_name, username, public_id)').order('created_at', { ascending: false }).limit(50),
+        supabase.from('payout_requests').select('*, author:profiles(id, display_name, username, public_id)').order('created_at', { ascending: false }).limit(50),
+        supabase.from('works').select('*, author:author_profiles(pen_name)').order('created_at', { ascending: false }).limit(50),
+        supabase.from('author_profiles').select('*, profile:profiles(id, display_name, username, public_id)').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('work_revisions').select('*, work:works(title, slug), author:author_profiles(pen_name)').order('created_at', { ascending: false }).limit(50).then((r: any) => r, () => ({ data: [] })),
+        supabase.from('chapter_revisions').select('*, chapter:chapters(title, chapter_number), work:works(title, slug), author:author_profiles(pen_name)').order('created_at', { ascending: false }).limit(50).then((r: any) => r, () => ({ data: [] })),
+      ]);
 
-      const { data: revAcc } = await supabase
-        .from('wallet_accounts')
-        .select('balance')
-        .eq('account_type', 'platform_revenue')
-        .maybeSingle();
+      const pendingTopups = topupsRes.data || [];
+      const pendingPayouts = payoutsRes.data || [];
+      const pendingWorks = worksRes.data || [];
+      const apps = appsRes.data || [];
+      const allUsers = allUsersRes.data || [];
+      const workRevs = workRevRes.data || [];
+      const chapRevs = chapRevRes.data || [];
 
-      const { data: pendingTopups, count: pTopupsCount } = await supabase
-        .from('topup_requests')
-        .select('*, reader:profiles(id, display_name, username, public_id)')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      const { data: pendingPayouts, count: pPayoutsCount } = await supabase
-        .from('payout_requests')
-        .select('*, author:profiles(id, display_name, username, public_id)')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      const { data: pendingWorks, count: pWorksCount } = await supabase
-        .from('works')
-        .select('*, author:author_profiles(pen_name)')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      const { data: apps } = await supabase
-        .from('author_profiles')
-        .select('*, profile:profiles(id, display_name, username, public_id)')
-        .order('created_at', { ascending: false });
-
-      const { data: allUsers } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
+      const pendingRevsCount =
+        workRevs.filter((r: any) => r.status === 'pending').length +
+        chapRevs.filter((r: any) => r.status === 'pending').length;
 
       setStats({
-        totalUsers: usersCount || 0,
-        totalAuthors: authorsCount || 0,
-        platformRevenue: revAcc ? Number(revAcc.balance) : 0,
-        pendingTopupsCount: (pendingTopups || []).filter((t) => t.status === 'pending').length,
-        pendingPayoutsCount: (pendingPayouts || []).filter((p) => p.status === 'pending').length,
-        pendingWorksCount: (pendingWorks || []).filter((w) => w.status === 'pending_review').length,
+        totalUsers: usersRes.count || 0,
+        totalAuthors: authorsRes.count || 0,
+        platformRevenue: revAccRes.data ? Number(revAccRes.data.balance) : 0,
+        pendingTopupsCount: pendingTopups.filter((t: any) => t.status === 'pending').length,
+        pendingPayoutsCount: pendingPayouts.filter((p: any) => p.status === 'pending').length,
+        pendingWorksCount: pendingWorks.filter((w: any) => w.status === 'pending_review').length,
+        pendingRevisionsCount: pendingRevsCount,
       });
 
-      setTopups(pendingTopups || []);
-      setPayouts(pendingPayouts || []);
-      setWorks(pendingWorks || []);
-      setAuthorApps(apps || []);
-      setUsersList(allUsers || []);
+      setTopups(pendingTopups);
+      setPayouts(pendingPayouts);
+      setWorks(pendingWorks);
+      setAuthorApps(apps);
+      setUsersList(allUsers);
+      setWorkRevisions(workRevs);
+      setChapterRevisions(chapRevs);
     } catch (err) {
       console.error('Admin ma‘lumotlarini yuklashda xatolik:', err);
     } finally {
@@ -336,6 +335,37 @@ function AdminDashboardContent() {
     }
   }
 
+  // Handle Revision Moderation (Atomic promote or reject)
+  async function handleRevisionAction(type: 'work' | 'chapter', id: string, action: 'approve' | 'reject') {
+    const reason = action === 'reject' ? prompt('Rad etish sababini kiriting:') : undefined;
+    if (action === 'reject' && reason === null) return;
+
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/revisions-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          id,
+          action,
+          rejectionReason: reason,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || 'Tahrirni ko‘rib chiqishda xatolik yuz berdi');
+      }
+      await loadDashboardData();
+    } catch (err) {
+      console.error(err);
+      alert('Tarmoq xatosi yuz berdi');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-16 text-center text-slate-500 font-bold text-xs sm:text-sm">
@@ -403,6 +433,13 @@ function AdminDashboardContent() {
           </span>
           <p className="text-xl font-black text-rose-600 mt-1">{stats.pendingWorksCount}</p>
         </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+            Kutilayotgan tahrirlar
+          </span>
+          <p className="text-xl font-black text-amber-600 mt-1">{stats.pendingRevisionsCount}</p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -438,6 +475,17 @@ function AdminDashboardContent() {
           }`}
         >
           Asarlar moderatsiyasi ({works.filter((w) => w.status === 'pending_review').length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('revisions')}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
+            activeTab === 'revisions'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Tahrirlar ({stats.pendingRevisionsCount})
         </button>
 
         <button
@@ -765,6 +813,201 @@ function AdminDashboardContent() {
                 })}
               </tbody>
             </table>
+          </div>
+        </section>
+      )}
+
+      {/* Tab: Revisions Moderation */}
+      {activeTab === 'revisions' && (
+        <section className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-black text-slate-900">
+                Mualliflar kiritgan tahrirlar moderatsiyasi
+              </h2>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Nashr qilingan asar va boblarga kiritilgan tahrirlar (jonli kontent tasdiqlanmaguncha o‘zgarmaydi)
+              </p>
+            </div>
+          </div>
+
+          {/* Work Revisions Sub-section */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Asar ma’lumotlari tahrirlari ({workRevisions.length})
+            </h3>
+            {workRevisions.length === 0 ? (
+              <div className="p-6 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-400">
+                Hozircha asar tahrirlari mavjud emas.
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200/80 overflow-x-auto shadow-2xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Sana</th>
+                      <th className="py-3 px-4">Asar</th>
+                      <th className="py-3 px-4">Yangi sarlavha</th>
+                      <th className="py-3 px-4">Tavsif</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Amallar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {workRevisions.map((rev) => {
+                      const isPending = rev.status === 'pending';
+                      return (
+                        <tr key={rev.id} className="hover:bg-slate-50/50">
+                          <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
+                            {formatUzbekDate(rev.created_at)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="font-bold text-slate-900">{rev.work?.title || 'Asar'}</span>
+                            <span className="text-[11px] text-slate-400 block">{rev.author?.pen_name}</span>
+                          </td>
+                          <td className="py-3 px-4 font-bold text-amber-900">
+                            {rev.title}
+                          </td>
+                          <td className="py-3 px-4 max-w-xs text-slate-500 line-clamp-2">
+                            {rev.description || '-'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                                rev.status === 'approved'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : isPending
+                                    ? 'bg-amber-50 text-amber-700'
+                                    : 'bg-rose-50 text-rose-700'
+                              }`}
+                            >
+                              {rev.status === 'approved'
+                                ? 'Tasdiqlangan'
+                                : isPending
+                                  ? 'Kutilmoqda'
+                                  : 'Rad etilgan'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            {isPending ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevisionAction('work', rev.id, 'approve')}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]"
+                                >
+                                  Tasdiqlash
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevisionAction('work', rev.id, 'reject')}
+                                  className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px]"
+                                >
+                                  Rad etish
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Chapter Revisions Sub-section */}
+          <div className="space-y-3 pt-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Bob matni tahrirlari ({chapterRevisions.length})
+            </h3>
+            {chapterRevisions.length === 0 ? (
+              <div className="p-6 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-400">
+                Hozircha bob tahrirlari mavjud emas.
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200/80 overflow-x-auto shadow-2xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Sana</th>
+                      <th className="py-3 px-4">Asar</th>
+                      <th className="py-3 px-4">Bob</th>
+                      <th className="py-3 px-4">Yangi sarlavha</th>
+                      <th className="py-3 px-4">So‘zlar</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Amallar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {chapterRevisions.map((rev) => {
+                      const isPending = rev.status === 'pending';
+                      return (
+                        <tr key={rev.id} className="hover:bg-slate-50/50">
+                          <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
+                            {formatUzbekDate(rev.created_at)}
+                          </td>
+                          <td className="py-3 px-4 font-bold text-slate-900">
+                            {rev.work?.title || 'Asar'}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {rev.chapter_number}-bob
+                          </td>
+                          <td className="py-3 px-4 font-bold text-amber-900">
+                            {rev.title}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-500">
+                            {rev.word_count || 0} ta
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                                rev.status === 'approved'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : isPending
+                                    ? 'bg-amber-50 text-amber-700'
+                                    : 'bg-rose-50 text-rose-700'
+                              }`}
+                            >
+                              {rev.status === 'approved'
+                                ? 'Tasdiqlangan'
+                                : isPending
+                                  ? 'Kutilmoqda'
+                                  : 'Rad etilgan'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            {isPending ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevisionAction('chapter', rev.id, 'approve')}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]"
+                                >
+                                  Tasdiqlash
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevisionAction('chapter', rev.id, 'reject')}
+                                  className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px]"
+                                >
+                                  Rad etish
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </section>
       )}

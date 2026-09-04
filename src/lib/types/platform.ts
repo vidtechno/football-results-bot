@@ -31,6 +31,14 @@ export type PayoutStatus =
   | 'rejected'
   | 'cancelled';
 
+export interface ReadingPreferences {
+  theme: 'light' | 'sepia' | 'dark';
+  fontFamily: 'serif' | 'sans';
+  fontSize: number;
+  lineHeight: 'normal' | 'relaxed' | 'loose';
+  contentWidth: 'narrow' | 'medium' | 'wide';
+}
+
 export interface Profile {
   id: string;
   public_id: string;
@@ -40,8 +48,51 @@ export interface Profile {
   bio: string | null;
   telegram_username: string | null;
   is_admin: boolean;
+  reading_preferences?: ReadingPreferences | null;
   created_at: string;
   updated_at: string;
+}
+
+export type RevisionStatus = 'draft' | 'pending_review' | 'approved' | 'rejected';
+
+export interface WorkRevision {
+  id: string;
+  work_id: string;
+  author_id: string;
+  title: string;
+  description: string | null;
+  cover_url: string | null;
+  type: WorkType;
+  access_type: WorkAccessType;
+  full_work_price: number;
+  age_rating: string;
+  status: RevisionStatus;
+  moderator_id?: string | null;
+  rejection_reason?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  work?: Work;
+  author?: Profile;
+}
+
+export interface ChapterRevision {
+  id: string;
+  chapter_id: string;
+  work_id: string;
+  author_id: string;
+  title: string;
+  content: string;
+  is_free: boolean;
+  price: number;
+  status: RevisionStatus;
+  moderator_id?: string | null;
+  rejection_reason?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  chapter?: Chapter;
+  work?: Work;
 }
 
 export interface AuthorProfile {

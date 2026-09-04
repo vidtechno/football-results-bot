@@ -1,8 +1,8 @@
 'use client';
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Wallet,
   BookOpen,
@@ -16,105 +16,69 @@ import {
   User,
   ExternalLink,
   ShieldCheck,
+  PenTool,
+  Settings,
 } from 'lucide-react';
+import { clsx } from 'clsx';
 import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { TopupModal } from '@/components/wallet/TopupModal';
 import { TransactionHistoryTable } from '@/components/wallet/TransactionHistoryTable';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useAuth } from '@/components/providers/AuthProvider';
 import type {
-  Profile,
   TopupRequest,
   WalletTransaction,
   Purchase,
   LibraryItem,
 } from '@/lib/types/platform';
 
-export default function KabinetPage() {
+function KabinetContent() {
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [balance, setBalance] = useState<number>(0);
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+
+  const { user, profile, author, balance, isAdmin, signOut, refreshAuth, isLoading: authLoading } = useAuth();
+
   const [topups, setTopups] = useState<TopupRequest[]>([]);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [library, setLibrary] = useState<LibraryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState<boolean>(true);
   const [isTopupOpen, setIsTopupOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'library' | 'topups' | 'transactions' | 'purchases'>('library');
 
-  useEffect(() => {
-    loadUserData();
-  }, []);
+  const [activeTab, setActiveTab] = useState<'library' | 'topups' | 'transactions' | 'purchases'>(
+    tabParam === 'topups'
+      ? 'topups'
+      : tabParam === 'purchases'
+      ? 'purchases'
+      : tabParam === 'transactions'
+      ? 'transactions'
+      : 'library'
+  );
 
-  async function loadUserData() {
-    setLoading(true);
+  // Parallel data loading function (Promise.all - single round-trip batch)
+  const loadTabUserData = useCallback(async (userId: string) => {
+    setLoadingData(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.user) {
-        router.push('/kirish?redirect=/kabinet');
-        return;
-      }
-
-      const userId = session.user.id;
-
-      // 1. Profile (server-synced via /api/auth/profile)
-      let resolvedProfile: Profile | null = null;
-      try {
-        const profRes = await fetch('/api/auth/profile', {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (profRes.ok) {
-          const profJson = await profRes.json();
-          resolvedProfile = profJson.profile;
-        }
-      } catch {
-        // fallback
-      }
-
-      if (!resolvedProfile) {
-        const { data: profData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-        resolvedProfile = profData as Profile;
-      }
-      setProfile(resolvedProfile);
-
-      // 2. Wallet balance
-      const { data: walletData } = await supabase
+      // 1. Fetch wallet account for transaction history
+      const walletPromise = supabase
         .from('wallet_accounts')
-        .select('id, balance')
+        .select('id')
         .eq('user_id', userId)
         .eq('account_type', 'reader_credit')
-        .single();
+        .maybeSingle();
 
-      if (walletData) {
-        setBalance(Number(walletData.balance));
-
-        // 3. Transactions
-        const { data: txData } = await supabase
-          .from('wallet_transactions')
-          .select('*')
-          .eq('account_id', walletData.id)
-          .order('created_at', { ascending: false })
-          .limit(50);
-        setTransactions((txData as WalletTransaction[]) || []);
-      }
-
-      // 4. Topup requests
-      const { data: topupData } = await supabase
+      // 2. Fetch topup requests
+      const topupPromise = supabase
         .from('topup_requests')
         .select('*')
         .eq('reader_id', userId)
         .order('created_at', { ascending: false });
-      setTopups((topupData as TopupRequest[]) || []);
 
-      // 5. Purchases
-      const { data: purchaseData } = await supabase
+      // 3. Fetch purchases
+      const purchasePromise = supabase
         .from('purchases')
         .select(`
           *,
@@ -123,10 +87,9 @@ export default function KabinetPage() {
         `)
         .eq('buyer_id', userId)
         .order('created_at', { ascending: false });
-      setPurchases((purchaseData as Purchase[]) || []);
 
-      // 6. Library
-      const { data: libData } = await supabase
+      // 4. Fetch library
+      const libraryPromise = supabase
         .from('library_items')
         .select(`
           *,
@@ -137,43 +100,64 @@ export default function KabinetPage() {
         `)
         .eq('user_id', userId)
         .order('updated_at', { ascending: false });
-      setLibrary((libData as LibraryItem[]) || []);
+
+      const [walletRes, topupRes, purchaseRes, libraryRes] = await Promise.all([
+        walletPromise,
+        topupPromise,
+        purchasePromise,
+        libraryPromise,
+      ]);
+
+      if (topupRes.data) setTopups(topupRes.data as TopupRequest[]);
+      if (purchaseRes.data) setPurchases(purchaseRes.data as Purchase[]);
+      if (libraryRes.data) setLibrary(libraryRes.data as LibraryItem[]);
+
+      // Fetch transactions if wallet exists
+      if (walletRes.data?.id) {
+        const { data: txData } = await supabase
+          .from('wallet_transactions')
+          .select('*')
+          .eq('account_id', walletRes.data.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (txData) setTransactions(txData as WalletTransaction[]);
+      }
     } catch (err) {
       console.error('Kabinet ma‘lumotlarini yuklashda xatolik:', err);
     } finally {
-      setLoading(false);
+      setLoadingData(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/kirish?redirect=/kabinet');
+    } else if (user?.id) {
+      loadTabUserData(user.id);
+    }
+  }, [user, authLoading, router, loadTabUserData]);
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
-    document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax';
+    await signOut();
     router.push('/');
     router.refresh();
   }
 
-  if (loading) {
-    return (
-      <div className="p-16 text-center text-slate-500 font-bold text-xs sm:text-sm">
-        Ma’lumotlar yuklanmoqda...
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8 pb-16">
+    <div className="space-y-6 sm:space-y-8 pb-16">
       {/* Header Profile & Balance Bar */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-xl sm:text-2xl shadow-md shadow-blue-600/20 flex-shrink-0">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#1C1917] text-white flex items-center justify-center font-serif font-black text-xl sm:text-2xl shadow-md shadow-[#1C1917]/10 shrink-0">
             {profile?.display_name?.slice(0, 1).toUpperCase() || 'M'}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                {profile?.display_name}
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black font-serif text-[#1C1917] tracking-tight">
+                {profile?.display_name || <Skeleton className="h-7 w-36" />}
               </h1>
-              {profile?.is_admin && (
+              {isAdmin && (
                 <Link
                   href="/diyoration"
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black shadow-xs shadow-purple-600/20 transition-all"
@@ -184,286 +168,341 @@ export default function KabinetPage() {
                 </Link>
               )}
             </div>
-            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 font-medium">
-              <span>
-                Manbora ID: <strong className="font-mono text-slate-800">{profile?.public_id}</strong>
-              </span>
-              <span>@{profile?.username}</span>
+            <div className="flex items-center gap-3 mt-1 text-xs text-[#78716C] font-medium">
+              {profile ? (
+                <>
+                  <span>
+                    ID: <strong className="font-mono text-[#1C1917]">{profile.public_id}</strong>
+                  </span>
+                  <span>@{profile.username}</span>
+                </>
+              ) : (
+                <Skeleton className="h-4 w-40" />
+              )}
             </div>
           </div>
         </div>
 
-        {/* Balance Card with Top-up Action */}
-        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end bg-blue-50/60 border border-blue-200/80 rounded-2xl p-4 sm:px-6">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 block">
-              Manbora Balansi
-            </span>
-            <p className="text-xl sm:text-2xl font-black text-slate-900">
-              {formatUZS(balance)}
-            </p>
-          </div>
+        {/* Balance Card & Author Link */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+          {author && author.status === 'approved' ? (
+            <Link
+              href="/muallif"
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] font-bold text-xs hover:bg-[#FDE68A] transition-colors"
+            >
+              <PenTool className="w-4 h-4 text-[#B45309]" />
+              <span>Mualliflik kabineti</span>
+            </Link>
+          ) : (
+            <Link
+              href="/muallif"
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#F5F2EC] hover:bg-[#EAE5DD] text-[#57534E] font-bold text-xs transition-colors"
+            >
+              <PenTool className="w-4 h-4 text-[#B45309]" />
+              <span>Muallif bo‘lish</span>
+            </Link>
+          )}
 
-          <button
-            onClick={() => setIsTopupOpen(true)}
-            className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-1.5 flex-shrink-0"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>To‘ldirish</span>
-          </button>
+          <div className="flex items-center justify-between gap-4 bg-[#FAF8F5] border border-[#EAE5DD] rounded-2xl p-3 sm:px-5">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#B45309] block">
+                Kitobxon balansi
+              </span>
+              <p className="text-lg sm:text-xl font-black text-[#1C1917] font-serif">
+                {balance !== null ? formatUZS(balance) : <Skeleton className="h-6 w-24" />}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsTopupOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-[#B45309] hover:bg-[#92400E] text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>To‘ldirish</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto text-xs font-bold scrollbar-none">
+      <div className="flex items-center gap-2 border-b border-[#EAE5DD] pb-2 overflow-x-auto text-xs font-bold scrollbar-none">
         <button
           onClick={() => setActiveTab('library')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
+          className={clsx(
+            'flex items-center gap-1.5 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap min-h-[44px]',
             activeTab === 'library'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
+              ? 'bg-[#B45309] text-white shadow-xs'
+              : 'text-[#57534E] hover:bg-[#F5F2EC]',
+          )}
         >
           <Bookmark className="w-4 h-4" />
-          <span>Kutubxonam ({library.length})</span>
+          <span>Kutubxonam ({loadingData ? '...' : library.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('topups')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
+          className={clsx(
+            'flex items-center gap-1.5 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap min-h-[44px]',
             activeTab === 'topups'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
+              ? 'bg-[#B45309] text-white shadow-xs'
+              : 'text-[#57534E] hover:bg-[#F5F2EC]',
+          )}
         >
           <Wallet className="w-4 h-4" />
-          <span>Hisob to‘ldirishlar ({topups.length})</span>
+          <span>To‘lovlar tarixi ({loadingData ? '...' : topups.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('purchases')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
+          className={clsx(
+            'flex items-center gap-1.5 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap min-h-[44px]',
             activeTab === 'purchases'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
+              ? 'bg-[#B45309] text-white shadow-xs'
+              : 'text-[#57534E] hover:bg-[#F5F2EC]',
+          )}
         >
           <BookOpen className="w-4 h-4" />
-          <span>Xaridlarim ({purchases.length})</span>
+          <span>Xaridlarim ({loadingData ? '...' : purchases.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('transactions')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
+          className={clsx(
+            'flex items-center gap-1.5 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap min-h-[44px]',
             activeTab === 'transactions'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
+              ? 'bg-[#B45309] text-white shadow-xs'
+              : 'text-[#57534E] hover:bg-[#F5F2EC]',
+          )}
         >
           <History className="w-4 h-4" />
-          <span>Hamyon tarixi ({transactions.length})</span>
+          <span>Hamyon amallari ({loadingData ? '...' : transactions.length})</span>
         </button>
 
         <button
           onClick={handleSignOut}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 transition-colors whitespace-nowrap"
+          className="ml-auto flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-rose-600 hover:bg-rose-50 transition-colors whitespace-nowrap min-h-[44px]"
         >
-          <LogOut className="w-3.5 h-3.5" />
+          <LogOut className="w-4 h-4" />
           <span>Chiqish</span>
         </button>
       </div>
 
-      {/* Tab Contents */}
-      {activeTab === 'library' && (
+      {/* Tab Contents with Skeleton State */}
+      {loadingData ? (
         <div className="space-y-4">
-          {library.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-3xl border border-slate-200/80">
-              <Bookmark className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <p className="text-slate-600 font-bold text-xs sm:text-sm">
-                Kutubxonangizda hali asarlar yo‘q
-              </p>
-              <Link
-                href="/asarlar"
-                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-xs hover:bg-blue-700"
-              >
-                <span>Asarlarni kashf qilish</span>
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {library.map((item) => {
-                const w = item.work;
-                if (!w) return null;
-                return (
-                  <Link
-                    key={item.work_id}
-                    href={`/asarlar/${w.slug}`}
-                    className="p-4 rounded-2xl bg-white border border-slate-200/80 hover:border-blue-500 shadow-2xs hover:shadow-xs transition-all flex items-center gap-3.5"
-                  >
-                    <div className="w-12 h-16 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0">
-                      {w.cover_url ? (
-                        <img
-                          src={w.cover_url}
-                          alt={w.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-blue-600">
-                          <BookOpen className="w-5 h-5" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-black text-slate-900 text-xs sm:text-sm truncate">
-                        {w.title}
-                      </h4>
-                      <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                        {w.author?.pen_name || 'Muallif'}
-                      </p>
-                      <span className="inline-block mt-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                        Mutolaani davom ettirish →
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'topups' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-slate-900">
-              Hisob to‘ldirish so‘rovlari tarixi
-            </h3>
-            <button
-              onClick={() => setIsTopupOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold"
-            >
-              Yangi to‘ldirish
-            </button>
+          <Skeleton className="h-10 w-48" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
           </div>
-
-          {topups.length === 0 ? (
-            <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500 text-xs">
-              Hali to‘ldirish so‘rovlari yaratilmagan.
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
-              {topups.map((req) => {
-                const isApproved = req.status === 'approved';
-                const isPending = req.status === 'pending' || req.status === 'under_review';
-                const isRejected = req.status === 'rejected';
-
-                return (
-                  <div
-                    key={req.id}
-                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+        </div>
+      ) : (
+        <>
+          {activeTab === 'library' && (
+            <div className="space-y-4">
+              {library.length === 0 ? (
+                <div className="p-12 text-center bg-white rounded-3xl border border-[#EAE5DD]">
+                  <Bookmark className="w-10 h-10 text-[#A8A29E] mx-auto mb-2" />
+                  <p className="text-[#1C1917] font-bold text-sm font-serif">
+                    Kutubxonangizda hali asarlar yo‘q
+                  </p>
+                  <p className="text-xs text-[#78716C] mt-1 max-w-sm mx-auto">
+                    Katalogdan o‘zingizga ma’qul kitob yoki hikoyani tanlang va mutolaani boshlang.
+                  </p>
+                  <Link
+                    href="/asarlar"
+                    className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#B45309] text-white font-bold text-xs shadow-xs hover:bg-[#92400E] transition-colors"
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-slate-900 text-sm">
-                          {formatUZS(req.amount)}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                            isApproved
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : isPending
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
-                          }`}
-                        >
-                          {isApproved
-                            ? 'Tasdiqlandi'
-                            : isPending
-                              ? 'Kutilmoqda'
-                              : 'Rad etildi'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        {formatUzbekDate(req.created_at)} • So‘rov ID: <span className="font-mono">{req.id.slice(0, 8)}...</span>
-                      </p>
-                    </div>
-
-                    {isPending && (
-                      <a
-                        href={`https://t.me/diyorbek_anorboyev?text=${encodeURIComponent(`Assalomu alaykum! Manbora ID: ${profile?.public_id}\nSo‘rov ID: ${req.id}\nSumma: ${formatUZS(req.amount)}`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700"
-                      >
-                        <span>Telegramga chek yuborish</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'purchases' && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-black text-slate-900">
-            Xarid qilingan kitob va boblar
-          </h3>
-
-          {purchases.length === 0 ? (
-            <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500 text-xs">
-              Sizda hali pullik xaridlar mavjud emas.
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
-              {purchases.map((p) => (
-                <div
-                  key={p.id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                >
-                  <div>
-                    <h4 className="font-black text-slate-900 text-sm">
-                      {p.work?.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      {p.purchase_type === 'full_work'
-                        ? 'To‘liq asar'
-                        : `${p.chapter?.chapter_number}-bob: ${p.chapter?.title}`}
-                      {' • '}
-                      {formatUzbekDate(p.created_at)}
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    <span className="font-black text-blue-600">
-                      {formatUZS(p.gross_amount)}
-                    </span>
-                    {p.work && (
-                      <Link
-                        href={`/asarlar/${p.work.slug}`}
-                        className="block text-[11px] font-bold text-slate-600 hover:text-blue-600 mt-0.5"
-                      >
-                        O‘qishga o‘tish →
-                      </Link>
-                    )}
-                  </div>
+                    <span>Asarlarni kashf qilish</span>
+                  </Link>
                 </div>
-              ))}
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {library.map((item) => {
+                    const w = item.work;
+                    if (!w) return null;
+                    return (
+                      <Link
+                        key={item.work_id}
+                        href={`/asarlar/${w.slug}`}
+                        className="group p-4 rounded-2xl bg-white border border-[#EAE5DD] hover:border-[#B45309] shadow-2xs hover:shadow-xs transition-all flex items-center gap-3.5"
+                      >
+                        <div className="relative w-12 h-16 rounded-xl bg-[#FAF8F5] border border-[#EAE5DD] overflow-hidden shrink-0 shadow-2xs">
+                          {w.cover_url ? (
+                            <Image
+                              src={w.cover_url}
+                              alt={w.title}
+                              fill
+                              className="object-cover group-hover:scale-105 transition-transform"
+                              sizes="48px"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[#B45309]">
+                              <BookOpen className="w-5 h-5" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold font-serif text-[#1C1917] text-xs sm:text-sm truncate group-hover:text-[#B45309] transition-colors">
+                            {w.title}
+                          </h4>
+                          <p className="text-[11px] text-[#78716C] font-medium truncate mt-0.5">
+                            {w.author?.pen_name || 'Muallif'}
+                          </p>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-2 py-0.5 rounded-md">
+                              Davom ettirish →
+                            </span>
+                            {typeof item.reading_progress === 'number' && item.reading_progress > 0 && (
+                              <span className="text-[10px] text-[#78716C] font-semibold">
+                                {item.reading_progress}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {activeTab === 'transactions' && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-black text-slate-900">
-            Manbora balansi tarixi
-          </h3>
-          <TransactionHistoryTable transactions={transactions} />
-        </div>
+          {activeTab === 'topups' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold font-serif text-[#1C1917]">
+                  Hisob to‘ldirish so‘rovlari tarixi
+                </h3>
+                <button
+                  onClick={() => setIsTopupOpen(true)}
+                  className="px-3 py-1.5 rounded-xl bg-[#B45309] hover:bg-[#92400E] text-white text-xs font-bold transition-colors"
+                >
+                  Yangi to‘ldirish
+                </button>
+              </div>
+
+              {topups.length === 0 ? (
+                <div className="p-8 text-center bg-white rounded-2xl border border-[#EAE5DD] text-[#78716C] text-xs">
+                  Hali to‘ldirish so‘rovlari yaratilmagan.
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-[#EAE5DD] divide-y divide-[#F5F2EC] overflow-hidden shadow-2xs">
+                  {topups.map((req) => {
+                    const isApproved = req.status === 'approved';
+                    const isPending = req.status === 'pending' || req.status === 'under_review';
+
+                    return (
+                      <div
+                        key={req.id}
+                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-[#1C1917] text-sm font-serif">
+                              {formatUZS(req.amount)}
+                            </span>
+                            <span
+                              className={clsx(
+                                'px-2 py-0.5 rounded-md text-[10px] font-black uppercase',
+                                isApproved
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : isPending
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              )}
+                            >
+                              {isApproved
+                                ? 'Tasdiqlandi'
+                                : isPending
+                                ? 'Kutilmoqda'
+                                : 'Rad etildi'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#A8A29E] mt-0.5">
+                            {formatUzbekDate(req.created_at)} • So‘rov ID: <span className="font-mono">{req.id.slice(0, 8)}...</span>
+                          </p>
+                        </div>
+
+                        {isPending && (
+                          <a
+                            href={`https://t.me/diyorbek_anorboyev?text=${encodeURIComponent(`Assalomu alaykum! Manbora ID: ${profile?.public_id}\nSo‘rov ID: ${req.id}\nSumma: ${formatUZS(req.amount)}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#B45309] hover:underline"
+                          >
+                            <span>Telegramga chek yuborish</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'purchases' && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold font-serif text-[#1C1917]">
+                Xarid qilingan kitob va boblar
+              </h3>
+
+              {purchases.length === 0 ? (
+                <div className="p-8 text-center bg-white rounded-2xl border border-[#EAE5DD] text-[#78716C] text-xs">
+                  Sizda hali pullik xaridlar mavjud emas.
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-[#EAE5DD] divide-y divide-[#F5F2EC] overflow-hidden shadow-2xs">
+                  {purchases.map((p) => (
+                    <div
+                      key={p.id}
+                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div>
+                        <h4 className="font-bold font-serif text-[#1C1917] text-sm">
+                          {p.work?.title}
+                        </h4>
+                        <p className="text-[11px] text-[#78716C] mt-0.5">
+                          {p.purchase_type === 'full_work'
+                            ? 'To‘liq asar'
+                            : `${p.chapter?.chapter_number}-bob: ${p.chapter?.title}`}
+                          {' • '}
+                          {formatUzbekDate(p.created_at)}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="font-black text-[#B45309]">
+                          {formatUZS(p.gross_amount)}
+                        </span>
+                        {p.work && (
+                          <Link
+                            href={`/asarlar/${p.work.slug}`}
+                            className="block text-[11px] font-bold text-[#78716C] hover:text-[#B45309] mt-0.5"
+                          >
+                            O‘qishga o‘tish →
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'transactions' && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold font-serif text-[#1C1917]">
+                Manbora balansi tarixi
+              </h3>
+              <TransactionHistoryTable transactions={transactions} />
+            </div>
+          )}
+        </>
       )}
 
       {/* Topup Modal */}
@@ -472,9 +511,28 @@ export default function KabinetPage() {
           isOpen={isTopupOpen}
           onClose={() => setIsTopupOpen(false)}
           userPublicId={profile.public_id}
-          onSuccess={() => loadUserData()}
+          onSuccess={async () => {
+            await refreshAuth();
+            if (user?.id) loadTabUserData(user.id);
+          }}
         />
       )}
     </div>
+  );
+}
+
+export default function KabinetPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6 pb-20 animate-pulse">
+          <div className="h-40 rounded-3xl bg-stone-100" />
+          <div className="h-10 w-72 rounded-xl bg-stone-100" />
+          <div className="h-64 rounded-3xl bg-stone-100" />
+        </div>
+      }
+    >
+      <KabinetContent />
+    </Suspense>
   );
 }

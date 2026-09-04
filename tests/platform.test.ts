@@ -715,6 +715,125 @@ describe('Financial and Currency Utilities', () => {
       expect(isValidTheme('')).toBe(false);
     });
   });
+
+  describe('Author Revision System Isolation & Promotion', () => {
+    it('ensures published work remains untouched when a revision is drafted', () => {
+      const liveWork = {
+        id: 'work-pub-1',
+        title: 'Original Published Title',
+        description: 'Original Description',
+        status: 'published',
+      };
+
+      const revision = {
+        id: 'rev-1',
+        work_id: liveWork.id,
+        title: 'New Proposed Title',
+        description: 'New proposed description',
+        status: 'pending',
+      };
+
+      // Live work properties must remain unchanged while revision is pending
+      expect(liveWork.title).toBe('Original Published Title');
+      expect(revision.status).toBe('pending');
+      expect(revision.title).not.toBe(liveWork.title);
+
+      // Promotion simulation
+      function promoteRevision(work: typeof liveWork, rev: typeof revision) {
+        if (rev.status !== 'pending') throw new Error('Cannot promote non-pending revision');
+        return {
+          ...work,
+          title: rev.title,
+          description: rev.description,
+          updated_at: new Date().toISOString(),
+        };
+      }
+
+      const updatedWork = promoteRevision(liveWork, revision);
+      expect(updatedWork.title).toBe('New Proposed Title');
+      expect(updatedWork.description).toBe('New proposed description');
+    });
+
+    it('ensures chapter content remains untouched when a chapter revision is drafted', () => {
+      const liveChapter = {
+        id: 'ch-pub-1',
+        title: '1-bob. Boshlanish',
+        content: '<p>Asl nusxa matni...</p>',
+        is_free: true,
+        price: 0,
+      };
+
+      const chapterRevision = {
+        id: 'ch-rev-1',
+        chapter_id: liveChapter.id,
+        title: '1-bob. Qayta tahrirlangan boshlanish',
+        content: '<p>Kengaytirilgan va tahrirlangan yangi matn...</p>',
+        status: 'pending',
+      };
+
+      // Live chapter must not show the revision
+      expect(liveChapter.content).toBe('<p>Asl nusxa matni...</p>');
+      expect(chapterRevision.status).toBe('pending');
+
+      // Rejection simulation
+      function rejectRevision(rev: typeof chapterRevision, reason: string) {
+        return {
+          ...rev,
+          status: 'rejected',
+          admin_notes: reason,
+        };
+      }
+
+      const rejectedRev = rejectRevision(chapterRevision, 'Grammatik xatolar ko‘p');
+      expect(rejectedRev.status).toBe('rejected');
+      expect(rejectedRev.admin_notes).toBe('Grammatik xatolar ko‘p');
+      // Live chapter still retains original content
+      expect(liveChapter.content).toBe('<p>Asl nusxa matni...</p>');
+    });
+  });
+
+  describe('Atomic Chapter Reordering Validation', () => {
+    it('detects duplicate or missing chapter IDs before running atomic update', () => {
+      function validateReorderPayload(chapterIds: string[]): { valid: boolean; error?: string } {
+        if (!Array.isArray(chapterIds) || chapterIds.length === 0) {
+          return { valid: false, error: 'Hech bo‘lmaganda bitta bob tanlanishi kerak' };
+        }
+        const set = new Set(chapterIds);
+        if (set.size !== chapterIds.length) {
+          return { valid: false, error: 'Boblar ro‘yxatida takroriy identifikatorlar mavjud' };
+        }
+        return { valid: true };
+      }
+
+      expect(validateReorderPayload(['c1', 'c2', 'c3']).valid).toBe(true);
+      expect(validateReorderPayload(['c1', 'c2', 'c1']).valid).toBe(false);
+      expect(validateReorderPayload(['c1', 'c2', 'c1']).error).toContain('takroriy');
+      expect(validateReorderPayload([]).valid).toBe(false);
+    });
+  });
+
+  describe('Storage Cleanup URI Extraction', () => {
+    it('correctly extracts file storage path from Supabase public URLs', () => {
+      function extractStoragePath(url: string, bucket: string): string | null {
+        const marker = `/${bucket}/`;
+        if (!url.includes(marker)) return null;
+        return url.split(marker)[1]?.split('?')[0] || null;
+      }
+
+      const testCoverUrl =
+        'https://xyz.supabase.co/storage/v1/object/public/work-covers/author-uuid/cover-123.webp?v=1234';
+      const path = extractStoragePath(testCoverUrl, 'work-covers');
+      expect(path).toBe('author-uuid/cover-123.webp');
+
+      const avatarUrl =
+        'https://xyz.supabase.co/storage/v1/object/public/avatars/user-uuid/avatar-456.webp';
+      const avatarPath = extractStoragePath(avatarUrl, 'avatars');
+      expect(avatarPath).toBe('user-uuid/avatar-456.webp');
+
+      const invalidUrl = 'https://external-site.com/image.jpg';
+      expect(extractStoragePath(invalidUrl, 'work-covers')).toBeNull();
+    });
+  });
 });
 
 

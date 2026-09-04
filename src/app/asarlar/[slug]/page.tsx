@@ -217,6 +217,25 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
           </div>
         )}
       </section>
+
+      {/* Mobile Sticky Read CTA Bar */}
+      {firstChapter && (
+        <div className="md:hidden fixed bottom-[68px] left-0 right-0 z-30 p-3 bg-white/95 backdrop-blur-md border-t border-stone-200/80 shadow-lg px-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-stone-900 truncate">{work.title}</p>
+            <p className="text-[11px] text-stone-500 truncate">
+              {isFree ? 'Bepul mutolaa' : formatUZS(work.full_work_price || 0)}
+            </p>
+          </div>
+          <Link
+            href={`/asarlar/${work.slug}/${firstChapter.slug}`}
+            className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs shadow-sm flex items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>O‘qish</span>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

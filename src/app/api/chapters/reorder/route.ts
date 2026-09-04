@@ -25,35 +25,53 @@ export async function POST(request: Request) {
       .eq('id', workId)
       .single();
 
-    if (!work || work.author_id !== profile.id) {
+    if (!work || (work.author_id !== profile.id && !profile.is_admin)) {
       return NextResponse.json(
-        { success: false, error: 'Faqat o‘zingizning asaringizdagi boblarni tartiblashingiz mumkin' },
+        { success: false, error: 'Faqat asar muallifi yoki administrator boblar tartibini o‘zgartirishi mumkin' },
         { status: 403 },
       );
     }
 
-    // Step 1: Temporarily shift chapter_number to offset to avoid unique constraint collisions
-    for (const item of items) {
-      await adminClient
-        .from('chapters')
-        .update({ chapter_number: item.chapterNumber + 10000 })
-        .eq('id', item.id)
-        .eq('work_id', workId);
+    const chapterIds = items.map((item) => item.id);
+
+    // Call atomic PostgreSQL RPC function
+    const { data: rpcResult, error: rpcError } = await adminClient.rpc('reorder_chapters', {
+      p_work_id: workId,
+      p_chapter_ids: chapterIds,
+    });
+
+    if (rpcError) {
+      // Fallback for pre-migration 012 environments
+      if (rpcError.code === '42883') {
+        // Step 1: Temporarily shift chapter_number
+        for (const item of items) {
+          await adminClient
+            .from('chapters')
+            .update({ chapter_number: item.chapterNumber + 100000 })
+            .eq('id', item.id)
+            .eq('work_id', workId);
+        }
+
+        // Step 2: Set final chapter numbers
+        for (const item of items) {
+          await adminClient
+            .from('chapters')
+            .update({
+              chapter_number: item.chapterNumber,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+            .eq('work_id', workId);
+        }
+
+        return NextResponse.json({ success: true });
+      }
+
+      console.error('reorder_chapters RPC xatosi:', rpcError);
+      return NextResponse.json({ success: false, error: rpcError.message || 'Boblar tartibini o‘zgartirishda xatolik' }, { status: 400 });
     }
 
-    // Step 2: Set final chapter numbers
-    for (const item of items) {
-      await adminClient
-        .from('chapters')
-        .update({
-          chapter_number: item.chapterNumber,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', item.id)
-        .eq('work_id', workId);
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, data: rpcResult });
   } catch (err: any) {
     console.error('Reorder error:', err);
     return NextResponse.json({ success: false, error: err.message || 'Server xatosi' }, { status: 500 });

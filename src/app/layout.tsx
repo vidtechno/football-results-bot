@@ -4,6 +4,7 @@ import './globals.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
+import { AuthProvider } from '@/components/providers/AuthProvider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -77,13 +78,15 @@ export default function RootLayout({
   return (
     <html lang="uz" className={`${inter.variable} ${merriweather.variable}`}>
       <body className="bg-background text-stone-900 min-h-screen flex flex-col antialiased selection:bg-amber-100 selection:text-amber-950">
-        <Navbar />
-        {/* pb-24 ensures bottom navigation on mobile never covers content */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-12">
-          {children}
-        </main>
-        <Footer />
-        <MobileBottomNav />
+        <AuthProvider>
+          <Navbar />
+          {/* pb-24 ensures bottom navigation on mobile never covers content with env(safe-area-inset-bottom) */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-12">
+            {children}
+          </main>
+          <Footer />
+          <MobileBottomNav />
+        </AuthProvider>
       </body>
     </html>
   );

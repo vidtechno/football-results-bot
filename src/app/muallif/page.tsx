@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   PenTool,
@@ -22,6 +23,8 @@ import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { PayoutModal } from '@/components/wallet/PayoutModal';
 import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useAuth } from '@/components/providers/AuthProvider';
 import type {
   AuthorProfile,
   Work,
@@ -31,6 +34,7 @@ import type {
 
 export default function MuallifStudioPage() {
   const router = useRouter();
+  const { user, profile, isLoading: authLoading, refreshAuth } = useAuth();
   const [author, setAuthor] = useState<AuthorProfile | null>(null);
   const [works, setWorks] = useState<Work[]>([]);
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
@@ -61,92 +65,73 @@ export default function MuallifStudioPage() {
   const [savingWork, setSavingWork] = useState(false);
   const [workError, setWorkError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadAuthorData();
-  }, []);
-
-  async function loadAuthorData() {
+  const loadAuthorData = useCallback(async (targetUserId?: string) => {
+    let uid = targetUserId;
+    if (!uid) {
+      const { data: { session } } = await supabase.auth.getSession();
+      uid = session?.user?.id;
+    }
+    if (!uid) {
+      router.push('/kirish?redirect=/muallif');
+      return;
+    }
+    const userId = uid;
     setLoading(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // 1. Concurrently fetch author profile and active genres
+      const [authorRes, genresRes] = await Promise.all([
+        supabase.from('author_profiles').select('*').eq('user_id', userId).maybeSingle(),
+        supabase.from('genres').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
+      ]);
 
-      if (!session?.user) {
-        router.push('/kirish?redirect=/muallif');
-        return;
-      }
+      const authorData = authorRes.data as AuthorProfile;
+      setAuthor(authorData);
 
-      const userId = session.user.id;
-
-      // 1. Author Profile
-      const { data: authorData } = await supabase
-        .from('author_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      setAuthor(authorData as AuthorProfile);
-
-      // Fetch active genres for work creation
-      const { data: genresData } = await supabase
-        .from('genres')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-      setGenres((genresData as Genre[]) || []);
-      if (genresData && genresData.length > 0) {
+      const genresData = (genresRes.data as Genre[]) || [];
+      setGenres(genresData);
+      if (genresData.length > 0) {
         setNewWorkGenre(genresData[0].id);
       }
 
       if (authorData && authorData.status === 'approved') {
-        // 2. Author Earnings accounts
-        const { data: availAcc } = await supabase
-          .from('wallet_accounts')
-          .select('balance')
-          .eq('user_id', userId)
-          .eq('account_type', 'author_earnings_available')
-          .maybeSingle();
+        // 2. Concurrently fetch earnings, works, payouts, and sales (single batch)
+        const [availRes, resRes, worksRes, payoutsRes, purchasesRes] = await Promise.all([
+          supabase
+            .from('wallet_accounts')
+            .select('balance')
+            .eq('user_id', userId)
+            .eq('account_type', 'author_earnings_available')
+            .maybeSingle(),
+          supabase
+            .from('wallet_accounts')
+            .select('balance')
+            .eq('user_id', userId)
+            .eq('account_type', 'author_earnings_reserved')
+            .maybeSingle(),
+          supabase
+            .from('works')
+            .select('*')
+            .eq('author_id', userId)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('payout_requests')
+            .select('*')
+            .eq('author_id', userId)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('purchases')
+            .select('gross_amount')
+            .eq('author_id', userId),
+        ]);
 
-        const { data: resAcc } = await supabase
-          .from('wallet_accounts')
-          .select('balance')
-          .eq('user_id', userId)
-          .eq('account_type', 'author_earnings_reserved')
-          .maybeSingle();
+        setAvailableEarnings(availRes.data ? Number(availRes.data.balance) : 0);
+        setReservedEarnings(resRes.data ? Number(resRes.data.balance) : 0);
+        setWorks((worksRes.data as Work[]) || []);
+        setPayouts((payoutsRes.data as PayoutRequest[]) || []);
 
-        const avail = availAcc ? Number(availAcc.balance) : 0;
-        const res = resAcc ? Number(resAcc.balance) : 0;
-        setAvailableEarnings(avail);
-        setReservedEarnings(res);
-
-        // 3. Works
-        const { data: worksData } = await supabase
-          .from('works')
-          .select('*')
-          .eq('author_id', userId)
-          .order('created_at', { ascending: false });
-
-        setWorks((worksData as Work[]) || []);
-
-        // 4. Payout requests
-        const { data: payoutsData } = await supabase
-          .from('payout_requests')
-          .select('*')
-          .eq('author_id', userId)
-          .order('created_at', { ascending: false });
-
-        setPayouts((payoutsData as PayoutRequest[]) || []);
-
-        // 5. Total gross sales
-        const { data: purchasesData } = await supabase
-          .from('purchases')
-          .select('gross_amount')
-          .eq('author_id', userId);
-
-        const totalGross = (purchasesData || []).reduce(
-          (acc, p) => acc + Number(p.gross_amount),
-          0,
+        const totalGross = (purchasesRes.data || []).reduce(
+          (acc: number, p: any) => acc + Number(p.gross_amount || 0),
+          0
         );
         setGrossEarnings(totalGross);
       }
@@ -155,7 +140,15 @@ export default function MuallifStudioPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/kirish?redirect=/muallif');
+    } else if (user?.id) {
+      loadAuthorData(user.id);
+    }
+  }, [user, authLoading, router, loadAuthorData]);
 
   async function handleApplyAuthor(e: React.FormEvent) {
     e.preventDefault();
@@ -222,8 +215,23 @@ export default function MuallifStudioPage() {
 
   if (loading) {
     return (
-      <div className="p-16 text-center text-slate-500 font-bold text-xs sm:text-sm">
-        Mualliflik kabineti yuklanmoqda...
+      <div className="space-y-8 pb-16">
+        <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 space-y-4">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-28 rounded-2xl" />
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-32" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Skeleton className="h-48 rounded-2xl" />
+            <Skeleton className="h-48 rounded-2xl" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -467,12 +475,14 @@ export default function MuallifStudioPage() {
                   className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between gap-3"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-14 h-18 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0">
+                    <div className="relative w-14 h-18 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0">
                       {w.cover_url ? (
-                        <img
+                        <Image
                           src={w.cover_url}
                           alt={w.title}
-                          className="w-full h-full object-cover"
+                          fill
+                          sizes="56px"
+                          className="object-cover"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-blue-600">

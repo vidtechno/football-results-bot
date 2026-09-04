@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,11 +24,20 @@ import {
   Save,
   Trash2,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
 import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
-import { RichTextEditor } from '@/components/editor/RichTextEditor';
-import type { Work, Chapter, Genre } from '@/lib/types/platform';
+import { Skeleton } from '@/components/ui/Skeleton';
+import type { Work, Chapter, Genre, WorkRevision } from '@/lib/types/platform';
+
+const RichTextEditor = dynamic(
+  () => import('@/components/editor/RichTextEditor').then((mod) => mod.RichTextEditor),
+  {
+    ssr: false,
+    loading: () => <div className="p-8 text-center text-xs text-stone-500 animate-pulse">Matn muharriri yuklanmoqda...</div>,
+  }
+);
 
 interface AuthorWorkEditorPageProps {
   params: {
@@ -43,6 +52,7 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
   const [work, setWork] = useState<Work | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
+  const [workRevisions, setWorkRevisions] = useState<WorkRevision[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [activeTab, setActiveTab] = useState<'chapters' | 'settings'>('chapters');
@@ -72,11 +82,7 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
   const [savingChapter, setSavingChapter] = useState(false);
   const [chapterError, setChapterError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadWorkAndChapters();
-  }, [workId]);
-
-  async function loadWorkAndChapters() {
+  const loadWorkAndChapters = useCallback(async () => {
     setLoading(true);
     try {
       const {
@@ -88,64 +94,79 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
         return;
       }
 
-      // 1. Fetch work with genres
-      const { data: workData, error: workErr } = await supabase
-        .from('works')
-        .select(`
-          *,
-          work_genres (genre_id)
-        `)
-        .eq('id', workId)
-        .eq('author_id', session.user.id)
-        .single();
+      // Concurrently fetch work with genres, active genres, chapters, and revisions
+      const [workRes, genresRes, chapRes, revisionsRes] = await Promise.all([
+        supabase
+          .from('works')
+          .select(`
+            *,
+            work_genres (
+              genre:genres (*)
+            )
+          `)
+          .eq('id', workId)
+          .single(),
+        supabase.from('genres').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
+        supabase
+          .from('chapters')
+          .select(`
+            *,
+            chapter_contents (content)
+          `)
+          .eq('work_id', workId)
+          .order('chapter_number', { ascending: true }),
+        supabase
+          .from('work_revisions')
+          .select('*')
+          .eq('work_id', workId)
+          .order('created_at', { ascending: false })
+          .then((r: any) => r, () => ({ data: [] })),
+      ]);
 
-      if (workErr || !workData) {
+      if (workRes.error || !workRes.data) {
+        alert('Asar topilmadi');
         router.push('/muallif');
         return;
       }
 
+      const workData = workRes.data;
       setWork(workData as Work);
-      setTitle(workData.title);
+      setTitle(workData.title || '');
       setDescription(workData.description || '');
-      setCoverUrl(workData.cover_url || null);
-      setType(workData.type);
-      setAccessType(workData.access_type);
-      setFullWorkPrice(String(workData.full_work_price || 0));
-      setCompletionStatus(workData.completion_status);
+      setCoverUrl(workData.cover_url || '');
+      setType(workData.type || 'book');
+      setAccessType(workData.access_type || 'free');
+      setFullWorkPrice(String(workData.full_work_price || '15000'));
+      setCompletionStatus(workData.completion_status || 'ongoing');
       setAgeRating(workData.age_rating || 'all');
       setIsArchived(Boolean(workData.is_archived));
 
-      const existingGenreIds = (workData.work_genres || []).map((wg: any) => wg.genre_id);
-      setSelectedGenreIds(existingGenreIds);
+      const existingGenres = (workData.work_genres || []).map((wg: any) => wg.genre?.id).filter(Boolean);
+      setSelectedGenreIds(existingGenres);
 
-      // 2. Fetch genres
-      const { data: genresData } = await supabase
-        .from('genres')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-      setGenres((genresData as Genre[]) || []);
+      setGenres((genresRes.data as Genre[]) || []);
 
-      // 3. Fetch chapters with author-permitted content
-      const { data: chapData } = await supabase
-        .from('chapters')
-        .select('*, chapter_contents(content)')
-        .eq('work_id', workId)
-        .order('chapter_number', { ascending: true });
-
-      const formattedChapters = (chapData || []).map((c: any) => ({
+      const formattedChapters = (chapRes.data || []).map((c: any) => ({
         ...c,
         content: Array.isArray(c.chapter_contents) ? c.chapter_contents[0]?.content || '' : c.chapter_contents?.content || '',
       }));
 
       setChapters(formattedChapters as Chapter[]);
       setChapterNumber((formattedChapters.length || 0) + 1);
+
+      if (revisionsRes.data) {
+        setWorkRevisions(revisionsRes.data as WorkRevision[]);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }
+  }, [workId, router]);
+
+  useEffect(() => {
+    loadWorkAndChapters();
+  }, [loadWorkAndChapters]);
 
   // Handle Work Settings Save
   async function handleSaveWorkSettings(e: React.FormEvent) {
@@ -154,22 +175,26 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
     setNotice(null);
 
     try {
-      const res = await fetch('/api/works/save', {
+      const endpoint = work?.status === 'published' ? '/api/works/revisions' : '/api/works/save';
+      const payload: any = {
+        workId,
+        id: workId,
+        title: title.trim(),
+        description: description.trim(),
+        coverUrl: coverUrl || null,
+        type,
+        accessType,
+        fullWorkPrice: accessType === 'paid_full_work' ? Number(fullWorkPrice) : 0,
+        completionStatus,
+        ageRating,
+        isArchived,
+        genreIds: selectedGenreIds,
+      };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: workId,
-          title: title.trim(),
-          description: description.trim(),
-          coverUrl: coverUrl || null,
-          type,
-          accessType,
-          fullWorkPrice: accessType === 'paid_full_work' ? Number(fullWorkPrice) : 0,
-          completionStatus,
-          ageRating,
-          isArchived,
-          genreIds: selectedGenreIds,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -177,7 +202,12 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
         throw new Error(data.error || 'Asarni yangilashda xatolik yuz berdi');
       }
 
-      setNotice({ type: 'success', text: 'Asar ma’lumotlari muvaffaqiyatli saqlandi' });
+      setNotice({
+        type: 'success',
+        text: data.isRevision
+          ? 'Nashr qilingan asarga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderator tekshiruviga yuborildi.'
+          : 'Asar ma’lumotlari muvaffaqiyatli saqlandi',
+      });
       await loadWorkAndChapters();
     } catch (err: any) {
       setNotice({ type: 'error', text: err.message || 'Xatolik yuz berdi' });
@@ -245,24 +275,37 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
     setChapterError(null);
 
     try {
-      const res = await fetch('/api/chapters/save', {
+      const isEditingPublishedChapter = editingChapterId && chapters.find((c) => c.id === editingChapterId)?.status === 'published';
+      const endpoint = isEditingPublishedChapter ? '/api/chapters/revisions' : '/api/chapters/save';
+
+      const payload: any = {
+        chapterId: editingChapterId || undefined,
+        id: editingChapterId || undefined,
+        workId,
+        chapterNumber,
+        title: chapterTitle.trim(),
+        content: chapterContent.trim(),
+        isFree,
+        price: isFree ? 0 : Number(chapterPrice),
+        status: 'published',
+      };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingChapterId || undefined,
-          workId,
-          chapterNumber,
-          title: chapterTitle.trim(),
-          content: chapterContent.trim(),
-          isFree,
-          price: isFree ? 0 : Number(chapterPrice),
-          status: 'published',
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Bobni saqlashda xatolik yuz berdi');
+      }
+
+      if (data.isRevision) {
+        setNotice({
+          type: 'success',
+          text: 'Nashr qilingan bobga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderator tekshiruviga yuborildi.',
+        });
       }
 
       setIsChapterModalOpen(false);
@@ -342,8 +385,16 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
 
   if (loading || !work) {
     return (
-      <div className="p-16 text-center text-stone-500 font-bold text-xs sm:text-sm">
-        Asar ma’lumotlari yuklanmoqda...
+      <div className="space-y-6 sm:space-y-8 pb-20">
+        <Skeleton className="h-6 w-48" />
+        <div className="p-6 sm:p-8 bg-white rounded-3xl border border-[#EAE5DD] space-y-4">
+          <Skeleton className="h-8 w-72" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Skeleton className="h-64 rounded-3xl lg:col-span-2" />
+          <Skeleton className="h-64 rounded-3xl" />
+        </div>
       </div>
     );
   }
@@ -455,20 +506,32 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
           }`}
         >
           {notice.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
           )}
           <span>{notice.text}</span>
         </div>
       )}
 
-      {/* Tabs: Chapters vs Work Settings */}
-      <div className="flex items-center gap-2 border-b border-stone-200 pb-2 text-xs font-bold">
+      {isPublished && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+          <p className="font-bold flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-amber-700" />
+            <span>Asar nashr qilingan holatda</span>
+          </p>
+          <p className="text-amber-800 font-normal">
+            Kiritilgan har qanday o‘zgarish avtomat tarzda tahrir (revision) sifatida saqlanadi. Kitobxonlar hozirgi tasdiqlangan versiyani o‘qishda davom etadilar.
+          </p>
+        </div>
+      )}
+
+      {/* Tabs: Chapters vs Work Settings vs Revisions */}
+      <div className="flex items-center gap-2 border-b border-stone-200 pb-2 text-xs font-bold overflow-x-auto scrollbar-none">
         <button
           type="button"
           onClick={() => setActiveTab('chapters')}
-          className={`px-4 py-2 rounded-xl transition-all ${
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
             activeTab === 'chapters'
               ? 'bg-stone-900 text-white shadow-xs'
               : 'text-stone-600 hover:bg-stone-100'
@@ -480,7 +543,7 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
         <button
           type="button"
           onClick={() => setActiveTab('settings')}
-          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
             activeTab === 'settings'
               ? 'bg-stone-900 text-white shadow-xs'
               : 'text-stone-600 hover:bg-stone-100'
@@ -489,6 +552,21 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
           <Settings className="w-3.5 h-3.5" />
           <span>Asar sozlamalari & Muqova</span>
         </button>
+
+        {workRevisions.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('revisions' as any)}
+            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              (activeTab as any) === 'revisions'
+                ? 'bg-stone-900 text-white shadow-xs'
+                : 'text-stone-600 hover:bg-stone-100'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Tahrirlar tarixi ({workRevisions.length})</span>
+          </button>
+        )}
       </div>
 
       {/* Tab 1: Chapters List with Reordering */}
@@ -763,6 +841,52 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
             </div>
           </div>
         </form>
+      )}
+
+      {/* Tab 3: Revisions History */}
+      {(activeTab as any) === 'revisions' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif text-lg font-bold text-stone-900">
+              Tahrirlar tarixi va moderatsiya
+            </h2>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-stone-200 divide-y divide-stone-100 overflow-hidden shadow-2xs">
+            {workRevisions.map((rev) => (
+              <div key={rev.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold font-serif text-stone-900 text-sm">{rev.title}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                        rev.status === 'approved'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : rev.status === 'pending_review'
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                          : 'bg-rose-50 text-rose-800 border border-rose-200'
+                      }`}
+                    >
+                      {rev.status === 'approved'
+                        ? 'Tasdiqlangan'
+                        : rev.status === 'pending_review'
+                        ? 'Tekshiruvda'
+                        : 'Rad etilgan'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Kiritilgan sana: {new Date(rev.created_at).toLocaleDateString('uz-UZ')}
+                  </p>
+                  {rev.rejection_reason && rev.status === 'rejected' && (
+                    <p className="text-xs text-rose-700 bg-rose-50 p-2 rounded-xl border border-rose-200 mt-2 font-medium">
+                      Rad etish sababi: {rev.rejection_reason}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Chapter Rich-Text Editor Modal */}

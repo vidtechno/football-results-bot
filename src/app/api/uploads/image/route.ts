@@ -99,14 +99,42 @@ export async function POST(request: Request) {
       );
     }
 
-    // Automatically update work or profile if IDs provided
+    // Automatically update work or profile if IDs provided, cleaning up previous file
     if (type === 'cover' && workId) {
+      const { data: existingWork } = await adminClient
+        .from('works')
+        .select('cover_url')
+        .eq('id', workId)
+        .maybeSingle();
+
+      if (existingWork?.cover_url && existingWork.cover_url.includes('/work-covers/')) {
+        try {
+          const oldPath = existingWork.cover_url.split('/work-covers/')[1]?.split('?')[0];
+          if (oldPath) {
+            await adminClient.storage.from('work-covers').remove([oldPath]);
+          }
+        } catch {
+          // ignore non-critical cleanup error
+        }
+      }
+
       await adminClient
         .from('works')
         .update({ cover_url: uploadResult.publicUrl, updated_at: new Date().toISOString() })
         .eq('id', workId)
         .eq('author_id', profile.id);
     } else if (type === 'avatar') {
+      if (profile.avatar_url && profile.avatar_url.includes('/avatars/')) {
+        try {
+          const oldPath = profile.avatar_url.split('/avatars/')[1]?.split('?')[0];
+          if (oldPath) {
+            await adminClient.storage.from('avatars').remove([oldPath]);
+          }
+        } catch {
+          // ignore non-critical cleanup error
+        }
+      }
+
       await adminClient
         .from('profiles')
         .update({ avatar_url: uploadResult.publicUrl, updated_at: new Date().toISOString() })

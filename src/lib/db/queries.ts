@@ -40,6 +40,7 @@ export async function getPublishedWorks(options?: {
   type?: 'book' | 'serialized_story';
   accessType?: 'free' | 'paid_full_work' | 'paid_by_chapter';
   completionStatus?: 'ongoing' | 'completed';
+  sortBy?: 'popular' | 'newest' | 'price_asc' | 'price_desc';
   limit?: number;
 }): Promise<Work[]> {
   const supabase = createServerClient();
@@ -64,8 +65,15 @@ export async function getPublishedWorks(options?: {
       )
     `)
     .eq('status', 'published')
-    .neq('is_archived', true)
-    .order('published_at', { ascending: false });
+    .neq('is_archived', true);
+
+  if (options?.sortBy === 'price_asc') {
+    q = q.order('full_work_price', { ascending: true });
+  } else if (options?.sortBy === 'price_desc') {
+    q = q.order('full_work_price', { ascending: false });
+  } else {
+    q = q.order('published_at', { ascending: false });
+  }
 
   if (options?.query) {
     q = q.or(`title.ilike.%${options.query}%,description.ilike.%${options.query}%`);

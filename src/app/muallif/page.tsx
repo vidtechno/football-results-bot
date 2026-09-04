@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { PayoutModal } from '@/components/wallet/PayoutModal';
+import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
 import type {
   AuthorProfile,
   Work,
@@ -730,15 +731,11 @@ export default function MuallifStudioPage() {
               )}
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Muqova rasm havolasi (URL - ixtiyoriy)
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={newWorkCover}
-                  onChange={(e) => setNewWorkCover(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900"
+                <ImageUploadDropzone
+                  value={newWorkCover || null}
+                  onChange={(url) => setNewWorkCover(url || '')}
+                  type="cover"
+                  label="Muqova rasmi (Qurilmadan yuklash)"
                 />
               </div>
 

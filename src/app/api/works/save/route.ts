@@ -40,6 +40,8 @@ export async function POST(request: Request) {
       : 'free';
     const fullWorkPrice = Number(body.fullWorkPrice || 0);
     const completionStatus = body.completionStatus === 'completed' ? 'completed' : 'ongoing';
+    const ageRating = body.ageRating ? String(body.ageRating).trim() : 'all';
+    const isArchived = Boolean(body.isArchived);
     const genreIds: string[] = Array.isArray(body.genreIds) ? body.genreIds : [];
 
     if (!title) {
@@ -77,6 +79,8 @@ export async function POST(request: Request) {
           access_type: accessType,
           full_work_price: Math.max(0, Math.floor(fullWorkPrice)),
           completion_status: completionStatus,
+          age_rating: ageRating,
+          is_archived: isArchived,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -122,6 +126,8 @@ export async function POST(request: Request) {
         access_type: accessType,
         full_work_price: Math.max(0, Math.floor(fullWorkPrice)),
         completion_status: completionStatus,
+        age_rating: ageRating,
+        is_archived: false,
       })
       .select()
       .single();

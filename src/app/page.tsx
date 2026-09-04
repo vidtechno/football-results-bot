@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   BookOpen,
   Compass,
@@ -9,90 +10,203 @@ import {
   Bookmark,
   TrendingUp,
   Award,
+  Clock,
+  User,
+  CheckCircle2,
 } from 'lucide-react';
 import { getPublishedWorks, getActiveGenres } from '@/lib/db/queries';
-import { WorkCard } from '@/components/works/WorkCard';
+import { getCurrentProfile, createServerClient } from '@/lib/supabase/server';
 import { WorkGrid } from '@/components/works/WorkGrid';
+import { formatUZS } from '@/lib/utils/currency';
 
 export const revalidate = 60; // Revalidate every minute
 
 export default async function HomePage() {
-  const [allWorks, genres] = await Promise.all([
-    getPublishedWorks({ limit: 12 }),
+  const profile = await getCurrentProfile();
+  const supabase = createServerClient();
+
+  const [allWorks, genres, authorList] = await Promise.all([
+    getPublishedWorks({ limit: 16 }),
     getActiveGenres(),
+    supabase
+      .from('author_profiles')
+      .select(`
+        user_id,
+        pen_name,
+        biography,
+        profile:profiles(id, display_name, username, avatar_url)
+      `)
+      .eq('status', 'approved')
+      .limit(4),
   ]);
+
+  // If user signed in, load active reading items
+  let continueReadingItems: any[] = [];
+  if (profile) {
+    try {
+      const { data: libData } = await supabase
+        .from('library_items')
+        .select(`
+          work_id,
+          saved_state,
+          reading_progress,
+          updated_at,
+          work:works (
+            id, title, slug, cover_url, access_type, type,
+            author:author_profiles (pen_name)
+          ),
+          last_chapter:chapters!last_read_chapter_id (
+            id, chapter_number, title, slug
+          )
+        `)
+        .eq('user_id', profile.id)
+        .order('updated_at', { ascending: false })
+        .limit(3);
+
+      continueReadingItems = (libData || []).filter((item: any) => item.work);
+    } catch {
+      // ignore
+    }
+  }
 
   const featuredWorks = allWorks.slice(0, 4);
   const serializedStories = allWorks.filter((w) => w.type === 'serialized_story').slice(0, 4);
-  const latestBooks = allWorks.filter((w) => w.type === 'book').slice(0, 4);
+  const newWorks = allWorks.filter((w) => w.type === 'book').slice(0, 4);
+  const authors = (authorList.data || []) as any[];
 
   return (
     <div className="space-y-12 sm:space-y-16 pb-12">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-700 text-white p-7 sm:p-12 lg:p-16 shadow-xl shadow-blue-600/15">
+      {/* 1. Literary Hero Section */}
+      <section className="bg-literary-hero text-white rounded-3xl p-7 sm:p-12 lg:p-16 shadow-xl overflow-hidden border border-stone-800">
         <div className="relative z-10 max-w-2xl space-y-5">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-xs font-bold border border-white/20">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>O‘zbek kitob va hikoyalar platformasi</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-400/25 text-amber-300 text-xs font-semibold">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>O‘zbek kitob va davomli asarlar platformasi</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1]">
-            Yangi asarlar, sevimli mualliflar va erkin mutolaa
+          <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.15] text-stone-100">
+            Adabiyot sehri, yangi qissalar va samimiy mutolaa
           </h1>
 
-          <p className="text-blue-100 text-sm sm:text-base leading-relaxed max-w-xl font-medium">
-            Manborada sara kitoblar, yangi boblari muntazam chiqib turadigan serialized qissalar va mustaqil mualliflarning ijod namunalarini o‘qing.
+          <p className="text-stone-300 text-sm sm:text-base leading-relaxed max-w-xl font-normal">
+            Manborada sara kitoblar, yangi boblari muntazam chiqib turadigan serialized asarlar va mustaqil o‘zbek mualliflarining ijod namunalarini qulaylik bilan o‘qing.
           </p>
 
-          <div className="pt-3 flex flex-wrap items-center gap-3.5">
+          <div className="pt-2 flex flex-wrap items-center gap-3.5">
             <Link
               href="/asarlar"
-              className="px-6 py-3.5 rounded-2xl bg-white text-blue-700 hover:bg-blue-50 font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center gap-2"
             >
-              <Compass className="w-4 h-4" />
-              <span>Mutolaani boshlash</span>
+              <Compass className="w-4 h-4 text-stone-950" />
+              <span>Asarlarni kashf qilish</span>
             </Link>
 
             <Link
               href="/muallif"
-              className="px-6 py-3.5 rounded-2xl bg-blue-800/80 hover:bg-blue-800 text-white border border-blue-400/40 font-extrabold text-xs sm:text-sm active:scale-95 transition-all flex items-center gap-2 backdrop-blur-xs"
+              className="px-6 py-3.5 rounded-2xl bg-stone-800/90 hover:bg-stone-800 text-stone-200 border border-stone-700 font-semibold text-xs sm:text-sm active:scale-95 transition-all flex items-center gap-2 backdrop-blur-xs"
             >
-              <PenTool className="w-4 h-4" />
+              <PenTool className="w-4 h-4 text-amber-400" />
               <span>Asar e’lon qilish</span>
             </Link>
           </div>
         </div>
-
-        {/* Decorative Background Elements */}
-        <div className="absolute -bottom-10 -right-10 w-96 h-96 bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-0 right-1/4 w-80 h-80 bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
       </section>
 
-      {/* Genres Carousel/Grid */}
-      {genres.length > 0 && (
+      {/* 2. Continue Reading (Signed-In Readers Only) */}
+      {continueReadingItems.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Bookmark className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-                Janrlar bo‘yicha
+              <Clock className="w-5 h-5 text-amber-700" />
+              <h2 className="font-serif text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
+                O‘qishni davom ettiring
               </h2>
             </div>
             <Link
-              href="/asarlar"
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              href="/kutubxona"
+              className="text-xs font-bold text-stone-600 hover:text-stone-900 flex items-center gap-1"
             >
-              <span>Barchasi</span>
+              <span>Kutubxonam</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {continueReadingItems.map((item) => {
+              const w = item.work;
+              const chap = item.last_chapter;
+              const readUrl = chap ? `/asarlar/${w.slug}/${chap.slug}` : `/asarlar/${w.slug}`;
+
+              return (
+                <Link
+                  key={item.work_id}
+                  href={readUrl}
+                  className="editorial-card group p-4 flex items-center gap-3.5 bg-white rounded-2xl border border-stone-200 hover:border-amber-700/40 transition-all shadow-xs"
+                >
+                  <div className="w-14 h-20 rounded-xl bg-stone-100 overflow-hidden flex-shrink-0 relative book-cover-shadow">
+                    {w.cover_url ? (
+                      <Image
+                        src={w.cover_url}
+                        alt={w.title}
+                        fill
+                        sizes="60px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-stone-400">
+                        <BookOpen className="w-5 h-5" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <h4 className="font-serif font-bold text-stone-900 text-sm truncate group-hover:text-amber-900 transition-colors">
+                      {w.title}
+                    </h4>
+                    <p className="text-[11px] text-stone-500 font-medium truncate">
+                      {w.author?.pen_name || 'Muallif'}
+                    </p>
+                    {chap && (
+                      <p className="text-[11px] text-amber-800 font-semibold truncate">
+                        {chap.chapter_number}-bob: {chap.title}
+                      </p>
+                    )}
+                    <span className="inline-block text-[10px] font-bold text-stone-700 underline pt-0.5">
+                      Davom ettirish →
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 3. Popular Genres Carousel */}
+      {genres.length > 0 && (
+        <section id="janrlar" className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bookmark className="w-5 h-5 text-amber-800" />
+              <h2 className="font-serif text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
+                Mashhur janrlar
+              </h2>
+            </div>
+            <Link
+              href="/asarlar"
+              className="text-xs font-bold text-stone-600 hover:text-stone-900 flex items-center gap-1"
+            >
+              <span>Barcha asarlar</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
             {genres.map((genre) => (
               <Link
                 key={genre.id}
                 href={`/asarlar?genre=${genre.slug}`}
-                className="flex-shrink-0 px-4 py-2.5 rounded-2xl bg-white border border-slate-200/80 hover:border-blue-500 hover:text-blue-600 text-slate-700 text-xs font-bold transition-all shadow-2xs hover:shadow-xs whitespace-nowrap"
+                className="flex-shrink-0 px-4 py-2 rounded-xl bg-white border border-stone-200/90 hover:border-amber-700/40 hover:bg-amber-50/50 text-stone-700 text-xs font-bold transition-all shadow-2xs whitespace-nowrap"
               >
                 {genre.name}
               </Link>
@@ -101,21 +215,21 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Featured Works */}
+      {/* 4. Featured or Recommended Works */}
       {featuredWorks.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+              <TrendingUp className="w-5 h-5 text-amber-800" />
+              <h2 className="font-serif text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
                 Tavsiya etilgan asarlar
               </h2>
             </div>
             <Link
               href="/asarlar"
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              className="text-xs font-bold text-stone-600 hover:text-stone-900 flex items-center gap-1"
             >
-              <span>Barcha asarlar</span>
+              <span>Barchasi</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -124,24 +238,24 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Serialized Stories Section */}
+      {/* 5. Recently Updated Serialized Stories */}
       {serializedStories.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
+              <Sparkles className="w-5 h-5 text-amber-700" />
               <div>
-                <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                <h2 className="font-serif text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
                   Davomli asarlar (Seriallar)
                 </h2>
-                <p className="text-[11px] text-slate-500 font-medium">
-                  Har haftada yangi boblar qo‘shilib boradigan qiziqarli hikoyalar
+                <p className="text-[11px] text-stone-500 font-medium">
+                  Har haftada yangi boblar qo‘shilib boradigan qiziqarli qissalar
                 </p>
               </div>
             </div>
             <Link
               href="/asarlar?type=serialized_story"
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 flex-shrink-0"
+              className="text-xs font-bold text-stone-600 hover:text-stone-900 flex items-center gap-1 flex-shrink-0"
             >
               <span>Ko‘rish</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -152,26 +266,105 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Author Callout Banner */}
-      <section className="p-8 sm:p-12 rounded-3xl bg-slate-900 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg">
-        <div className="space-y-2 max-w-xl text-center md:text-left">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-400/20">
-            <Award className="w-3.5 h-3.5" />
-            <span>Mualliflar uchun</span>
+      {/* 6. New Works */}
+      {newWorks.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-amber-800" />
+              <h2 className="font-serif text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
+                Yangi kitoblar
+              </h2>
+            </div>
+            <Link
+              href="/asarlar?type=book"
+              className="text-xs font-bold text-stone-600 hover:text-stone-900 flex items-center gap-1"
+            >
+              <span>Barcha kitoblar</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <h3 className="text-2xl sm:text-3xl font-black tracking-tight">
+
+          <WorkGrid works={newWorks} />
+        </section>
+      )}
+
+      {/* 7. Featured Authors */}
+      {authors.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-amber-800" />
+              <h2 className="font-serif text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
+                Sara mualliflar
+              </h2>
+            </div>
+            <Link
+              href="/mualliflar"
+              className="text-xs font-bold text-stone-600 hover:text-stone-900 flex items-center gap-1"
+            >
+              <span>Barcha mualliflar</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {authors.map((a) => {
+              const profileData = a.profile;
+              return (
+                <Link
+                  key={a.user_id}
+                  href={`/mualliflar/${profileData?.username || a.user_id}`}
+                  className="editorial-card group p-4 rounded-2xl bg-white border border-stone-200/90 hover:border-amber-700/40 flex items-center gap-3.5 transition-all shadow-xs"
+                >
+                  <div className="w-12 h-12 rounded-full bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center font-serif font-bold text-stone-700 flex-shrink-0">
+                    {profileData?.avatar_url ? (
+                      <Image
+                        src={profileData.avatar_url}
+                        alt={a.pen_name}
+                        width={48}
+                        height={48}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{a.pen_name?.slice(0, 1).toUpperCase() || 'M'}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-serif font-bold text-stone-900 text-sm truncate group-hover:text-amber-900 transition-colors">
+                      {a.pen_name}
+                    </h4>
+                    <p className="text-[11px] text-stone-400 font-medium truncate">
+                      @{profileData?.username || 'muallif'}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 8. Invitation for Authors to Publish on Manbora */}
+      <section className="p-8 sm:p-12 rounded-3xl bg-stone-900 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl border border-stone-800">
+        <div className="space-y-2 max-w-xl text-center md:text-left">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 text-xs font-semibold border border-amber-400/25">
+            <Award className="w-3.5 h-3.5" />
+            <span>Mualliflar uchun ochiq platforma</span>
+          </div>
+          <h3 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-stone-100">
             O‘z kitob va hikoyalaringizni Manborada nashr qiling
           </h3>
-          <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-            Kitobxonlar auditoriyasini to‘plang, asaringizni bepul yoki pullik tarzda taqdim eting va har bir xariddan 80% sof daromad oling.
+          <p className="text-stone-300 text-xs sm:text-sm leading-relaxed">
+            Kitobxonlar auditoriyasini qozoning, asaringizni bepul yoki pullik formatda taqdim eting va har bir kitobxon xarididan 80% sof daromad oling.
           </p>
         </div>
 
         <Link
           href="/muallif"
-          className="px-7 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs sm:text-sm shadow-lg shadow-blue-600/30 active:scale-95 transition-all flex-shrink-0 flex items-center gap-2"
+          className="px-7 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-lg shadow-amber-950/30 active:scale-95 transition-all flex-shrink-0 flex items-center gap-2"
         >
-          <span>Muallif bo‘lish</span>
+          <span>Muallif studiyasiga o‘tish</span>
           <ArrowRight className="w-4 h-4" />
         </Link>
       </section>

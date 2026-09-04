@@ -3,7 +3,18 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Compass, PenTool, User, Wallet, LogIn, ShieldCheck } from 'lucide-react';
+import {
+  BookOpen,
+  Compass,
+  Bookmark,
+  Users,
+  Search,
+  User,
+  Wallet,
+  LogIn,
+  ShieldCheck,
+  Plus,
+} from 'lucide-react';
 import { clsx } from 'clsx';
 import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
@@ -15,28 +26,49 @@ export function Navbar() {
   const [balance, setBalance] = useState<number | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function checkUser(sessionUser: any, token?: string) {
+      if (!isMounted) return;
       setUser(sessionUser);
+
       if (sessionUser) {
-        fetchBalance(sessionUser.id);
+        // Fetch balance
+        try {
+          const { data } = await supabase
+            .from('wallet_accounts')
+            .select('balance')
+            .eq('user_id', sessionUser.id)
+            .eq('account_type', 'reader_credit')
+            .maybeSingle();
+
+          if (data && isMounted) {
+            setBalance(Number(data.balance));
+          }
+        } catch {
+          // ignore
+        }
+
+        // Fetch admin status
         try {
           const headers: Record<string, string> = {};
           if (token) headers['Authorization'] = `Bearer ${token}`;
           const res = await fetch('/api/auth/profile', { headers });
-          if (res.ok) {
+          if (res.ok && isMounted) {
             const data = await res.json();
             setIsAdmin(Boolean(data.isAdmin));
           }
         } catch {
-          setIsAdmin(false);
+          if (isMounted) setIsAdmin(false);
         }
       } else {
-        setBalance(null);
-        setIsAdmin(false);
+        if (isMounted) {
+          setBalance(null);
+          setIsAdmin(false);
+        }
       }
     }
 
-    // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       checkUser(session?.user || null, session?.access_token);
     });
@@ -46,87 +78,100 @@ export function Navbar() {
     });
 
     return () => {
+      isMounted = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
 
-  async function fetchBalance(userId: string) {
-    try {
-      const { data } = await supabase
-        .from('wallet_accounts')
-        .select('balance')
-        .eq('user_id', userId)
-        .eq('account_type', 'reader_credit')
-        .single();
-
-      if (data) {
-        setBalance(Number(data.balance));
-      }
-    } catch {
-      // Ignore wallet fetch errors
-    }
-  }
-
   const navLinks = [
     { href: '/', label: 'Bosh sahifa', icon: BookOpen },
     { href: '/asarlar', label: 'Asarlar', icon: Compass },
-    { href: '/muallif', label: 'Muallif bo‘limi', icon: PenTool },
+    { href: '/asarlar#janrlar', label: 'Janrlar', icon: Bookmark },
+    { href: '/mualliflar', label: 'Mualliflar', icon: Users },
   ];
 
   return (
     <header className="sticky top-0 z-40 glass-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-16">
-          {/* Manbora Brand Logo */}
-          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group min-w-0" aria-label="Manbora Bosh Sahifa">
-            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-500 flex items-center justify-center text-white font-black shadow-md shadow-blue-600/25 group-hover:scale-105 transition-transform duration-200 flex-shrink-0">
-              <BookOpen className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
+        <div className="flex items-center justify-between h-15 sm:h-16">
+          {/* Manbora Literary Brand Logo */}
+          <Link href="/" className="flex items-center gap-3 group min-w-0" aria-label="Manbora Bosh Sahifa">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-stone-900 flex items-center justify-center text-amber-500 font-black shadow-xs group-hover:scale-103 transition-transform duration-200 flex-shrink-0">
+              <BookOpen className="w-5 h-5 text-amber-400" />
             </div>
             <div className="flex flex-col min-w-0 justify-center">
-              <span className="text-[22px] sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
+              <span className="text-xl sm:text-2xl font-serif font-black text-stone-900 tracking-tight leading-none">
                 Manbora
               </span>
-              <span className="text-[10px] text-blue-600 tracking-wide font-extrabold uppercase leading-tight pt-0.5 truncate">
-                Kitob va asarlar platformasi
+              <span className="text-[10px] text-amber-900 tracking-wider font-semibold uppercase leading-tight pt-0.5 truncate">
+                Kitob va mutolaa
               </span>
             </div>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1.5" aria-label="Asosiy menyu">
+          <nav className="hidden md:flex items-center gap-1 lg:gap-1.5" aria-label="Asosiy menyu">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive =
-                pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
+                link.href === '/'
+                  ? pathname === '/'
+                  : pathname.startsWith(link.href.split('#')[0]) && link.href !== '/';
+
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   className={clsx(
-                    'flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200',
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150',
                     isActive
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200/80 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70',
+                      ? 'bg-amber-100/70 text-amber-950 font-black'
+                      : 'text-stone-600 hover:text-stone-950 hover:bg-stone-100',
                   )}
                 >
-                  <Icon className={clsx('w-4 h-4', isActive ? 'text-blue-600' : 'text-slate-400')} />
+                  <Icon className={clsx('w-3.5 h-3.5', isActive ? 'text-amber-800' : 'text-stone-400')} />
                   <span>{link.label}</span>
                 </Link>
               );
             })}
+
+            {user && (
+              <Link
+                href="/kutubxona"
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150',
+                  pathname.startsWith('/kutubxona') || pathname.includes('tab=library')
+                    ? 'bg-amber-100/70 text-amber-950 font-black'
+                    : 'text-stone-600 hover:text-stone-950 hover:bg-stone-100',
+                )}
+              >
+                <Bookmark className="w-3.5 h-3.5 text-stone-400" />
+                <span>Kutubxonam</span>
+              </Link>
+            )}
           </nav>
 
-          {/* User Account / Balance & Login Action */}
+          {/* Quick Search & User Area */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            {/* Quick Search trigger */}
+            <Link
+              href="/asarlar"
+              className="p-2 rounded-xl text-stone-500 hover:text-stone-900 hover:bg-stone-100 transition-colors"
+              title="Asarlarni qidirish"
+              aria-label="Qidiruv"
+            >
+              <Search className="w-4 h-4" />
+            </Link>
+
             {user ? (
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-2.5">
                 {balance !== null && (
                   <Link
                     href="/kabinet"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50/80 border border-blue-200/60 text-blue-700 text-xs font-extrabold hover:bg-blue-100 transition-colors"
-                    title="Manbora balansingiz"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200/70 text-amber-950 text-xs font-bold hover:bg-amber-100 transition-colors"
+                    title="Manbora hisobingiz"
                   >
-                    <Wallet className="w-3.5 h-3.5 text-blue-600" />
+                    <Wallet className="w-3.5 h-3.5 text-amber-800" />
                     <span>{formatUZS(balance)}</span>
                   </Link>
                 )}
@@ -134,10 +179,10 @@ export function Navbar() {
                 {isAdmin && (
                   <Link
                     href="/diyoration"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-black shadow-2xs transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-black shadow-2xs transition-all"
                     title="Manbora Admin Paneli"
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
                     <span className="hidden sm:inline">Admin paneli</span>
                   </Link>
                 )}
@@ -147,8 +192,8 @@ export function Navbar() {
                   className={clsx(
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all',
                     pathname.startsWith('/kabinet')
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+                      ? 'bg-stone-900 text-white shadow-xs'
+                      : 'bg-stone-100 text-stone-700 hover:bg-stone-200',
                   )}
                 >
                   <User className="w-4 h-4" />
@@ -156,17 +201,17 @@ export function Navbar() {
                 </Link>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <Link
                   href="/kirish"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-stone-700 hover:text-stone-950 hover:bg-stone-100 transition-all"
                 >
-                  <LogIn className="w-4 h-4 text-slate-500" />
+                  <LogIn className="w-3.5 h-3.5 text-stone-500" />
                   <span>Kirish</span>
                 </Link>
                 <Link
                   href="/royxatdan-otish"
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md shadow-blue-600/20 active:scale-95 transition-all"
+                  className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all"
                 >
                   <span>Ro‘yxatdan o‘tish</span>
                 </Link>

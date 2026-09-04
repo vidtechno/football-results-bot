@@ -1,6 +1,12 @@
+import * as React from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { Profile } from '@/lib/types/platform';
+
+// React.cache is available in React Server Components; provide passthrough fallback for test/node runners
+const requestCache = typeof (React as any).cache === 'function'
+  ? (React as any).cache
+  : (<T extends (...args: any[]) => any>(fn: T): T => fn);
 
 if (typeof window !== 'undefined') {
   throw new Error('Ushbu modul faqat server tomonida ishlatilishi shart (server-only)!');
@@ -43,9 +49,10 @@ export function createServerClient() {
 
 /**
  * Resolves current user and their profile on server side.
+ * Memoized per request using React.cache() to prevent duplicate round-trips.
  * Checks Bearer Authorization header or cookie session.
  */
-export async function getCurrentProfile(authHeader?: string | null): Promise<Profile | null> {
+export const getCurrentProfile = requestCache(async function getCurrentProfile(authHeader?: string | null): Promise<Profile | null> {
   const adminClient = createAdminClient();
 
   let token: string | null = null;
@@ -116,4 +123,4 @@ export async function getCurrentProfile(authHeader?: string | null): Promise<Pro
   } catch {
     return null;
   }
-}
+});

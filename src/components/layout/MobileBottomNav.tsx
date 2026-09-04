@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Compass, PenTool, User, ShieldCheck } from 'lucide-react';
+import { BookOpen, Compass, Bookmark, User, ShieldCheck } from 'lucide-react';
 import { clsx } from 'clsx';
 import { supabase } from '@/lib/supabase/client';
 
@@ -12,21 +12,22 @@ export function MobileBottomNav() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     async function checkAdmin(sessionUser: any, token?: string) {
       if (sessionUser) {
         try {
           const headers: Record<string, string> = {};
           if (token) headers['Authorization'] = `Bearer ${token}`;
           const res = await fetch('/api/auth/profile', { headers });
-          if (res.ok) {
+          if (res.ok && isMounted) {
             const data = await res.json();
             setIsAdmin(Boolean(data.isAdmin));
           }
         } catch {
-          setIsAdmin(false);
+          if (isMounted) setIsAdmin(false);
         }
       } else {
-        setIsAdmin(false);
+        if (isMounted) setIsAdmin(false);
       }
     }
 
@@ -39,6 +40,7 @@ export function MobileBottomNav() {
     });
 
     return () => {
+      isMounted = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -51,7 +53,7 @@ export function MobileBottomNav() {
   const baseTabs = [
     { href: '/', label: 'Bosh sahifa', icon: BookOpen },
     { href: '/asarlar', label: 'Asarlar', icon: Compass },
-    { href: '/muallif', label: 'Mualliflik', icon: PenTool },
+    { href: '/kutubxona', label: 'Kutubxonam', icon: Bookmark },
     { href: '/kabinet', label: 'Kabinet', icon: User },
   ];
 
@@ -73,17 +75,17 @@ export function MobileBottomNav() {
               key={tab.href}
               href={tab.href}
               className={clsx(
-                'flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all duration-200 min-w-[50px] min-h-[44px]',
+                'flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all duration-150 min-w-[50px] min-h-[44px]',
                 isActive
-                  ? isDiyoration ? 'text-purple-700 font-black' : 'text-blue-600 font-black'
-                  : 'text-slate-500 hover:text-slate-800 font-semibold',
+                  ? isDiyoration ? 'text-purple-700 font-bold' : 'text-amber-950 font-bold'
+                  : 'text-stone-500 hover:text-stone-800 font-medium',
               )}
             >
               <div
                 className={clsx(
-                  'p-1 rounded-lg transition-transform duration-200',
+                  'p-1 rounded-lg transition-transform duration-150',
                   isActive
-                    ? isDiyoration ? 'bg-purple-100 scale-105' : 'bg-blue-50 scale-105'
+                    ? isDiyoration ? 'bg-purple-100' : 'bg-amber-100/80'
                     : 'bg-transparent',
                 )}
               >
@@ -91,8 +93,8 @@ export function MobileBottomNav() {
                   className={clsx(
                     'w-5 h-5 transition-colors',
                     isActive
-                      ? isDiyoration ? 'text-purple-700 stroke-[2.5]' : 'text-blue-600 stroke-[2.5]'
-                      : 'text-slate-400 stroke-[1.8]',
+                      ? isDiyoration ? 'text-purple-700 stroke-[2.2]' : 'text-amber-900 stroke-[2.2]'
+                      : 'text-stone-400 stroke-[1.8]',
                   )}
                 />
               </div>

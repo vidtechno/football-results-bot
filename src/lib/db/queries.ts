@@ -64,6 +64,7 @@ export async function getPublishedWorks(options?: {
       )
     `)
     .eq('status', 'published')
+    .neq('is_archived', true)
     .order('published_at', { ascending: false });
 
   if (options?.query) {
@@ -86,7 +87,53 @@ export async function getPublishedWorks(options?: {
     q = q.limit(options.limit);
   }
 
-  const { data, error } = await q;
+  let { data, error } = await q;
+
+  // Graceful compatibility fallback if migration 012 has not yet been applied to production Supabase
+  if (error && error.code === '42703') {
+    let fallbackQ = supabase
+      .from('works')
+      .select(`
+        *,
+        author:author_profiles (
+          user_id,
+          pen_name,
+          biography,
+          status,
+          profile:profiles (
+            id,
+            display_name,
+            username,
+            avatar_url
+          )
+        ),
+        work_genres (
+          genre:genres (*)
+        )
+      `)
+      .eq('status', 'published')
+      .order('published_at', { ascending: false });
+
+    if (options?.query) {
+      fallbackQ = fallbackQ.or(`title.ilike.%${options.query}%,description.ilike.%${options.query}%`);
+    }
+    if (options?.type) {
+      fallbackQ = fallbackQ.eq('type', options.type);
+    }
+    if (options?.accessType) {
+      fallbackQ = fallbackQ.eq('access_type', options.accessType);
+    }
+    if (options?.completionStatus) {
+      fallbackQ = fallbackQ.eq('completion_status', options.completionStatus);
+    }
+    if (options?.limit) {
+      fallbackQ = fallbackQ.limit(options.limit);
+    }
+
+    const fallbackRes = await fallbackQ;
+    data = fallbackRes.data;
+    error = fallbackRes.error;
+  }
 
   if (error) {
     console.error('Error fetching works:', error);
@@ -327,3 +374,23 @@ export async function getAuthorByUsername(username: string): Promise<{
     works: (works as Work[]) || [],
   };
 }
+
+/**
+ * Fetch list of approved authors for public directory
+ */
+export async function getApprovedAuthors(limit = 40): Promise<AuthorProfile[]> {
+  const supabase = createAdminClient();
+
+  const { data } = await supabase
+    .from('author_profiles')
+    .select(`
+      *,
+      profile:profiles(id, display_name, username, avatar_url)
+    `)
+    .eq('status', 'approved')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  return (data as AuthorProfile[]) || [];
+}
+

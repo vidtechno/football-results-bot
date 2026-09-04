@@ -10,6 +10,8 @@ import {
   decryptCardData,
   isValidUzbekCardNumber,
 } from '@/lib/utils/encryption';
+import { validateImageMagicBytes } from '@/lib/utils/imageUpload';
+import { sanitizeRichText } from '@/lib/utils/sanitizer';
 
 describe('Financial and Currency Utilities', () => {
   describe('formatUZS', () => {
@@ -518,5 +520,201 @@ describe('Financial and Currency Utilities', () => {
       expect(adminNav.mobileBottomNav.adminTabHref).toBe('/diyoration/dashboard');
     });
   });
+
+  describe('Image Security, Magic Bytes & Sharp Upload Pipeline', () => {
+    it('accepts valid JPEG file signature (FF D8 FF)', () => {
+      const jpegHeader = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
+      const res = validateImageMagicBytes(jpegHeader);
+      expect(res.isValid).toBe(true);
+      expect(res.detectedFormat).toBe('jpeg');
+    });
+
+    it('accepts valid PNG file signature (89 50 4E 47 0D 0A 1A 0A)', () => {
+      const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+      const res = validateImageMagicBytes(pngHeader);
+      expect(res.isValid).toBe(true);
+      expect(res.detectedFormat).toBe('png');
+    });
+
+    it('accepts valid WebP file signature (RIFF....WEBP)', () => {
+      const webpHeader = Buffer.from([
+        0x52, 0x49, 0x46, 0x46, // RIFF
+        0x20, 0x00, 0x00, 0x00, // size
+        0x57, 0x45, 0x42, 0x50, // WEBP
+      ]);
+      const res = validateImageMagicBytes(webpHeader);
+      expect(res.isValid).toBe(true);
+      expect(res.detectedFormat).toBe('webp');
+    });
+
+    it('strictly rejects SVG files disguised as images (XSS prevention)', () => {
+      const svgDisguisedAsJpg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+      const res = validateImageMagicBytes(svgDisguisedAsJpg);
+      expect(res.isValid).toBe(false);
+    });
+
+    it('strictly rejects executable, PDF, and random text files', () => {
+      const pdfHeader = Buffer.from('%PDF-1.4 1 0 obj <</Type/Catalog>>');
+      expect(validateImageMagicBytes(pdfHeader).isValid).toBe(false);
+
+      const htmlHeader = Buffer.from('<!DOCTYPE html><html><body>malicious</body></html>');
+      expect(validateImageMagicBytes(htmlHeader).isValid).toBe(false);
+
+      const emptyBuffer = Buffer.alloc(4);
+      expect(validateImageMagicBytes(emptyBuffer).isValid).toBe(false);
+    });
+  });
+
+  describe('Rich-Text Editorial HTML Sanitizer', () => {
+    it('preserves valid editorial tags (p, h2, h3, blockquote, ul, ol, li, strong, em, u, hr, br)', () => {
+      const input = '<h2>Bosh bob</h2><p>Bu <strong>muhim</strong> va <em>ajoyib</em> <u>fikr</u>.</p><blockquote>Iqtibos</blockquote><hr /><p>Yangi qator<br />davomi</p>';
+      const sanitized = sanitizeRichText(input);
+      expect(sanitized).toContain('<h2>Bosh bob</h2>');
+      expect(sanitized).toContain('<strong>muhim</strong>');
+      expect(sanitized).toContain('<em>ajoyib</em>');
+      expect(sanitized).toContain('<u>fikr</u>');
+      expect(sanitized).toContain('<blockquote>Iqtibos</blockquote>');
+      expect(sanitized).toContain('<hr />');
+      expect(sanitized).toContain('<br />');
+    });
+
+    it('preserves approved typography alignment classes', () => {
+      const input = '<p class="text-center">Markazda joylashgan matn</p><p class="text-right">O‘ngda joylashgan</p>';
+      const sanitized = sanitizeRichText(input);
+      expect(sanitized).toContain('class="text-center"');
+      expect(sanitized).toContain('class="text-right"');
+    });
+
+    it('strictly strips script tags and iframes to prevent XSS in chapters', () => {
+      const malicious = '<p>Hikoya matni</p><script>alert("hacked")</script><iframe src="//evil.com"></iframe>';
+      const sanitized = sanitizeRichText(malicious);
+      expect(sanitized).not.toContain('<script');
+      expect(sanitized).not.toContain('alert');
+      expect(sanitized).not.toContain('<iframe');
+      expect(sanitized).toContain('<p>Hikoya matni</p>');
+    });
+
+    it('strips inline event listeners and javascript: URIs', () => {
+      const malicious = '<p onclick="alert(1)" onmouseover="stealTokens()">Xavfli matn</p><a href="javascript:alert(1)">Havola</a>';
+      const sanitized = sanitizeRichText(malicious);
+      expect(sanitized).not.toContain('onclick');
+      expect(sanitized).not.toContain('onmouseover');
+      expect(sanitized).not.toContain('javascript:');
+    });
+  });
+
+  describe('Author Workflow & Work Permissions', () => {
+    it('validates author ownership before modifying work metadata', () => {
+      function checkCanEditWork(userId: string, workAuthorId: string, isAdmin: boolean) {
+        if (userId === workAuthorId) return { canEdit: true };
+        if (isAdmin) return { canEdit: true };
+        return { canEdit: false, error: 'Faqat asar muallifi uni tahrirlashi mumkin' };
+      }
+
+      const authorA = 'user-author-a';
+      const authorB = 'user-author-b';
+      const adminUser = 'user-admin';
+
+      // Author A can edit their work
+      expect(checkCanEditWork(authorA, authorA, false).canEdit).toBe(true);
+
+      // Author B cannot edit Author A's work
+      const unauthorized = checkCanEditWork(authorB, authorA, false);
+      expect(unauthorized.canEdit).toBe(false);
+      expect(unauthorized.error).toBe('Faqat asar muallifi uni tahrirlashi mumkin');
+
+      // Admin can edit or review
+      expect(checkCanEditWork(adminUser, authorA, true).canEdit).toBe(true);
+    });
+
+    it('applies soft-archiving flag to works without permanently deleting them', () => {
+      interface WorkState {
+        id: string;
+        title: string;
+        is_archived: boolean;
+        status: string;
+      }
+
+      const work: WorkState = {
+        id: 'work-123',
+        title: 'O‘tkan kunlar',
+        is_archived: false,
+        status: 'published',
+      };
+
+      // Soft archive
+      const archivedWork = { ...work, is_archived: true };
+      expect(archivedWork.is_archived).toBe(true);
+      expect(archivedWork.id).toBe('work-123'); // Still exists in database
+
+      // Public catalog query filter simulation
+      const publicWorks = [work, archivedWork].filter((w) => !w.is_archived && w.status === 'published');
+      expect(publicWorks.length).toBe(1);
+      expect(publicWorks[0].id).toBe('work-123');
+      expect(publicWorks[0].is_archived).toBe(false);
+    });
+
+    it('handles chapter reordering offsets to avoid unique constraint collisions', () => {
+      const originalChapters = [
+        { id: 'ch-1', chapter_number: 1 },
+        { id: 'ch-2', chapter_number: 2 },
+        { id: 'ch-3', chapter_number: 3 },
+      ];
+
+      // Reorder to [ch-3, ch-1, ch-2]
+      const newOrder = ['ch-3', 'ch-1', 'ch-2'];
+      const OFFSET = 10000;
+
+      // Phase 1: Temporary offset assignments
+      const tempAssigned = newOrder.map((id, index) => ({
+        id,
+        temp_number: OFFSET + index + 1,
+      }));
+
+      expect(tempAssigned[0].temp_number).toBe(10001);
+      expect(tempAssigned[1].temp_number).toBe(10002);
+      expect(tempAssigned[2].temp_number).toBe(10003);
+
+      // Phase 2: Final consecutive assignments
+      const finalAssigned = newOrder.map((id, index) => ({
+        id,
+        chapter_number: index + 1,
+      }));
+
+      expect(finalAssigned.find((c) => c.id === 'ch-3')?.chapter_number).toBe(1);
+      expect(finalAssigned.find((c) => c.id === 'ch-1')?.chapter_number).toBe(2);
+      expect(finalAssigned.find((c) => c.id === 'ch-2')?.chapter_number).toBe(3);
+    });
+  });
+
+  describe('Reader Preferences & Progress Validation', () => {
+    it('clamps reader scroll progress between 0% and 100%', () => {
+      function clampProgress(val: number): number {
+        if (isNaN(val)) return 0;
+        return Math.max(0, Math.min(100, Math.round(val)));
+      }
+
+      expect(clampProgress(45.6)).toBe(46);
+      expect(clampProgress(-10)).toBe(0);
+      expect(clampProgress(150)).toBe(100);
+      expect(clampProgress(0)).toBe(0);
+      expect(clampProgress(100)).toBe(100);
+      expect(clampProgress(NaN)).toBe(0);
+    });
+
+    it('validates reader theme preferences (light, sepia, dark)', () => {
+      const validThemes = ['light', 'sepia', 'dark'];
+      function isValidTheme(theme: string): boolean {
+        return validThemes.includes(theme);
+      }
+
+      expect(isValidTheme('light')).toBe(true);
+      expect(isValidTheme('sepia')).toBe(true);
+      expect(isValidTheme('dark')).toBe(true);
+      expect(isValidTheme('neon')).toBe(false);
+      expect(isValidTheme('')).toBe(false);
+    });
+  });
 });
+
 

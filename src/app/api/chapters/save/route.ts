@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { slugify } from '@/lib/utils/formatters';
+import { sanitizeRichText } from '@/lib/utils/sanitizer';
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +19,8 @@ export async function POST(request: Request) {
     const workId = String(body.workId || '');
     const chapterNumber = Number(body.chapterNumber || 1);
     const title = String(body.title || '').trim();
-    const content = String(body.content || '').trim();
+    const rawContent = String(body.content || '').trim();
+    const content = sanitizeRichText(rawContent);
     const isFree = Boolean(body.isFree);
     const price = Number(body.price || 0);
     const status = body.status === 'published' ? 'published' : 'draft';

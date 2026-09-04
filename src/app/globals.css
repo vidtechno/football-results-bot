@@ -4,23 +4,15 @@
 
 :root {
   color-scheme: light;
-  --background: #F6F9FF;
-  --foreground: #0f172a;
-}
-
-/* Force light theme regardless of OS/browser dark mode settings */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: light;
-    --background: #F6F9FF;
-    --foreground: #0f172a;
-  }
+  --background: #FAF8F5;
+  --foreground: #1C1917;
+  --font-serif-family: var(--font-serif), Merriweather, Georgia, Cambria, 'Times New Roman', serif;
+  --font-sans-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 html, body {
-  color-scheme: light !important;
-  background-color: #F6F9FF !important;
-  color: #0f172a !important;
+  background-color: #FAF8F5 !important;
+  color: #1C1917 !important;
   overflow-x: hidden;
   max-width: 100vw;
 }
@@ -29,7 +21,9 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans-family);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Custom scrollbars */
@@ -39,62 +33,155 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #F4EFEB;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #D7CEC5;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #B8ADA2;
 }
 
-/* Glass & elevation effects */
+/* Editorial Glass & Navigation */
 .glass-header {
-  background: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(250, 248, 245, 0.94) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  border-bottom: 1px solid rgba(234, 229, 221, 0.9);
 }
 
 .glass-bottom-nav {
-  background: rgba(255, 255, 255, 0.96) !important;
+  background: rgba(250, 248, 245, 0.96) !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 -4px 20px -2px rgba(15, 23, 42, 0.08);
+  border-top: 1px solid rgba(234, 229, 221, 0.9);
+  box-shadow: 0 -4px 20px -2px rgba(44, 39, 32, 0.06);
 }
 
-/* Card aesthetics */
-.app-card {
-  background: #ffffff !important;
-  border: 1px solid #e2e8f0;
+/* Editorial Literary Cards */
+.editorial-card {
+  background: #FFFFFF !important;
+  border: 1px solid #EAE5DD;
   border-radius: 1.25rem;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 2px 10px -2px rgba(44, 39, 32, 0.04);
 }
 
-.app-card:hover {
-  border-color: #2563eb;
+.editorial-card:hover {
+  border-color: #D6CCC0;
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px -6px rgba(37, 99, 235, 0.14);
+  box-shadow: 0 12px 28px -6px rgba(44, 39, 32, 0.1);
 }
 
-.app-card:active {
-  transform: translateY(0);
+/* Book Cover Physical Elevation */
+.book-cover-shadow {
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    -3px 0 6px -1px rgba(0, 0, 0, 0.12); /* Spine shadow effect */
 }
 
-/* Bright Decorative Gradients & Blobs */
-.bg-mesh-hero {
-  background-color: #2563eb;
-  background-image: 
-    radial-gradient(circle at 90% 10%, rgba(6, 182, 212, 0.45) 0%, transparent 40%),
-    radial-gradient(circle at 10% 90%, rgba(139, 92, 246, 0.4) 0%, transparent 45%),
-    linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #0284c7 100%);
+.book-cover-shadow:hover {
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.12),
+    0 12px 28px rgba(0, 0, 0, 0.16),
+    -4px 0 8px -1px rgba(0, 0, 0, 0.16);
 }
 
-.command-palette-glow {
-  box-shadow: 0 20px 40px -10px rgba(37, 99, 235, 0.25);
+/* Literary Hero Section */
+.bg-literary-hero {
+  background: linear-gradient(135deg, #1C1917 0%, #292524 50%, #1c1917 100%);
+  position: relative;
+}
+
+.bg-literary-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 85% 15%, rgba(180, 83, 9, 0.15) 0%, transparent 50%),
+                    radial-gradient(circle at 15% 85%, rgba(30, 41, 59, 0.4) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Reading Mode Themes */
+.reader-theme-light {
+  background-color: #FAF8F5 !important;
+  color: #1C1917 !important;
+}
+
+.reader-theme-light article {
+  color: #292524 !important;
+}
+
+.reader-theme-sepia {
+  background-color: #F4ECD8 !important;
+  color: #433422 !important;
+}
+
+.reader-theme-sepia article {
+  color: #382A1A !important;
+}
+
+.reader-theme-sepia .reader-bar {
+  background-color: #EDE3CD !important;
+  border-color: #DFD3B9 !important;
+  color: #433422 !important;
+}
+
+.reader-theme-dark {
+  background-color: #161618 !important;
+  color: #E4E4E7 !important;
+}
+
+.reader-theme-dark article {
+  color: #D4D4D8 !important;
+}
+
+.reader-theme-dark .reader-bar {
+  background-color: #1F1F23 !important;
+  border-color: #2E2E34 !important;
+  color: #F4F4F5 !important;
+}
+
+/* Typography styles for chapter content */
+.reader-article p {
+  margin-bottom: 1.5em;
+  text-indent: 0;
+}
+
+.reader-article h2 {
+  font-family: var(--font-serif-family);
+  font-size: 1.5em;
+  font-weight: 800;
+  margin-top: 1.8em;
+  margin-bottom: 0.8em;
+  color: inherit;
+}
+
+.reader-article h3 {
+  font-family: var(--font-serif-family);
+  font-size: 1.25em;
+  font-weight: 700;
+  margin-top: 1.5em;
+  margin-bottom: 0.6em;
+  color: inherit;
+}
+
+.reader-article blockquote {
+  border-left: 3px solid #B45309;
+  padding-left: 1.2em;
+  font-style: italic;
+  margin: 1.5em 0;
+  opacity: 0.9;
+}
+
+.reader-article hr {
+  border: 0;
+  height: 1px;
+  background: #D7CEC5;
+  margin: 2em auto;
+  width: 50%;
 }

@@ -150,8 +150,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore
+    }
+    // Clean up any legacy cookies
     document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'sb-auth-token=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'supabase-auth-token=; path=/; max-age=0; SameSite=Lax';
     setUser(null);
     setProfile(null);
     setAuthor(null);

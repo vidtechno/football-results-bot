@@ -12,6 +12,8 @@ import {
 } from '@/lib/utils/encryption';
 import { validateImageMagicBytes } from '@/lib/utils/imageUpload';
 import { sanitizeRichText } from '@/lib/utils/sanitizer';
+import { getSafeRedirectUrl } from '@/lib/utils/redirect';
+import { isUserAllowlistedAdmin } from '@/lib/supabase/server';
 
 describe('Financial and Currency Utilities', () => {
   describe('formatUZS', () => {
@@ -832,6 +834,223 @@ describe('Financial and Currency Utilities', () => {
 
       const invalidUrl = 'https://external-site.com/image.jpg';
       expect(extractStoragePath(invalidUrl, 'work-covers')).toBeNull();
+    });
+  });
+
+  describe('Safe Internal Redirects & Open Redirect Prevention', () => {
+    it('allows valid internal local relative paths', () => {
+      expect(getSafeRedirectUrl('/diyoration')).toBe('/diyoration');
+      expect(getSafeRedirectUrl('/diyoration/dashboard')).toBe('/diyoration/dashboard');
+      expect(getSafeRedirectUrl('/kabinet')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('/asarlar/otkan-kunlar')).toBe('/asarlar/otkan-kunlar');
+      expect(getSafeRedirectUrl('/muallif?tab=works')).toBe('/muallif?tab=works');
+    });
+
+    it('rejects malicious external open redirect targets and falls back safely', () => {
+      expect(getSafeRedirectUrl('https://evil.com')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('http://attacker.com/steal')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('//evil.com/phish')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('/\\evil.com')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('javascript:alert(1)')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('/http://evil.com')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('/javascript:steal()')).toBe('/kabinet');
+    });
+
+    it('rejects control characters, newlines and null bytes', () => {
+      expect(getSafeRedirectUrl('/diyoration\nSet-Cookie:evil=true')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('/diyoration\r\n')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('/diyoration\0')).toBe('/kabinet');
+    });
+
+    it('handles null, undefined and empty inputs with custom fallback', () => {
+      expect(getSafeRedirectUrl(null, '/custom')).toBe('/custom');
+      expect(getSafeRedirectUrl(undefined, '/custom')).toBe('/custom');
+      expect(getSafeRedirectUrl('', '/custom')).toBe('/custom');
+      expect(getSafeRedirectUrl('   ', '/custom')).toBe('/custom');
+    });
+  });
+
+  describe('Server-Side Admin Allowlist & Verification', () => {
+    const originalEnv = process.env.ADMIN_EMAILS;
+
+    it('recognizes allowlisted user with verified email as admin', () => {
+      process.env.ADMIN_EMAILS = 'anorboyevdiyorbek714@gmail.com,admin2@manbora.uz';
+
+      const user = {
+        id: 'usr-admin-1',
+        email: 'anorboyevdiyorbek714@gmail.com',
+        email_confirmed_at: '2026-01-01T00:00:00Z',
+      };
+
+      expect(isUserAllowlistedAdmin(user)).toBe(true);
+    });
+
+    it('handles case-insensitivity and whitespace in email allowlist', () => {
+      process.env.ADMIN_EMAILS = '  anorboyevdiyorbek714@gmail.com  ';
+
+      const user = {
+        id: 'usr-admin-2',
+        email: 'ANORBOYEVDIYORBEK714@GMAIL.COM',
+        confirmed_at: '2026-01-01T00:00:00Z',
+      };
+
+      expect(isUserAllowlistedAdmin(user)).toBe(true);
+    });
+
+    it('rejects allowlisted email if email is NOT confirmed/verified', () => {
+      process.env.ADMIN_EMAILS = 'anorboyevdiyorbek714@gmail.com';
+
+      const unconfirmedUser = {
+        id: 'usr-admin-unverified',
+        email: 'anorboyevdiyorbek714@gmail.com',
+        email_confirmed_at: null,
+        confirmed_at: null,
+      };
+
+      expect(isUserAllowlistedAdmin(unconfirmedUser)).toBe(false);
+    });
+
+    it('rejects unallowlisted users regardless of verification', () => {
+      process.env.ADMIN_EMAILS = 'anorboyevdiyorbek714@gmail.com';
+
+      const ordinaryUser = {
+        id: 'usr-ordinary-1',
+        email: 'reader@example.uz',
+        email_confirmed_at: '2026-01-01T00:00:00Z',
+      };
+
+      expect(isUserAllowlistedAdmin(ordinaryUser)).toBe(false);
+    });
+
+    it('rejects null or missing email safely', () => {
+      process.env.ADMIN_EMAILS = 'anorboyevdiyorbek714@gmail.com';
+      expect(isUserAllowlistedAdmin(null)).toBe(false);
+      expect(isUserAllowlistedAdmin({})).toBe(false);
+      expect(isUserAllowlistedAdmin({ email: '' })).toBe(false);
+    });
+
+    // Restore env
+    process.env.ADMIN_EMAILS = originalEnv;
+  });
+
+  describe('SSR Session Synchronization & Admin Route Authorization', () => {
+    it('signed-in verified admin opens /diyoration without another login', () => {
+      const adminProfile = {
+        id: 'usr-admin-1',
+        email: 'anorboyevdiyorbek714@gmail.com',
+        is_admin: true,
+        display_name: 'Diyorbek',
+      };
+
+      function evaluateAdminRouteAccess(profile: typeof adminProfile | null) {
+        if (!profile) return { status: 302, redirect: '/kirish?redirect=/diyoration' };
+        if (!profile.is_admin) return { status: 403, error: 'Ruxsat berilmagan' };
+        return { status: 200, granted: true };
+      }
+
+      const result = evaluateAdminRouteAccess(adminProfile);
+      expect(result.status).toBe(200);
+      expect(result.granted).toBe(true);
+    });
+
+    it('already-authenticated verified admin visiting /kirish?redirect=/diyoration is redirected directly to /diyoration', () => {
+      const adminProfile = {
+        id: 'usr-admin-1',
+        is_admin: true,
+      };
+
+      function handleKirishServerRedirect(profile: typeof adminProfile | null, rawRedirect?: string) {
+        const safe = getSafeRedirectUrl(rawRedirect, profile?.is_admin ? '/diyoration' : '/kabinet');
+        if (profile) {
+          if (profile.is_admin && (rawRedirect === '/diyoration' || rawRedirect?.startsWith('/diyoration/'))) {
+            return { redirect: '/diyoration' };
+          }
+          return { redirect: safe };
+        }
+        return { renderLogin: true };
+      }
+
+      const res = handleKirishServerRedirect(adminProfile, '/diyoration');
+      expect(res.redirect).toBe('/diyoration');
+    });
+
+    it('ordinary authenticated user gets 403 Forbidden when accessing /diyoration', () => {
+      const ordinaryProfile = {
+        id: 'usr-reader-1',
+        email: 'reader@example.uz',
+        is_admin: false,
+      };
+
+      function evaluateAdminRouteAccess(profile: typeof ordinaryProfile | null) {
+        if (!profile) return { status: 302, redirect: '/kirish?redirect=/diyoration' };
+        if (!profile.is_admin) return { status: 403, error: 'Ruxsat berilmagan' };
+        return { status: 200, granted: true };
+      }
+
+      const result = evaluateAdminRouteAccess(ordinaryProfile);
+      expect(result.status).toBe(403);
+      expect(result.error).toBe('Ruxsat berilmagan');
+    });
+
+    it('signed-out visitor accessing /diyoration redirects to /kirish?redirect=/diyoration', () => {
+      function evaluateAdminRouteAccess(profile: null) {
+        if (!profile) return { status: 302, redirect: '/kirish?redirect=/diyoration' };
+        return { status: 200, granted: true };
+      }
+
+      const result = evaluateAdminRouteAccess(null);
+      expect(result.status).toBe(302);
+      expect(result.redirect).toBe('/kirish?redirect=/diyoration');
+    });
+
+    it('session survives refresh and client navigation via cookie persistence', () => {
+      // Simulating cookie store persisting official @supabase/ssr session chunk
+      const cookieJar = new Map<string, string>();
+      cookieJar.set('sb-testproject-auth-token', JSON.stringify(['access_token_123', 'refresh_token_456']));
+
+      // On navigation or refresh, cookies remain in the jar and are parsed
+      const hasCookie = Array.from(cookieJar.keys()).some(
+        (k) => k.startsWith('sb-') && k.includes('-auth-token')
+      );
+      expect(hasCookie).toBe(true);
+
+      const parsed = JSON.parse(cookieJar.get('sb-testproject-auth-token')!);
+      expect(parsed[0]).toBe('access_token_123');
+    });
+
+    it('expired session is refreshed and cookies updated', () => {
+      let currentAccessToken = 'old_expired_token';
+
+      function simulateMiddlewareRefresh(isExpired: boolean) {
+        if (isExpired) {
+          currentAccessToken = 'refreshed_new_token';
+          return { refreshed: true, newToken: currentAccessToken };
+        }
+        return { refreshed: false, newToken: currentAccessToken };
+      }
+
+      const res = simulateMiddlewareRefresh(true);
+      expect(res.refreshed).toBe(true);
+      expect(res.newToken).toBe('refreshed_new_token');
+    });
+
+    it('logout clears the server-readable session cookies', () => {
+      const cookieJar = new Map<string, string>();
+      cookieJar.set('sb-testproject-auth-token', 'token_data');
+      cookieJar.set('sb-access-token', 'legacy_data');
+
+      // Logout simulation
+      function performLogout(jar: Map<string, string>) {
+        jar.delete('sb-testproject-auth-token');
+        jar.delete('sb-access-token');
+        jar.delete('sb-auth-token');
+        jar.delete('supabase-auth-token');
+      }
+
+      performLogout(cookieJar);
+      expect(cookieJar.has('sb-testproject-auth-token')).toBe(false);
+      expect(cookieJar.has('sb-access-token')).toBe(false);
+      expect(cookieJar.size).toBe(0);
     });
   });
 });

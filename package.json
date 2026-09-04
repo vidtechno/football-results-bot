@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.6",
     "@supabase/supabase-js": "^2.45.6",
     "@tiptap/extension-text-align": "^3.31.3",
     "@tiptap/extension-underline": "^3.31.3",

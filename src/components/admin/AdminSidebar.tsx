@@ -30,10 +30,12 @@ export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: Adm
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      document.cookie = 'sb-access-token=; path=/; max-age=0';
     } catch {
       // ignore
     }
+    document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'sb-auth-token=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'supabase-auth-token=; path=/; max-age=0; SameSite=Lax';
     router.push('/kirish');
     router.refresh();
   };

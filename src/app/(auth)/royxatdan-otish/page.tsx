@@ -50,10 +50,6 @@ export default function RoyxatdanOtishPage() {
         throw new Error(signUpError.message);
       }
 
-      if (data.session) {
-        document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=604800; SameSite=Lax`;
-      }
-
       router.push('/kabinet');
       router.refresh();
     } catch (err: any) {
@@ -85,13 +81,16 @@ export default function RoyxatdanOtishPage() {
           </div>
         )}
 
-        <form onSubmit={handleSignUp} className="space-y-4">
+        <form onSubmit={handleSignUp} className="space-y-4" autoComplete="on">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label htmlFor="displayName" className="block text-xs font-bold text-slate-700 mb-1.5">
               Ismingiz yoki taxallusingiz
             </label>
             <input
+              id="displayName"
+              name="name"
               type="text"
+              autoComplete="name"
               placeholder="Masalan: Sardor Aliyev"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -101,11 +100,14 @@ export default function RoyxatdanOtishPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label htmlFor="username" className="block text-xs font-bold text-slate-700 mb-1.5">
               Foydalanuvchi nomi (@username)
             </label>
             <input
+              id="username"
+              name="username"
               type="text"
+              autoComplete="username"
               placeholder="sardor_aliyev"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -115,11 +117,14 @@ export default function RoyxatdanOtishPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label htmlFor="email" className="block text-xs font-bold text-slate-700 mb-1.5">
               Email manzilingiz
             </label>
             <input
+              id="email"
+              name="email"
               type="email"
+              autoComplete="email"
               placeholder="ism@manzil.uz"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -129,11 +134,14 @@ export default function RoyxatdanOtishPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label htmlFor="password" className="block text-xs font-bold text-slate-700 mb-1.5">
               Parol (kamida 6 ta belgi)
             </label>
             <input
+              id="password"
+              name="password"
               type="password"
+              autoComplete="new-password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

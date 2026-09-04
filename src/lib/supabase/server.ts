@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient as createSSRServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { Profile } from '@/lib/types/platform';
 
@@ -12,6 +13,10 @@ if (typeof window !== 'undefined') {
   throw new Error('Ushbu modul faqat server tomonida ishlatilishi shart (server-only)!');
 }
 
+/**
+ * Creates a server-side admin client with service_role key.
+ * Used strictly for internal operations (bypasses RLS for permission sync and ledger balance updates).
+ */
 export function createAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -20,7 +25,7 @@ export function createAdminClient() {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY muhit o‘zgaruvchisi o‘rnatilmagan!');
   }
 
-  return createClient(
+  return createSupabaseClient(
     supabaseUrl,
     supabaseServiceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_key',
     {
@@ -33,90 +38,148 @@ export function createAdminClient() {
 }
 
 /**
- * Creates a server-side client with anon key for public data.
+ * Creates an official Supabase SSR client reading from Next.js request cookies.
+ * Server Components and Server Actions use this client to access the authenticated user's session.
  */
-export function createServerClient() {
+export function createServerSupabaseClient() {
+  const cookieStore = cookies();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_anon_key';
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
+  return createSSRServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // The `setAll` method was called from a Server Component.
+          // This can be ignored if middleware refreshes user sessions.
+        }
+      },
     },
   });
+}
+
+export const createServerClient = createServerSupabaseClient;
+
+/**
+ * Checks if a given Supabase user object qualifies as an administrator.
+ * Requires:
+ * 1. Email must exist and match one of the server-only ADMIN_EMAILS entries (normalized).
+ * 2. Email must be confirmed/verified (email_confirmed_at or confirmed_at).
+ */
+export function isUserAllowlistedAdmin(user: any): boolean {
+  if (!user || !user.email) return false;
+
+  const email = user.email.trim().toLowerCase();
+  const isVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
+  if (!isVerified) return false;
+
+  const allowlistedEmails = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  return allowlistedEmails.includes(email);
 }
 
 /**
  * Resolves current user and their profile on server side.
  * Memoized per request using React.cache() to prevent duplicate round-trips.
- * Checks Bearer Authorization header or cookie session.
+ * Validates session using official @supabase/ssr cookies or Bearer token.
  */
-export const getCurrentProfile = requestCache(async function getCurrentProfile(authHeader?: string | null): Promise<Profile | null> {
+export const getCurrentProfile = requestCache(async function getCurrentProfile(
+  authHeader?: string | null
+): Promise<Profile | null> {
   const adminClient = createAdminClient();
+  let authenticatedUser: any = null;
 
-  let token: string | null = null;
-
+  // 1. If Bearer token is provided (API route authorization), validate via adminClient
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.slice(7).trim();
-  } else {
-    try {
-      const cookieStore = cookies();
-      const possibleCookieNames = [
-        'sb-access-token',
-        'supabase-auth-token',
-        'sb-auth-token',
-      ];
-      for (const name of possibleCookieNames) {
-        const val = cookieStore.get(name)?.value;
-        if (val) {
-          token = val;
-          break;
+    const token = authHeader.slice(7).trim();
+    if (token) {
+      try {
+        const { data: { user }, error } = await adminClient.auth.getUser(token);
+        if (!error && user) {
+          authenticatedUser = user;
         }
+      } catch {
+        // invalid bearer
+      }
+    }
+  }
+
+  // 2. Validate via official @supabase/ssr cookie client
+  if (!authenticatedUser) {
+    try {
+      const ssrClient = createServerSupabaseClient();
+      const { data: { user }, error } = await ssrClient.auth.getUser();
+      if (!error && user) {
+        authenticatedUser = user;
       }
     } catch {
       // In contexts where cookies() is not available
     }
   }
 
-  if (!token) {
+  // 3. Fallback: check legacy single cookie token if present
+  if (!authenticatedUser) {
+    try {
+      const cookieStore = cookies();
+      const legacyToken =
+        cookieStore.get('sb-access-token')?.value ||
+        cookieStore.get('supabase-auth-token')?.value ||
+        cookieStore.get('sb-auth-token')?.value;
+
+      if (legacyToken) {
+        const { data: { user }, error } = await adminClient.auth.getUser(legacyToken);
+        if (!error && user) {
+          authenticatedUser = user;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!authenticatedUser) {
     return null;
   }
 
   try {
-    const { data: { user }, error: userError } = await adminClient.auth.getUser(token);
-    if (userError || !user) return null;
-
     let { data: profile, error: profError } = await adminClient
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', authenticatedUser.id)
       .maybeSingle();
 
     if (profError) {
-      console.warn('public.profiles jadvalini o‘qishda xatolik (migratsiya holatini tekshiring):', profError.message);
+      console.warn('public.profiles jadvalini o‘qishda xatolik:', profError.message);
     }
 
-    // Secure email allowlist and verification check
-    const email = user.email ? user.email.trim().toLowerCase() : '';
-    const isVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
-    const allowlistedEmails = (process.env.ADMIN_EMAILS || '')
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
+    // Check admin eligibility against server-only ADMIN_EMAILS
+    const isAdmin = isUserAllowlistedAdmin(authenticatedUser);
 
-    const isAllowlistedAdmin = Boolean(email && allowlistedEmails.includes(email) && isVerified);
-
-    if (isAllowlistedAdmin && profile && !profile.is_admin) {
+    if (isAdmin && profile && !profile.is_admin) {
       try {
         await adminClient
           .from('profiles')
           .update({ is_admin: true, updated_at: new Date().toISOString() })
-          .eq('id', user.id);
+          .eq('id', authenticatedUser.id);
         profile.is_admin = true;
       } catch (err) {
         console.error('Admin huquqlarini sinxronizatsiyalashda xatolik:', err);
       }
+    }
+
+    if (profile) {
+      // Server enforces actual verified admin status (never trusts client input or stale flag)
+      profile.is_admin = isAdmin && Boolean(profile.is_admin);
     }
 
     return (profile as Profile) || null;

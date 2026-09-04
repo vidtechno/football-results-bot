@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Users,
   Wallet,
@@ -23,6 +23,7 @@ import { formatUzbekDate } from '@/lib/utils/formatters';
 import { supabase } from '@/lib/supabase/client';
 
 function AdminDashboardContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'overview';
 
@@ -88,6 +89,7 @@ function AdminDashboardContent() {
 
   useEffect(() => {
     loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadDashboardData() {
@@ -95,7 +97,7 @@ function AdminDashboardContent() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
-        window.location.href = '/diyoration';
+        router.push('/kirish?redirect=/diyoration');
         return;
       }
       const { data: currentProfile } = await supabase
@@ -105,7 +107,7 @@ function AdminDashboardContent() {
         .single();
 
       if (!currentProfile?.is_admin) {
-        window.location.href = '/diyoration';
+        router.push('/');
         return;
       }
 

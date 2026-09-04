@@ -16,6 +16,7 @@ import {
 import { getPublishedWorks, getActiveGenres } from '@/lib/db/queries';
 import { getCurrentProfile, createServerClient } from '@/lib/supabase/server';
 import { WorkCard } from '@/components/works/WorkCard';
+import type { Work, Genre } from '@/lib/types/platform';
 
 export const revalidate = 60; // Revalidate every minute
 
@@ -209,7 +210,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-            {popularWorks.map((work) => (
+            {popularWorks.map((work: Work) => (
               <WorkCard key={work.id} work={work} />
             ))}
           </div>
@@ -240,7 +241,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-            {newArrivals.map((work) => (
+            {newArrivals.map((work: Work) => (
               <WorkCard key={work.id} work={work} />
             ))}
           </div>
@@ -271,7 +272,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-            {freeWorks.map((work) => (
+            {freeWorks.map((work: Work) => (
               <WorkCard key={work.id} work={work} />
             ))}
           </div>
@@ -294,7 +295,7 @@ export default async function HomePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {genres.map((g) => (
+          {genres.map((g: Genre) => (
             <Link
               key={g.id}
               href={`/asarlar?genre=${g.slug}`}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -16,9 +16,14 @@ import {
   X,
   Lock,
   Unlock,
+  CheckCircle2,
+  PenTool,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Work, Chapter } from '@/lib/types/platform';
+import type { ChapterAccessReason, ChapterAccessStatus } from '@/lib/security/access';
+import { formatUZS } from '@/lib/utils/currency';
+import { paginateChapterContent } from '@/lib/reader/pagination';
 import { PaywallUnlockCard } from './PaywallUnlockCard';
 
 interface ReaderViewProps {
@@ -26,8 +31,12 @@ interface ReaderViewProps {
   currentChapter: Chapter;
   allChapters: Chapter[];
   hasAccess: boolean;
+  accessReason?: ChapterAccessReason;
   userBalance?: number;
   isLoggedIn: boolean;
+  chapterAccessMap?: Record<string, ChapterAccessStatus>;
+  savedProgress?: { pageIndex: number; percentage: number; chapterId: string } | null;
+  initialPage?: number;
 }
 
 type ReaderTheme = 'light' | 'sepia' | 'dark';
@@ -40,8 +49,12 @@ export function ReaderView({
   currentChapter,
   allChapters,
   hasAccess,
+  accessReason = 'locked',
   userBalance = 0,
   isLoggedIn,
+  chapterAccessMap = {},
+  savedProgress = null,
+  initialPage,
 }: ReaderViewProps) {
   const router = useRouter();
 
@@ -55,9 +68,52 @@ export function ReaderView({
   // UI Drawer & Settings state
   const [showSettings, setShowSettings] = useState(false);
   const [showToc, setShowToc] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
 
-  const lastProgressRef = useRef<number>(0);
+  // Chapter indices
+  const currentIndex = allChapters.findIndex((c) => c.id === currentChapter.id);
+  const prevChapter = currentIndex > 0 ? allChapters[currentIndex - 1] : null;
+  const nextChapter =
+    currentIndex >= 0 && currentIndex < allChapters.length - 1
+      ? allChapters[currentIndex + 1]
+      : null;
+
+  // Next chapter lock status
+  const nextChapterAccess = nextChapter ? chapterAccessMap[nextChapter.id] : undefined;
+  const isNextLocked = nextChapter
+    ? nextChapterAccess
+      ? nextChapterAccess.isLocked
+      : !nextChapter.is_free
+    : false;
+
+  // ~200-Word Deterministic Pagination Engine
+  const paginated = useMemo(() => {
+    if (!hasAccess || !currentChapter.content) {
+      return { pages: [''], totalWords: 0, totalPages: 1 };
+    }
+    return paginateChapterContent(currentChapter.content, 200);
+  }, [hasAccess, currentChapter.content]);
+
+  // Current page state (1-indexed)
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    if (typeof initialPage === 'number' && initialPage >= 1) {
+      return initialPage;
+    }
+    if (savedProgress?.chapterId === currentChapter.id && savedProgress.pageIndex >= 1) {
+      return savedProgress.pageIndex;
+    }
+    return 1;
+  });
+
+  // Sync current page if initialPage, savedProgress, or totalPages update
+  useEffect(() => {
+    if (typeof initialPage === 'number' && initialPage >= 1) {
+      setCurrentPage(Math.min(initialPage, paginated.totalPages));
+    } else if (savedProgress?.chapterId === currentChapter.id && savedProgress.pageIndex >= 1) {
+      setCurrentPage(Math.min(savedProgress.pageIndex, paginated.totalPages));
+    } else {
+      setCurrentPage(1);
+    }
+  }, [currentChapter.id, initialPage, savedProgress, paginated.totalPages]);
 
   // Load saved preferences from localStorage on mount
   useEffect(() => {
@@ -78,7 +134,15 @@ export function ReaderView({
 
   // Save preferences on change
   const savePrefs = useCallback(
-    (newPrefs: Partial<{ theme: ReaderTheme; fontFamily: FontFamily; fontSize: number; lineHeight: LineHeight; contentWidth: ContentWidth }>) => {
+    (
+      newPrefs: Partial<{
+        theme: ReaderTheme;
+        fontFamily: FontFamily;
+        fontSize: number;
+        lineHeight: LineHeight;
+        contentWidth: ContentWidth;
+      }>,
+    ) => {
       try {
         const current = {
           theme,
@@ -96,51 +160,86 @@ export function ReaderView({
     [theme, fontFamily, fontSize, lineHeight, contentWidth],
   );
 
-  // Chapter indices
-  const currentIndex = allChapters.findIndex((c) => c.id === currentChapter.id);
-  const prevChapter = currentIndex > 0 ? allChapters[currentIndex - 1] : null;
-  const nextChapter =
-    currentIndex >= 0 && currentIndex < allChapters.length - 1
-      ? allChapters[currentIndex + 1]
-      : null;
+  // Authoritative progress persistence to PostgreSQL server
+  const saveProgressToServer = useCallback(
+    (page: number) => {
+      if (!isLoggedIn || !hasAccess) return;
+      const percentage = Math.min(100, Math.max(0, Math.round((page / paginated.totalPages) * 100)));
 
-  // Track scroll progress & persist to database
+      fetch('/api/library/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workId: work.id,
+          chapterId: currentChapter.id,
+          pageIndex: page,
+          totalPages: paginated.totalPages,
+          percentage,
+          isCompleted: page >= paginated.totalPages && currentIndex === allChapters.length - 1,
+        }),
+        keepalive: true,
+      }).catch(() => {});
+    },
+    [
+      isLoggedIn,
+      hasAccess,
+      paginated.totalPages,
+      work.id,
+      currentChapter.id,
+      currentIndex,
+      allChapters.length,
+    ],
+  );
+
+  // Debounced progress saving when page changes
   useEffect(() => {
-    function handleScroll() {
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (totalHeight <= 0) return;
-      const progress = Math.min(100, Math.max(0, Math.round((window.scrollY / totalHeight) * 100)));
-      setScrollProgress(progress);
+    const timer = setTimeout(() => {
+      saveProgressToServer(currentPage);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [currentPage, saveProgressToServer]);
 
-      // Debounce saving progress if changed significantly
-      if (Math.abs(progress - lastProgressRef.current) >= 15 && isLoggedIn) {
-        lastProgressRef.current = progress;
-        fetch('/api/library/progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            workId: work.id,
-            chapterId: currentChapter.id,
-            progress,
-          }),
-        }).catch(() => {});
-      }
+  // Save on beforeunload
+  useEffect(() => {
+    function handleBeforeUnload() {
+      saveProgressToServer(currentPage);
     }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      saveProgressToServer(currentPage);
+    };
+  }, [currentPage, saveProgressToServer]);
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [work.id, currentChapter.id, isLoggedIn]);
+  // Page turn handlers
+  const goToPrevPage = useCallback(() => {
+    if (currentPage > 1) {
+      setCurrentPage((p) => p - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (prevChapter) {
+      router.push(`/asarlar/${work.slug}/${prevChapter.slug}`);
+    }
+  }, [currentPage, prevChapter, router, work.slug]);
 
-  // Keyboard navigation using Next.js client router (no full reload!)
+  const goToNextPage = useCallback(() => {
+    if (currentPage < paginated.totalPages) {
+      setCurrentPage((p) => p + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (nextChapter) {
+      router.push(`/asarlar/${work.slug}/${nextChapter.slug}`);
+    }
+  }, [currentPage, paginated.totalPages, nextChapter, router, work.slug]);
+
+  // Keyboard navigation
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-      if (e.key === 'ArrowLeft' && prevChapter) {
-        router.push(`/asarlar/${work.slug}/${prevChapter.slug}`);
-      } else if (e.key === 'ArrowRight' && nextChapter) {
-        router.push(`/asarlar/${work.slug}/${nextChapter.slug}`);
+      if (e.key === 'ArrowLeft') {
+        goToPrevPage();
+      } else if (e.key === 'ArrowRight') {
+        goToNextPage();
       } else if (e.key === 'Escape') {
         setShowSettings(false);
         setShowToc(false);
@@ -148,7 +247,13 @@ export function ReaderView({
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [prevChapter, nextChapter, work.slug, router]);
+  }, [goToPrevPage, goToNextPage]);
+
+  // Reading progress percentage across current chapter
+  const chapterProgressPercent = Math.min(
+    100,
+    Math.max(0, Math.round((currentPage / paginated.totalPages) * 100)),
+  );
 
   // Width container classes
   const widthClasses = {
@@ -160,12 +265,17 @@ export function ReaderView({
   const themeClass = `reader-theme-${theme}`;
 
   return (
-    <div className={clsx('min-h-screen transition-colors duration-200 antialiased selection:bg-amber-200 selection:text-amber-950 pb-32', themeClass)}>
-      {/* Scroll Progress Bar at very top */}
+    <div
+      className={clsx(
+        'min-h-screen transition-colors duration-200 antialiased selection:bg-amber-200 selection:text-amber-950 pb-32',
+        themeClass,
+      )}
+    >
+      {/* Top Page Progress Indicator Bar */}
       <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-black/5">
         <div
-          className="h-full bg-amber-600 transition-all duration-150"
-          style={{ width: `${scrollProgress}%` }}
+          className="h-full bg-amber-600 transition-all duration-200"
+          style={{ width: `${chapterProgressPercent}%` }}
         />
       </div>
 
@@ -198,46 +308,32 @@ export function ReaderView({
               <span className="hidden sm:inline">Mundarija</span>
             </button>
 
-            {/* Typography & Display Settings Button */}
+            {/* Typography & Theme Preferences Button */}
             <button
               type="button"
               onClick={() => {
                 setShowSettings(!showSettings);
                 setShowToc(false);
               }}
-              className={clsx(
-                'p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all',
-                showSettings
-                  ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                  : 'opacity-85 hover:opacity-100',
-              )}
-              title="O‘qish sozlamalari"
-              aria-label="Sozlamalar"
+              className="p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 opacity-85 hover:opacity-100 transition-opacity"
+              title="Shrift va ko‘rinish"
+              aria-label="Shrift va ko‘rinish"
             >
               <Type className="w-4 h-4" />
-              <span className="hidden sm:inline">Sozlamalar</span>
+              <span className="hidden sm:inline">Shrift</span>
             </button>
           </div>
         </div>
 
-        {/* Settings Drawer Popover */}
+        {/* Preferences Drawer Panel */}
         {showSettings && (
-          <div className="max-w-2xl mx-auto mt-2 p-4 sm:p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-stone-800">
-              <span className="text-xs font-serif font-bold text-stone-900 dark:text-stone-100">Mutolaa sozlamalari</span>
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                className="p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Theme selector */}
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-stone-500 font-medium">Rang mavzusi:</span>
-              <div className="flex items-center gap-1.5">
+          <div className="max-w-md mx-auto mt-2 p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xl space-y-5 animate-in fade-in slide-in-from-top-2 duration-150 text-stone-800 dark:text-stone-200">
+            {/* Theme picker */}
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2 font-serif">
+                Mavzu
+              </label>
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -245,16 +341,15 @@ export function ReaderView({
                     savePrefs({ theme: 'light' });
                   }}
                   className={clsx(
-                    'px-3 py-1.5 rounded-xl border flex items-center gap-1 font-semibold transition-all',
+                    'py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all',
                     theme === 'light'
-                      ? 'bg-amber-100/80 border-amber-400 text-stone-900 shadow-2xs'
-                      : 'bg-stone-50 border-stone-200 text-stone-600',
+                      ? 'bg-white border-amber-600 text-stone-900 shadow-xs ring-1 ring-amber-600'
+                      : 'bg-stone-100 border-transparent text-stone-600 hover:bg-stone-200',
                   )}
                 >
                   <Sun className="w-3.5 h-3.5 text-amber-600" />
                   <span>Yorug‘</span>
                 </button>
-
                 <button
                   type="button"
                   onClick={() => {
@@ -262,16 +357,15 @@ export function ReaderView({
                     savePrefs({ theme: 'sepia' });
                   }}
                   className={clsx(
-                    'px-3 py-1.5 rounded-xl border flex items-center gap-1 font-semibold transition-all',
+                    'py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all',
                     theme === 'sepia'
-                      ? 'bg-[#EBDDBC] border-[#C8B690] text-[#382A1A] shadow-2xs'
-                      : 'bg-[#FAF2DF] border-[#E8DEC7] text-[#58442E]',
+                      ? 'bg-[#F4ECD8] border-amber-800 text-[#3C3226] shadow-xs ring-1 ring-amber-800'
+                      : 'bg-stone-100 border-transparent text-stone-600 hover:bg-stone-200',
                   )}
                 >
-                  <Coffee className="w-3.5 h-3.5 text-[#8C6B45]" />
+                  <Coffee className="w-3.5 h-3.5 text-amber-800" />
                   <span>Sepiya</span>
                 </button>
-
                 <button
                   type="button"
                   onClick={() => {
@@ -279,22 +373,24 @@ export function ReaderView({
                     savePrefs({ theme: 'dark' });
                   }}
                   className={clsx(
-                    'px-3 py-1.5 rounded-xl border flex items-center gap-1 font-semibold transition-all',
+                    'py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all',
                     theme === 'dark'
-                      ? 'bg-stone-800 border-stone-600 text-stone-100 shadow-2xs'
-                      : 'bg-stone-900 border-stone-800 text-stone-400',
+                      ? 'bg-stone-950 border-amber-500 text-stone-100 shadow-xs ring-1 ring-amber-500'
+                      : 'bg-stone-100 border-transparent text-stone-600 hover:bg-stone-200',
                   )}
                 >
                   <Moon className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Qorong‘u</span>
+                  <span>Tungi</span>
                 </button>
               </div>
             </div>
 
-            {/* Font Family selector */}
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-stone-500 font-medium">Shrift turi:</span>
-              <div className="flex items-center gap-1.5">
+            {/* Font Family */}
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2 font-serif">
+                Shrift turi
+              </label>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -302,13 +398,13 @@ export function ReaderView({
                     savePrefs({ fontFamily: 'serif' });
                   }}
                   className={clsx(
-                    'px-3.5 py-1.5 rounded-xl border font-serif transition-all',
+                    'py-2 px-3 rounded-xl border text-xs font-serif font-bold transition-all',
                     fontFamily === 'serif'
-                      ? 'bg-amber-100/80 border-amber-400 text-stone-900 font-bold'
-                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300',
+                      ? 'bg-amber-100/80 border-amber-400 text-stone-900 shadow-xs'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400',
                   )}
                 >
-                  Serif (Badiiy)
+                  Klassik (Serif)
                 </button>
                 <button
                   type="button"
@@ -317,76 +413,78 @@ export function ReaderView({
                     savePrefs({ fontFamily: 'sans' });
                   }}
                   className={clsx(
-                    'px-3.5 py-1.5 rounded-xl border font-sans transition-all',
+                    'py-2 px-3 rounded-xl border text-xs font-sans font-bold transition-all',
                     fontFamily === 'sans'
-                      ? 'bg-amber-100/80 border-amber-400 text-stone-900 font-bold'
-                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300',
+                      ? 'bg-amber-100/80 border-amber-400 text-stone-900 shadow-xs'
+                      : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400',
                   )}
                 >
-                  Sans (Zamonaviy)
+                  Zamonaviy (Sans)
                 </button>
               </div>
             </div>
 
-            {/* Font Size control */}
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-stone-500 font-medium">Shrift hajmi:</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = Math.max(14, fontSize - 2);
-                    setFontSize(next);
-                    savePrefs({ fontSize: next });
+            {/* Font Size */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 font-serif">
+                  Hajm
+                </label>
+                <span className="text-xs font-mono font-bold text-amber-600">{fontSize}px</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-stone-400">A-</span>
+                <input
+                  type="range"
+                  min={14}
+                  max={28}
+                  step={1}
+                  value={fontSize}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setFontSize(val);
+                    savePrefs({ fontSize: val });
                   }}
-                  className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-100 font-bold flex items-center justify-center hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
-                >
-                  A-
-                </button>
-                <span className="w-10 text-center font-mono font-bold text-stone-900 dark:text-stone-100">
-                  {fontSize}px
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = Math.min(26, fontSize + 2);
-                    setFontSize(next);
-                    savePrefs({ fontSize: next });
-                  }}
-                  className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-100 font-bold flex items-center justify-center hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
-                >
-                  A+
-                </button>
+                  className="w-full accent-amber-600"
+                />
+                <span className="text-sm font-bold text-stone-700 dark:text-stone-300">A+</span>
               </div>
             </div>
 
-            {/* Line Height & Width */}
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-1 text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="text-stone-500 font-medium">Oraliq:</span>
-                {(['normal', 'relaxed', 'loose'] as const).map((h) => (
+            {/* Line Height */}
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2 font-serif">
+                Qatorlar oralig‘i
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['normal', 'relaxed', 'loose'] as LineHeight[]).map((lh) => (
                   <button
-                    key={h}
+                    key={lh}
                     type="button"
                     onClick={() => {
-                      setLineHeight(h);
-                      savePrefs({ lineHeight: h });
+                      setLineHeight(lh);
+                      savePrefs({ lineHeight: lh });
                     }}
                     className={clsx(
-                      'px-2 py-1 rounded-lg border text-[11px] capitalize',
-                      lineHeight === h
+                      'py-1.5 px-2 rounded-xl border text-xs font-medium transition-all capitalize',
+                      lineHeight === lh
                         ? 'bg-amber-100/80 border-amber-400 text-stone-900 font-bold'
                         : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-500',
                     )}
                   >
-                    {h === 'normal' ? 'Qisqa' : h === 'relaxed' ? 'O‘rta' : 'Keng'}
+                    {lh === 'normal' ? 'Ixcham' : lh === 'relaxed' ? 'Qulay' : 'Keng'}
                   </button>
                 ))}
               </div>
+            </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-stone-500 font-medium">Maydon:</span>
-                {(['narrow', 'medium', 'wide'] as const).map((w) => (
+            {/* Content Width */}
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2 font-serif">
+                Matn kengligi
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['narrow', 'medium', 'wide'] as ContentWidth[]).map((w) => (
                   <button
                     key={w}
                     type="button"
@@ -395,7 +493,7 @@ export function ReaderView({
                       savePrefs({ contentWidth: w });
                     }}
                     className={clsx(
-                      'px-2 py-1 rounded-lg border text-[11px] capitalize',
+                      'py-1.5 px-2 rounded-xl border text-xs font-medium transition-all capitalize',
                       contentWidth === w
                         ? 'bg-amber-100/80 border-amber-400 text-stone-900 font-bold'
                         : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-500',
@@ -434,15 +532,20 @@ export function ReaderView({
               <div className="space-y-1">
                 {allChapters.map((chap) => {
                   const isCurrent = chap.id === currentChapter.id;
+                  const access = chapterAccessMap[chap.id];
+                  const isChapPurchased = access?.isPurchased;
+                  const isChapLocked = access ? access.isLocked : !chap.is_free;
+
                   return (
                     <Link
                       key={chap.id}
                       href={`/asarlar/${work.slug}/${chap.slug}`}
+                      prefetch={!isChapLocked}
                       onClick={() => setShowToc(false)}
                       className={clsx(
                         'flex items-center justify-between p-2.5 rounded-xl text-xs transition-colors',
                         isCurrent
-                          ? 'bg-amber-100/90 dark:bg-amber-950/60 font-bold text-amber-950 dark:text-amber-200'
+                          ? 'bg-amber-100/90 dark:bg-amber-950/60 font-bold text-amber-950 dark:text-amber-200 ring-1 ring-amber-500/40'
                           : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800',
                       )}
                     >
@@ -454,9 +557,20 @@ export function ReaderView({
                       </div>
                       <div className="flex-shrink-0 ml-2">
                         {chap.is_free ? (
-                          <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                            <Unlock className="w-3 h-3" />
+                            <span>Bepul</span>
+                          </span>
+                        ) : isChapPurchased ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-md">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Ochiq</span>
+                          </span>
                         ) : (
-                          <Lock className="w-3.5 h-3.5 text-amber-600" />
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md">
+                            <Lock className="w-3 h-3" />
+                            <span>{formatUZS(chap.price)}</span>
+                          </span>
                         )}
                       </div>
                     </Link>
@@ -479,31 +593,88 @@ export function ReaderView({
       )}
 
       {/* Main Reading Content Container */}
-      <main className={clsx('mx-auto px-4 sm:px-8 py-8 sm:py-16', widthClasses)}>
+      <main className={clsx('mx-auto px-4 sm:px-8 py-8 sm:py-14', widthClasses)}>
+        {/* Author Preview Banner */}
+        {accessReason === 'author' && (
+          <div className="mb-8 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs font-semibold flex items-center gap-3 shadow-xs">
+            <PenTool className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
+            <div>
+              <span className="font-bold">Muallif ko‘rigi rejimi:</span> Siz ushbu asarning
+              muallifisiz. Bob matni mualliflik huquqingiz asosida ko‘rsatilmoqda.
+            </div>
+          </div>
+        )}
+
         {/* Chapter Header */}
-        <header className="mb-10 sm:mb-14 text-center border-b border-stone-200/60 dark:border-stone-800 pb-8">
+        <header className="mb-8 sm:mb-12 text-center border-b border-stone-200/60 dark:border-stone-800 pb-6">
           <span className="text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-2 block font-serif">
             {currentChapter.chapter_number}-bob
           </span>
           <h1 className="font-serif text-2xl sm:text-4xl font-bold tracking-tight leading-snug">
             {currentChapter.title}
           </h1>
+
+          {/* Sub-header with pagination info if multi-page */}
+          {hasAccess && paginated.totalPages > 1 && (
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-100 dark:bg-stone-800/80 text-[11px] font-mono text-stone-500 dark:text-stone-400">
+              <span>
+                Sahifa: {currentPage} / {paginated.totalPages}
+              </span>
+              <span>•</span>
+              <span>{paginated.totalWords} ta so‘z</span>
+            </div>
+          )}
         </header>
 
-        {/* Chapter Body or Paywall Unlock Card */}
+        {/* Chapter Body (Paginated ~200 words) or Paywall Unlock Card */}
         {hasAccess ? (
-          <article
-            style={{
-              fontSize: `${fontSize}px`,
-              lineHeight: lineHeight === 'normal' ? 1.55 : lineHeight === 'relaxed' ? 1.85 : 2.15,
-              fontFamily:
-                fontFamily === 'serif'
-                  ? 'var(--font-serif-family)'
-                  : 'var(--font-sans-family)',
-            }}
-            className="reader-article selection:bg-amber-200 selection:text-amber-950 font-normal leading-relaxed space-y-6"
-            dangerouslySetInnerHTML={{ __html: currentChapter.content || '' }}
-          />
+          <div className="space-y-8">
+            <article
+              style={{
+                fontSize: `${fontSize}px`,
+                lineHeight:
+                  lineHeight === 'normal' ? 1.55 : lineHeight === 'relaxed' ? 1.85 : 2.15,
+                fontFamily:
+                  fontFamily === 'serif'
+                    ? 'var(--font-serif-family)'
+                    : 'var(--font-sans-family)',
+              }}
+              className="reader-article selection:bg-amber-200 selection:text-amber-950 font-normal leading-relaxed space-y-6 min-h-[300px]"
+              dangerouslySetInnerHTML={{ __html: paginated.pages[currentPage - 1] || '' }}
+            />
+
+            {/* Within-Chapter Pagination Controls (~200 words per page) */}
+            {paginated.totalPages > 1 && (
+              <div className="pt-6 border-t border-stone-200/60 dark:border-stone-800 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={goToPrevPage}
+                  disabled={currentPage <= 1 && !prevChapter}
+                  className="px-4 py-2.5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 font-bold text-xs sm:text-sm shadow-xs hover:border-amber-600 disabled:opacity-35 disabled:hover:border-stone-200 transition-all flex items-center gap-1.5"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>{currentPage > 1 ? 'Oldingi sahifa' : 'Oldingi bob'}</span>
+                </button>
+
+                <div className="flex items-center gap-1 font-mono text-xs font-bold text-stone-600 dark:text-stone-400">
+                  <span className="text-amber-700 dark:text-amber-400">{currentPage}</span>
+                  <span>/</span>
+                  <span>{paginated.totalPages}</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={goToNextPage}
+                  className="px-4 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-sm active:scale-95 transition-all flex items-center gap-1.5"
+                >
+                  <span>
+                    {currentPage < paginated.totalPages ? 'Keyingi sahifa' : 'Keyingi bob'}
+                  </span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <PaywallUnlockCard
             workId={work.id}
@@ -517,7 +688,7 @@ export function ReaderView({
 
         {/* Bottom Navigation Buttons between chapters */}
         <nav
-          className="mt-16 pt-8 border-t border-stone-200/60 dark:border-stone-800 flex items-center justify-between gap-3"
+          className="mt-14 pt-8 border-t border-stone-200/60 dark:border-stone-800 flex items-center justify-between gap-3"
           aria-label="Boblar bo‘ylab harakatlanish"
         >
           {prevChapter ? (
@@ -542,14 +713,29 @@ export function ReaderView({
           </Link>
 
           {nextChapter ? (
-            <Link
-              href={`/asarlar/${work.slug}/${nextChapter.slug}`}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all"
-            >
-              <span className="hidden sm:inline">Keyingi bob</span>
-              <span className="sm:hidden">Keyingi</span>
-              <ChevronRight className="w-4 h-4" />
-            </Link>
+            isNextLocked ? (
+              <Link
+                href={`/asarlar/${work.slug}/${nextChapter.slug}`}
+                prefetch={false}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 font-bold text-xs sm:text-sm shadow-xs hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-all active:scale-95"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                <span className="hidden sm:inline">
+                  Keyingi bob — {formatUZS(nextChapter.price)}
+                </span>
+                <span className="sm:hidden">Keyingi ({formatUZS(nextChapter.price)})</span>
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            ) : (
+              <Link
+                href={`/asarlar/${work.slug}/${nextChapter.slug}`}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all"
+              >
+                <span className="hidden sm:inline">Keyingi bob</span>
+                <span className="sm:hidden">Keyingi</span>
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            )
           ) : (
             <div />
           )}

@@ -1,4 +1,10 @@
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import {
+  canReadChapter,
+  getWorkChaptersAccessMap,
+  type ChapterAccessReason,
+  type ChapterAccessStatus,
+} from '@/lib/security/access';
 import type {
   Work,
   Chapter,
@@ -158,9 +164,13 @@ export async function getPublishedWorks(options?: {
 /**
  * Fetch single work by slug with published chapters.
  */
-export async function getWorkBySlug(slug: string): Promise<{
+export async function getWorkBySlug(
+  slug: string,
+  userId?: string | null,
+): Promise<{
   work: Work | null;
   chapters: Chapter[];
+  chapterAccessMap: Record<string, ChapterAccessStatus>;
 }> {
   const supabase = createServerClient();
 
@@ -188,7 +198,7 @@ export async function getWorkBySlug(slug: string): Promise<{
     .single();
 
   if (workError || !workData) {
-    return { work: null, chapters: [] };
+    return { work: null, chapters: [], chapterAccessMap: {} };
   }
 
   const { data: chaptersData } = await supabase
@@ -198,33 +208,47 @@ export async function getWorkBySlug(slug: string): Promise<{
     .eq('status', 'published')
     .order('chapter_number', { ascending: true });
 
+  const chapters = (chaptersData as Chapter[]) || [];
+
+  const chapterAccessMap = await getWorkChaptersAccessMap(userId, workData.id, chapters, {
+    authorId: workData.author_id,
+  });
+
   const work: Work = {
     ...workData,
     genres: (workData.work_genres || []).map((wg: any) => wg.genre).filter(Boolean),
-    chapters_count: (chaptersData || []).length,
+    chapters_count: chapters.length,
   };
 
   return {
     work,
-    chapters: (chaptersData as Chapter[]) || [],
+    chapters,
+    chapterAccessMap,
   };
+}
+
+export interface ChapterReadingData {
+  work: Work | null;
+  chapter: Chapter | null;
+  hasAccess: boolean;
+  accessReason: ChapterAccessReason;
+  userBalance: number;
+  allChapters: Chapter[];
+  chapterAccessMap: Record<string, ChapterAccessStatus>;
+  savedProgress: { pageIndex: number; percentage: number; chapterId: string } | null;
 }
 
 /**
  * Fetch chapter reading content with access validation.
- * If chapter is locked and user has not unlocked it, content is null.
+ * Full content is returned ONLY if canReadChapter evaluates to true.
+ * Otherwise, content is strictly empty string, returning only safe public metadata.
  */
 export async function getChapterForReading(
   workSlug: string,
   chapterSlug: string,
   userId?: string | null,
-): Promise<{
-  work: Work | null;
-  chapter: Chapter | null;
-  hasAccess: boolean;
-  userBalance?: number;
-  allChapters: Chapter[];
-}> {
+  options?: { isAdminRoute?: boolean },
+): Promise<ChapterReadingData> {
   const supabase = createAdminClient();
 
   const { data: work } = await supabase
@@ -242,7 +266,16 @@ export async function getChapterForReading(
     .single();
 
   if (!work) {
-    return { work: null, chapter: null, hasAccess: false, allChapters: [] };
+    return {
+      work: null,
+      chapter: null,
+      hasAccess: false,
+      accessReason: 'locked',
+      userBalance: 0,
+      allChapters: [],
+      chapterAccessMap: {},
+      savedProgress: null,
+    };
   }
 
   const { data: allChapters } = await supabase
@@ -252,6 +285,8 @@ export async function getChapterForReading(
     .eq('status', 'published')
     .order('chapter_number', { ascending: true });
 
+  const chaptersList = (allChapters as Chapter[]) || [];
+
   const { data: chapter } = await supabase
     .from('chapters')
     .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
@@ -260,81 +295,79 @@ export async function getChapterForReading(
     .single();
 
   if (!chapter) {
-    return { work, chapter: null, hasAccess: false, allChapters: (allChapters as Chapter[]) || [] };
+    return {
+      work,
+      chapter: null,
+      hasAccess: false,
+      accessReason: 'locked',
+      userBalance: 0,
+      allChapters: chaptersList,
+      chapterAccessMap: {},
+      savedProgress: null,
+    };
   }
 
-  // Determine access
-  let hasAccess = false;
+  // 1. Authoritative access check via canReadChapter
+  const accessResult = await canReadChapter(userId, chapter.id, {
+    isAdminRoute: options?.isAdminRoute,
+  });
+
+  // 2. Fetch full chapter access map for navigation and TOC
+  const chapterAccessMap = await getWorkChaptersAccessMap(userId, work.id, chaptersList, {
+    authorId: work.author_id,
+  });
+
+  // 3. User balance if authenticated
   let userBalance = 0;
-
-  if (chapter.is_free) {
-    hasAccess = true;
-  } else if (userId) {
-    // Author or admin access
-    if (work.author_id === userId) {
-      hasAccess = true;
-    } else {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', userId)
-        .single();
-
-      if (profile?.is_admin) {
-        hasAccess = true;
-      } else {
-        // Check purchases: full_work or specific chapter
-        const { data: purchase } = await supabase
-          .from('purchases')
-          .select('id')
-          .eq('buyer_id', userId)
-          .eq('work_id', work.id)
-          .or(`purchase_type.eq.full_work,chapter_id.eq.${chapter.id}`)
-          .eq('status', 'active')
-          .limit(1);
-
-        if (purchase && purchase.length > 0) {
-          hasAccess = true;
-        }
-      }
-    }
-
-    // Get user reader balance
+  if (userId) {
     const { data: wallet } = await supabase
       .from('wallet_accounts')
       .select('balance')
       .eq('user_id', userId)
       .eq('account_type', 'reader_credit')
-      .single();
+      .maybeSingle();
 
     if (wallet) {
-      userBalance = Number(wallet.balance);
+      userBalance = Number(wallet.balance || 0);
     }
   }
 
-  // Strictly fetch chapter content from protected chapter_contents table ONLY if hasAccess is true
-  let content = '';
-  if (hasAccess) {
-    const { data: contentRecord } = await supabase
-      .from('chapter_contents')
-      .select('content')
-      .eq('chapter_id', chapter.id)
+  // 4. Reading progress for this work/user if authenticated
+  let savedProgress: { pageIndex: number; percentage: number; chapterId: string } | null = null;
+  if (userId) {
+    const { data: prog } = await supabase
+      .from('reading_progress')
+      .select('page_index, percentage, chapter_id')
+      .eq('user_id', userId)
+      .eq('work_id', work.id)
       .maybeSingle();
 
-    content = contentRecord?.content || '';
+    if (prog) {
+      savedProgress = {
+        pageIndex: Number(prog.page_index || 1),
+        percentage: Number(prog.percentage || 0),
+        chapterId: prog.chapter_id,
+      };
+    }
   }
 
+  // Strictly sanitized chapter:
+  // If accessResult.canRead is false, content is EMPTY STRING ("").
+  // Full text is NEVER passed down to client components or RSC props!
   const sanitizedChapter: Chapter = {
     ...chapter,
-    content,
+    content: accessResult.canRead ? accessResult.content : '',
   };
 
   return {
     work,
     chapter: sanitizedChapter,
-    hasAccess,
+    hasAccess: accessResult.canRead,
+    accessReason: accessResult.reason,
     userBalance,
-    allChapters: (allChapters as Chapter[]) || [],
+    allChapters: chaptersList,
+    chapterAccessMap,
+    savedProgress,
   };
 }
 

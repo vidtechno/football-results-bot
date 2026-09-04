@@ -167,6 +167,23 @@ export interface LibraryItem {
   work?: Work;
 }
 
+export interface ReadingProgress {
+  id: string;
+  user_id: string;
+  work_id: string;
+  chapter_id: string;
+  page_index: number;
+  total_pages: number;
+  paragraph_offset: number;
+  percentage: number;
+  is_completed: boolean;
+  last_read_at: string;
+  created_at: string;
+  updated_at: string;
+  work?: Work;
+  chapter?: Chapter;
+}
+
 export interface Purchase {
   id: string;
   buyer_id: string;

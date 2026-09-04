@@ -13,6 +13,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { getWorkBySlug } from '@/lib/db/queries';
+import { getCurrentProfile } from '@/lib/supabase/server';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 
@@ -25,7 +26,8 @@ interface WorkDetailPageProps {
 }
 
 export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
-  const { work, chapters } = await getWorkBySlug(params.slug);
+  const profile = await getCurrentProfile();
+  const { work, chapters, chapterAccessMap } = await getWorkBySlug(params.slug, profile?.id);
 
   if (!work || work.is_archived) {
     notFound();
@@ -176,44 +178,56 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
           </div>
         ) : (
           <div className="bg-white rounded-3xl border border-stone-200 divide-y divide-stone-100 overflow-hidden shadow-xs">
-            {chapters.map((ch) => (
-              <Link
-                key={ch.id}
-                href={`/asarlar/${work.slug}/${ch.slug}`}
-                className="group p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-amber-50/40 transition-colors"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-stone-100 group-hover:bg-amber-100 text-stone-700 group-hover:text-amber-900 flex items-center justify-center text-xs font-mono font-bold flex-shrink-0 transition-colors">
-                    {ch.chapter_number}
+            {chapters.map((ch) => {
+              const access = chapterAccessMap[ch.id];
+              const isPurchased = access?.isPurchased;
+              const isLocked = access ? access.isLocked : !ch.is_free;
+
+              return (
+                <Link
+                  key={ch.id}
+                  href={`/asarlar/${work.slug}/${ch.slug}`}
+                  prefetch={!isLocked}
+                  className="group p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-amber-50/40 transition-colors"
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-stone-100 group-hover:bg-amber-100 text-stone-700 group-hover:text-amber-900 flex items-center justify-center text-xs font-mono font-bold flex-shrink-0 transition-colors">
+                      {ch.chapter_number}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-serif text-xs sm:text-sm font-bold text-stone-900 group-hover:text-amber-900 truncate transition-colors">
+                        {ch.title}
+                      </h4>
+                      {ch.published_at && (
+                        <span className="text-[11px] text-stone-400 font-medium">
+                          {formatUzbekDate(ch.published_at)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <h4 className="font-serif text-xs sm:text-sm font-bold text-stone-900 group-hover:text-amber-900 truncate transition-colors">
-                      {ch.title}
-                    </h4>
-                    {ch.published_at && (
-                      <span className="text-[11px] text-stone-400 font-medium">
-                        {formatUzbekDate(ch.published_at)}
+
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {ch.is_free ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
+                        <Unlock className="w-3 h-3 text-emerald-700" />
+                        <span>Bepul</span>
+                      </span>
+                    ) : isPurchased ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
+                        <Unlock className="w-3 h-3 text-emerald-700" />
+                        <span>Sotib olingan</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200/70">
+                        <Lock className="w-3 h-3 text-amber-700" />
+                        <span>{formatUZS(ch.price)}</span>
                       </span>
                     )}
+                    <ChevronRight className="w-4 h-4 text-stone-400 group-hover:text-amber-900 transition-colors" />
                   </div>
-                </div>
-
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  {ch.is_free ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
-                      <Unlock className="w-3 h-3 text-emerald-700" />
-                      <span>Bepul</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200/70">
-                      <Lock className="w-3 h-3 text-amber-700" />
-                      <span>{formatUZS(ch.price)}</span>
-                    </span>
-                  )}
-                  <ChevronRight className="w-4 h-4 text-stone-400 group-hover:text-amber-900 transition-colors" />
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>

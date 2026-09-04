@@ -48,6 +48,7 @@ function KabinetContent() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [library, setLibrary] = useState<LibraryItem[]>([]);
+  const [progressMap, setProgressMap] = useState<Record<string, any>>({});
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [isTopupOpen, setIsTopupOpen] = useState(topupParam === 'true');
   const [idCopied, setIdCopied] = useState(false);
@@ -111,16 +112,34 @@ function KabinetContent() {
         .eq('user_id', userId)
         .order('updated_at', { ascending: false });
 
-      const [walletRes, topupRes, purchaseRes, libraryRes] = await Promise.all([
+      // 5. Fetch reading progress
+      const progressPromise = supabase
+        .from('reading_progress')
+        .select(`
+          work_id, chapter_id, page_index, percentage, last_read_at,
+          chapter:chapters(id, chapter_number, title, slug)
+        `)
+        .eq('user_id', userId);
+
+      const [walletRes, topupRes, purchaseRes, libraryRes, progressRes] = await Promise.all([
         walletPromise,
         topupPromise,
         purchasePromise,
         libraryPromise,
+        progressPromise,
       ]);
 
       if (topupRes.data) setTopups(topupRes.data as TopupRequest[]);
       if (purchaseRes.data) setPurchases(purchaseRes.data as Purchase[]);
       if (libraryRes.data) setLibrary(libraryRes.data as LibraryItem[]);
+
+      if (progressRes.data) {
+        const pMap: Record<string, any> = {};
+        progressRes.data.forEach((p: any) => {
+          pMap[p.work_id] = p;
+        });
+        setProgressMap(pMap);
+      }
 
       // Fetch transactions if wallet exists
       if (walletRes.data?.id) {
@@ -353,10 +372,22 @@ function KabinetContent() {
                   {library.map((item) => {
                     const w = item.work;
                     if (!w) return null;
+                    const prog = progressMap[item.work_id];
+                    const targetChapter = prog?.chapter;
+                    const targetPage = prog?.page_index;
+                    const readUrl = targetChapter
+                      ? `/asarlar/${w.slug}/${targetChapter.slug}${targetPage && targetPage > 1 ? `?page=${targetPage}` : ''}`
+                      : `/asarlar/${w.slug}`;
+                    const currentPercent = typeof prog?.percentage === 'number'
+                      ? prog.percentage
+                      : typeof item.reading_progress === 'number'
+                      ? item.reading_progress
+                      : 0;
+
                     return (
                       <Link
                         key={item.work_id}
-                        href={`/asarlar/${w.slug}`}
+                        href={readUrl}
                         className="group p-4 rounded-2xl bg-white border border-[#EAE5DD] hover:border-[#B45309] shadow-2xs hover:shadow-xs transition-all flex items-center gap-3.5"
                       >
                         <div className="relative w-12 h-16 rounded-xl bg-[#FAF8F5] border border-[#EAE5DD] overflow-hidden shrink-0 shadow-2xs">
@@ -381,13 +412,18 @@ function KabinetContent() {
                           <p className="text-[11px] text-[#78716C] font-medium truncate mt-0.5">
                             {w.author?.pen_name || 'Muallif'}
                           </p>
+                          {targetChapter && (
+                            <p className="text-[10px] text-[#A8A29E] font-medium truncate">
+                              Oxirgi: {targetChapter.chapter_number}-bob {targetPage && targetPage > 1 ? `(${targetPage}-bet)` : ''}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-2 py-0.5 rounded-md">
-                              Davom ettirish →
+                              O‘qishni davom ettirish →
                             </span>
-                            {typeof item.reading_progress === 'number' && item.reading_progress > 0 && (
+                            {currentPercent > 0 && (
                               <span className="text-[10px] text-[#78716C] font-semibold">
-                                {item.reading_progress}%
+                                {currentPercent}%
                               </span>
                             )}
                           </div>

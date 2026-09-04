@@ -15,6 +15,7 @@ import {
   Bookmark,
   User,
   ExternalLink,
+  ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
@@ -59,13 +60,29 @@ export default function KabinetPage() {
 
       const userId = session.user.id;
 
-      // 1. Profile
-      const { data: profData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      setProfile(profData as Profile);
+      // 1. Profile (server-synced via /api/auth/profile)
+      let resolvedProfile: Profile | null = null;
+      try {
+        const profRes = await fetch('/api/auth/profile', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (profRes.ok) {
+          const profJson = await profRes.json();
+          resolvedProfile = profJson.profile;
+        }
+      } catch {
+        // fallback
+      }
+
+      if (!resolvedProfile) {
+        const { data: profData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        resolvedProfile = profData as Profile;
+      }
+      setProfile(resolvedProfile);
 
       // 2. Wallet balance
       const { data: walletData } = await supabase
@@ -158,10 +175,12 @@ export default function KabinetPage() {
               </h1>
               {profile?.is_admin && (
                 <Link
-                  href="/diyoration/dashboard"
-                  className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-700 text-[10px] font-black uppercase tracking-wider"
+                  href="/diyoration"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black shadow-xs shadow-purple-600/20 transition-all"
+                  title="Manbora Admin Paneli"
                 >
-                  Admin
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Admin paneli</span>
                 </Link>
               )}
             </div>

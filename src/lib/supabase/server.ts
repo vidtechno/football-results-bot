@@ -77,14 +77,40 @@ export async function getCurrentProfile(authHeader?: string | null): Promise<Pro
   }
 
   try {
-    const { data: { user }, error } = await adminClient.auth.getUser(token);
-    if (error || !user) return null;
+    const { data: { user }, error: userError } = await adminClient.auth.getUser(token);
+    if (userError || !user) return null;
 
-    const { data: profile } = await adminClient
+    let { data: profile, error: profError } = await adminClient
       .from('profiles')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (profError) {
+      console.warn('public.profiles jadvalini o‘qishda xatolik (migratsiya holatini tekshiring):', profError.message);
+    }
+
+    // Secure email allowlist and verification check
+    const email = user.email ? user.email.trim().toLowerCase() : '';
+    const isVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
+    const allowlistedEmails = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    const isAllowlistedAdmin = Boolean(email && allowlistedEmails.includes(email) && isVerified);
+
+    if (isAllowlistedAdmin && profile && !profile.is_admin) {
+      try {
+        await adminClient
+          .from('profiles')
+          .update({ is_admin: true, updated_at: new Date().toISOString() })
+          .eq('id', user.id);
+        profile.is_admin = true;
+      } catch (err) {
+        console.error('Admin huquqlarini sinxronizatsiyalashda xatolik:', err);
+      }
+    }
 
     return (profile as Profile) || null;
   } catch {

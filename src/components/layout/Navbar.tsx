@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Compass, PenTool, User, Wallet, LogIn } from 'lucide-react';
+import { BookOpen, Compass, PenTool, User, Wallet, LogIn, ShieldCheck } from 'lucide-react';
 import { clsx } from 'clsx';
 import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
@@ -11,24 +11,38 @@ import { formatUZS } from '@/lib/utils/currency';
 export function Navbar() {
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [balance, setBalance] = useState<number | null>(null);
 
   useEffect(() => {
+    async function checkUser(sessionUser: any, token?: string) {
+      setUser(sessionUser);
+      if (sessionUser) {
+        fetchBalance(sessionUser.id);
+        try {
+          const headers: Record<string, string> = {};
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          const res = await fetch('/api/auth/profile', { headers });
+          if (res.ok) {
+            const data = await res.json();
+            setIsAdmin(Boolean(data.isAdmin));
+          }
+        } catch {
+          setIsAdmin(false);
+        }
+      } else {
+        setBalance(null);
+        setIsAdmin(false);
+      }
+    }
+
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        fetchBalance(session.user.id);
-      }
+      checkUser(session?.user || null, session?.access_token);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        fetchBalance(session.user.id);
-      } else {
-        setBalance(null);
-      }
+      checkUser(session?.user || null, session?.access_token);
     });
 
     return () => {
@@ -114,6 +128,17 @@ export function Navbar() {
                   >
                     <Wallet className="w-3.5 h-3.5 text-blue-600" />
                     <span>{formatUZS(balance)}</span>
+                  </Link>
+                )}
+
+                {isAdmin && (
+                  <Link
+                    href="/diyoration"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-black shadow-2xs transition-all"
+                    title="Manbora Admin Paneli"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                    <span className="hidden sm:inline">Admin paneli</span>
                   </Link>
                 )}
 

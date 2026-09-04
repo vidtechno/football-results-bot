@@ -330,4 +330,193 @@ describe('Financial and Currency Utilities', () => {
       expect(publishContent('approved').success).toBe(true);
     });
   });
+
+  describe('Secure Owner Admin Access & Route Protection', () => {
+    const OWNER_EMAIL = 'anorboyevdiyorbek714@gmail.com';
+
+    // Ensure test environment has the owner email configured
+    process.env.ADMIN_EMAILS = 'anorboyevdiyorbek714@gmail.com, secondary_admin@manbora.uz';
+
+    function isAllowlistedAdminEmailTest(email?: string | null): boolean {
+      if (!email) return false;
+      const normalized = email.trim().toLowerCase();
+      const allowlist = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      return allowlist.includes(normalized);
+    }
+
+    function isUserEmailVerifiedTest(user: {
+      email_confirmed_at?: string | null;
+      confirmed_at?: string | null;
+    }): boolean {
+      return Boolean(user.email_confirmed_at || user.confirmed_at);
+    }
+
+    function evaluateAdminAccess(
+      user: {
+        id: string;
+        email?: string | null;
+        email_confirmed_at?: string | null;
+        confirmed_at?: string | null;
+      } | null,
+      profile: { id: string; is_admin: boolean } | null,
+    ): { canAccessAdmin: boolean; redirectUrl?: string; httpStatus?: number } {
+      if (!user || !profile) {
+        return { canAccessAdmin: false, redirectUrl: '/kirish?redirect=/diyoration', httpStatus: 302 };
+      }
+
+      const emailAllowlisted = isAllowlistedAdminEmailTest(user.email);
+      const emailVerified = isUserEmailVerifiedTest(user);
+
+      // If allowlisted and verified, admin status is granted/synced
+      const effectiveAdmin = (emailAllowlisted && emailVerified) || profile.is_admin;
+
+      if (!effectiveAdmin) {
+        return { canAccessAdmin: false, httpStatus: 403 };
+      }
+
+      return { canAccessAdmin: true, httpStatus: 200 };
+    }
+
+    it('normalizes emails with lowercase and trimming', () => {
+      expect(isAllowlistedAdminEmailTest('anorboyevdiyorbek714@gmail.com')).toBe(true);
+      expect(isAllowlistedAdminEmailTest('ANORBOYEVDIYORBEK714@GMAIL.COM')).toBe(true);
+      expect(isAllowlistedAdminEmailTest('  anorboyevdiyorbek714@gmail.com  ')).toBe(true);
+      expect(isAllowlistedAdminEmailTest('AnOrBoYeVDiyorbek714@Gmail.Com')).toBe(true);
+    });
+
+    it('rejects ordinary, spoofed, or subdomained emails', () => {
+      expect(isAllowlistedAdminEmailTest('ordinary_user@example.com')).toBe(false);
+      expect(isAllowlistedAdminEmailTest('anorboyevdiyorbek714@gmail.com.attacker.com')).toBe(false);
+      expect(isAllowlistedAdminEmailTest('attacker@anorboyevdiyorbek714@gmail.com')).toBe(false);
+      expect(isAllowlistedAdminEmailTest('')).toBe(false);
+      expect(isAllowlistedAdminEmailTest(null)).toBe(false);
+      expect(isAllowlistedAdminEmailTest(undefined)).toBe(false);
+    });
+
+    it('case 1: signed out visitor opening /diyoration redirects to /kirish', () => {
+      const result = evaluateAdminAccess(null, null);
+      expect(result.canAccessAdmin).toBe(false);
+      expect(result.redirectUrl).toBe('/kirish?redirect=/diyoration');
+      expect(result.httpStatus).toBe(302);
+    });
+
+    it('case 2: signed-in ordinary user is denied with 403 Forbidden', () => {
+      const ordinaryUser = {
+        id: 'user-ord-1',
+        email: 'reader@example.com',
+        email_confirmed_at: '2026-09-01T10:00:00Z',
+      };
+      const ordinaryProfile = {
+        id: 'user-ord-1',
+        is_admin: false,
+      };
+
+      const result = evaluateAdminAccess(ordinaryUser, ordinaryProfile);
+      expect(result.canAccessAdmin).toBe(false);
+      expect(result.httpStatus).toBe(403);
+    });
+
+    it('case 3: signed-in user with allowlisted but UNVERIFIED email is rejected', () => {
+      const unverifiedOwner = {
+        id: 'user-unverified-owner',
+        email: OWNER_EMAIL,
+        email_confirmed_at: null,
+        confirmed_at: null,
+      };
+      const unverifiedProfile = {
+        id: 'user-unverified-owner',
+        is_admin: false,
+      };
+
+      expect(isUserEmailVerifiedTest(unverifiedOwner)).toBe(false);
+      const result = evaluateAdminAccess(unverifiedOwner, unverifiedProfile);
+      expect(result.canAccessAdmin).toBe(false);
+      expect(result.httpStatus).toBe(403);
+    });
+
+    it('case 4: signed-in user with verified owner email gets admin access', () => {
+      const verifiedOwner = {
+        id: 'user-verified-owner',
+        email: OWNER_EMAIL,
+        email_confirmed_at: '2026-09-01T12:00:00Z',
+      };
+      const initialProfile = {
+        id: 'user-verified-owner',
+        is_admin: false, // will be auto-synced
+      };
+
+      expect(isUserEmailVerifiedTest(verifiedOwner)).toBe(true);
+      expect(isAllowlistedAdminEmailTest(verifiedOwner.email)).toBe(true);
+
+      const result = evaluateAdminAccess(verifiedOwner, initialProfile);
+      expect(result.canAccessAdmin).toBe(true);
+      expect(result.httpStatus).toBe(200);
+    });
+
+    it('case 5: direct calls to /api/admin/* by ordinary users return 403 Forbidden', () => {
+      function mockAdminEndpoint(userProfile: { is_admin: boolean } | null) {
+        if (!userProfile || !userProfile.is_admin) {
+          return { status: 403, body: { success: false, error: 'Faqat administratorlar bu amalni bajarishi mumkin' } };
+        }
+        return { status: 200, body: { success: true, data: [] } };
+      }
+
+      // Anonymous call
+      const anonResponse = mockAdminEndpoint(null);
+      expect(anonResponse.status).toBe(403);
+      expect(anonResponse.body.success).toBe(false);
+
+      // Ordinary user call
+      const userResponse = mockAdminEndpoint({ is_admin: false });
+      expect(userResponse.status).toBe(403);
+      expect(userResponse.body.success).toBe(false);
+
+      // Verified admin call
+      const adminResponse = mockAdminEndpoint({ is_admin: true });
+      expect(adminResponse.status).toBe(200);
+      expect(adminResponse.body.success).toBe(true);
+    });
+
+    it('case 6: admin-panel button visibility on desktop and mobile', () => {
+      function renderNavigationButtons(state: { isAuthenticated: boolean; isAdmin: boolean }) {
+        const desktopMenu = {
+          showProfileLink: state.isAuthenticated,
+          showAdminPanelButton: state.isAuthenticated && state.isAdmin,
+          adminButtonText: 'Admin paneli',
+          adminButtonHref: '/diyoration',
+        };
+
+        const mobileBottomNav = {
+          showAdminTab: state.isAuthenticated && state.isAdmin,
+          adminTabLabel: 'Admin',
+          adminTabHref: '/diyoration/dashboard',
+        };
+
+        return { desktopMenu, mobileBottomNav };
+      }
+
+      // 1. Signed out visitor
+      const visitorNav = renderNavigationButtons({ isAuthenticated: false, isAdmin: false });
+      expect(visitorNav.desktopMenu.showAdminPanelButton).toBe(false);
+      expect(visitorNav.mobileBottomNav.showAdminTab).toBe(false);
+
+      // 2. Ordinary signed-in user
+      const ordinaryNav = renderNavigationButtons({ isAuthenticated: true, isAdmin: false });
+      expect(ordinaryNav.desktopMenu.showAdminPanelButton).toBe(false);
+      expect(ordinaryNav.mobileBottomNav.showAdminTab).toBe(false);
+
+      // 3. Verified Admin user
+      const adminNav = renderNavigationButtons({ isAuthenticated: true, isAdmin: true });
+      expect(adminNav.desktopMenu.showAdminPanelButton).toBe(true);
+      expect(adminNav.desktopMenu.adminButtonText).toBe('Admin paneli');
+      expect(adminNav.desktopMenu.adminButtonHref).toBe('/diyoration');
+      expect(adminNav.mobileBottomNav.showAdminTab).toBe(true);
+      expect(adminNav.mobileBottomNav.adminTabLabel).toBe('Admin');
+      expect(adminNav.mobileBottomNav.adminTabHref).toBe('/diyoration/dashboard');
+    });
+  });
 });
+

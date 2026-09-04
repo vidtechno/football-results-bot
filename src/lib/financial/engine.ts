@@ -52,10 +52,10 @@ export async function executePurchase(
     generateIdempotencyKey(`buy_${userId.slice(0, 8)}_${chapterId || workId}`);
 
   const { data, error } = await supabase.rpc('purchase_content', {
-    p_user_id: userId,
     p_work_id: workId,
     p_chapter_id: chapterId,
     p_idempotency_key: idempotencyKey,
+    p_user_id: userId,
   });
 
   if (error) {
@@ -70,22 +70,26 @@ export async function executePurchase(
 
 /**
  * Author submits payout request through atomic reservation RPC.
+ * Raw bank card is encrypted server-side before calling this RPC;
+ * only ciphertext and masked format are stored in Postgres.
  */
 export async function executeAuthorPayoutRequest(
   userId: string,
   amount: number,
   legalName: string,
-  cardNumber: string,
+  encryptedCard: string,
+  maskedCard: string,
   authorNote: string = '',
 ): Promise<PayoutCreationResult> {
   const supabase = createAdminClient();
 
   const { data, error } = await supabase.rpc('author_create_payout_request', {
-    p_user_id: userId,
     p_amount: Math.floor(amount),
     p_legal_name: legalName.trim(),
-    p_card_number: cardNumber.replace(/\s+/g, ''),
+    p_encrypted_card: encryptedCard,
+    p_masked_card: maskedCard,
     p_author_note: authorNote.trim(),
+    p_user_id: userId,
   });
 
   if (error) {
@@ -110,10 +114,10 @@ export async function executeAdminApprovePayout(
   const supabase = createAdminClient();
 
   const { data, error } = await supabase.rpc('admin_approve_payout_paid', {
-    p_admin_id: adminId,
     p_request_id: requestId,
     p_proof_url: proofUrl,
     p_admin_note: adminNote,
+    p_admin_id: adminId,
   });
 
   if (error) {
@@ -138,16 +142,16 @@ export async function executeAdminRejectPayout(
   const supabase = createAdminClient();
 
   const { data, error } = await supabase.rpc('admin_reject_payout', {
-    p_admin_id: adminId,
     p_request_id: requestId,
     p_admin_note: adminNote,
     p_is_cancel: isCancel,
+    p_admin_id: adminId,
   });
 
   if (error) {
     return {
       success: false,
-      error: error.message || 'So‘rovni bekor qilishda xatolik yuz berdi',
+      error: error.message || 'So‘rovni rad etishda xatolik yuz berdi',
     };
   }
 
@@ -155,27 +159,27 @@ export async function executeAdminRejectPayout(
 }
 
 /**
- * Admin approves reader top-up, crediting the reader balance atomically.
+ * Admin approves reader balance top-up request.
  */
 export async function executeAdminApproveTopup(
   adminId: string,
   requestId: string,
-  proofUrl: string,
+  proofUrl: string = '',
   adminNote: string = '',
 ): Promise<TopupApprovalResult> {
   const supabase = createAdminClient();
 
   const { data, error } = await supabase.rpc('admin_approve_topup', {
-    p_admin_id: adminId,
     p_request_id: requestId,
     p_proof_url: proofUrl,
     p_admin_note: adminNote,
+    p_admin_id: adminId,
   });
 
   if (error) {
     return {
       success: false,
-      error: error.message || 'Hisob to‘ldirishni tasdiqlashda xatolik yuz berdi',
+      error: error.message || 'Hisobni to‘ldirishni tasdiqlashda xatolik yuz berdi',
     };
   }
 

@@ -1,21 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
-import { getAdminSession, logAdminAction } from '@/lib/admin/auth';
+import { createAdminClient } from '@/lib/supabase/server';
+import { verifyAdminProfile, logAdminAction } from '@/lib/admin/auth';
 
 export async function POST(request: Request) {
   try {
-    const adminSession = await getAdminSession();
-    const profile = await getCurrentProfile(request.headers.get('Authorization'));
-
-    const isAdmin = Boolean(adminSession || (profile && profile.is_admin));
-    if (!isAdmin) {
+    const admin = await verifyAdminProfile(request.headers.get('Authorization'));
+    if (!admin) {
       return NextResponse.json(
         { success: false, error: 'Faqat administratorlar bu amalni bajarishi mumkin' },
         { status: 403 },
       );
     }
 
-    const adminId = profile?.id || adminSession?.userId || '00000000-0000-0000-0000-000000000000';
     const body = await request.json();
     const workId = String(body.workId || '');
     const action = String(body.action || ''); // 'approve' | 'reject'
@@ -45,7 +41,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
       }
 
-      await logAdminAction(supabase, adminId, 'publish_work', 'works', workId, {});
+      await logAdminAction(supabase, admin.id, 'publish_work', 'works', workId, {});
 
       return NextResponse.json({ success: true, message: 'Asar muvaffaqiyatli nashr qilindi' });
     } else if (action === 'reject') {
@@ -62,7 +58,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
       }
 
-      await logAdminAction(supabase, adminId, 'reject_work', 'works', workId, {
+      await logAdminAction(supabase, admin.id, 'reject_work', 'works', workId, {
         reason: rejectionReason,
       });
 

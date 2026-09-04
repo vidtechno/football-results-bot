@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
-import { getAdminSession } from '@/lib/admin/auth';
+import { verifyAdminProfile } from '@/lib/admin/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getAdminSession();
-    if (!session) {
-      return NextResponse.json({ notifications: [], unread_count: 0 });
+    const admin = await verifyAdminProfile(request.headers.get('Authorization'));
+    if (!admin) {
+      return NextResponse.json({ notifications: [], unread_count: 0 }, { status: 403 });
     }
 
     const supabase = createAdminClient();
@@ -77,7 +77,7 @@ export async function GET() {
       notifications,
       unread_count: notifications.length,
     });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ notifications: [], unread_count: 0 });
   }
 }

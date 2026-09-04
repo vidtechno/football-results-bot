@@ -1,15 +1,16 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
-import { getAdminSession } from '@/lib/admin/auth';
-import { createAdminClient } from '@/lib/supabase/server';
+import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { Users, ShieldCheck } from 'lucide-react';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 
 export const revalidate = 0;
 
 export default async function AdminUsersPage() {
-  const session = await getAdminSession();
-  if (!session) redirect('/diyoration');
+  const profile = await getCurrentProfile();
+  if (!profile || !profile.is_admin) {
+    redirect('/diyoration');
+  }
 
   const supabase = createAdminClient();
 
@@ -42,7 +43,7 @@ export default async function AdminUsersPage() {
 
         {(!adminProfiles || adminProfiles.length === 0) ? (
           <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl">
-            Ma’lumotlar bazasida hozircha admin bayrog‘i o‘rnatilgan profil yo‘q. (Seans orqali kirilgan: <strong>{session.username}</strong>)
+            Ma’lumotlar bazasida hozircha admin bayrog‘i o‘rnatilgan profil yo‘q.
           </div>
         ) : (
           <div className="space-y-3">
@@ -59,34 +60,25 @@ export default async function AdminUsersPage() {
                     <strong className="text-sm font-black text-slate-900 block">
                       {u.display_name} (@{u.username})
                     </strong>
-                    <span className="text-xs text-slate-500 font-medium font-mono">
-                      ID: {u.public_id} • {formatUzbekDate(u.created_at)}
+                    <span className="text-xs text-slate-500 font-mono">
+                      {u.id}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-extrabold uppercase">
-                    Admin
+                <div className="text-right">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2.5 py-1 rounded-full">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Administrator</span>
                   </span>
+                  <div className="text-[10px] text-slate-400 mt-1">
+                    {formatUzbekDate(u.created_at)}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      {/* How to add new admin guidance */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm space-y-3 text-xs">
-        <h4 className="font-extrabold text-slate-900 text-sm">
-          Yangi administrator tayinlash:
-        </h4>
-        <p className="text-slate-600 leading-relaxed font-medium">
-          Xavfsizlik nuqtai nazaridan, oddiy foydalanuvchilar o‘zlariga o‘zlari admin huquqini bera olmaydi. Yangi admin tayinlash uchun Supabase SQL Editor orqali quyidagi buyruqni bajaring:
-        </p>
-        <div className="p-3.5 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto">
-          UPDATE public.profiles SET is_admin = true WHERE username = &apos;foydalanuvchi_nomi&apos;;
-        </div>
       </div>
     </div>
   );

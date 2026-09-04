@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Zap,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase/client';
 import { clsx } from 'clsx';
 
 interface AdminSidebarProps {
@@ -22,13 +23,13 @@ interface AdminSidebarProps {
   role?: string;
 }
 
-export function AdminSidebar({ username = 'Admin', role = 'owner' }: AdminSidebarProps) {
+export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/admin/logout', { method: 'POST' });
+      await supabase.auth.signOut();
     } catch {
       // ignore
     }

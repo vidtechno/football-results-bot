@@ -50,12 +50,12 @@ export async function POST(request: Request) {
     if (!slug) slug = `bob-${chapterNumber}`;
 
     if (id) {
+      // Update chapter metadata
       const { data: updatedChapter, error: updateError } = await supabase
         .from('chapters')
         .update({
           chapter_number: chapterNumber,
           title,
-          content,
           is_free: isFree,
           price: isFree ? 0 : Math.max(0, Math.floor(price)),
           status,
@@ -67,15 +67,30 @@ export async function POST(request: Request) {
         .select()
         .single();
 
-      if (updateError) {
-        return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+      if (updateError || !updatedChapter) {
+        return NextResponse.json(
+          { success: false, error: updateError?.message || 'Bobni yangilashda xatolik' },
+          { status: 500 },
+        );
       }
 
-      return NextResponse.json({ success: true, chapter: updatedChapter });
+      // Upsert chapter text into dedicated protected chapter_contents table
+      await supabase
+        .from('chapter_contents')
+        .upsert({
+          chapter_id: id,
+          content,
+          updated_at: new Date().toISOString(),
+        });
+
+      return NextResponse.json({
+        success: true,
+        chapter: { ...updatedChapter, content },
+      });
     }
 
-    // New chapter
-    // Ensure slug unique within work
+    // New chapter creation
+    // Ensure slug uniqueness within this work
     const { data: existingSlug } = await supabase
       .from('chapters')
       .select('id')
@@ -94,7 +109,6 @@ export async function POST(request: Request) {
         chapter_number: chapterNumber,
         title,
         slug,
-        content,
         is_free: isFree,
         price: isFree ? 0 : Math.max(0, Math.floor(price)),
         status,
@@ -110,7 +124,18 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, chapter: newChapter });
+    // Insert chapter text into protected chapter_contents table
+    await supabase
+      .from('chapter_contents')
+      .insert({
+        chapter_id: newChapter.id,
+        content,
+      });
+
+    return NextResponse.json({
+      success: true,
+      chapter: { ...newChapter, content },
+    });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || 'Server xatosi' },

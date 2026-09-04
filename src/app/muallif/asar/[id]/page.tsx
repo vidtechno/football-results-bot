@@ -79,15 +79,20 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
 
       setWork(workData as Work);
 
-      // 2. Fetch chapters
+      // 2. Fetch chapters with author-permitted content
       const { data: chapData } = await supabase
         .from('chapters')
-        .select('*')
+        .select('*, chapter_contents(content)')
         .eq('work_id', workId)
         .order('chapter_number', { ascending: true });
 
-      setChapters((chapData as Chapter[]) || []);
-      setChapterNumber((chapData?.length || 0) + 1);
+      const formattedChapters = (chapData || []).map((c: any) => ({
+        ...c,
+        content: Array.isArray(c.chapter_contents) ? c.chapter_contents[0]?.content || '' : c.chapter_contents?.content || '',
+      }));
+
+      setChapters(formattedChapters as Chapter[]);
+      setChapterNumber((formattedChapters.length || 0) + 1);
     } catch (err) {
       console.error(err);
     } finally {

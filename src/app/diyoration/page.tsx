@@ -2,28 +2,37 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Lock, User, Loader2, ArrowRight, Zap, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, Loader2, ArrowRight, Zap, AlertCircle } from 'lucide-react';
+import { supabase } from '@/lib/supabase/client';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('diyoration');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Check if session already active
+  // Check if session already active and is admin
   useEffect(() => {
-    const checkSession = async () => {
+    const checkActiveAdmin = async () => {
       try {
-        const res = await fetch('/api/admin/settings');
-        if (res.ok) {
-          router.replace('/diyoration/dashboard');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profile?.is_admin) {
+            router.replace('/diyoration/dashboard');
+          }
         }
       } catch {
         // ignore
       }
     };
-    checkSession();
+    checkActiveAdmin();
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,16 +41,27 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       });
 
-      const data = await res.json();
+      if (authError || !data?.user) {
+        setError(authError?.message || 'Email yoki parol noto‘g‘ri');
+        setLoading(false);
+        return;
+      }
 
-      if (!res.ok) {
-        setError(data.error || 'Tizimga kirishda xatolik');
+      // Verify admin role in profiles
+      const { data: profile, error: profError } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profError || !profile?.is_admin) {
+        await supabase.auth.signOut();
+        setError('Kirish rad etildi: Ushbu hisobda administratorlik huquqi mavjud emas.');
         setLoading(false);
         return;
       }
@@ -49,7 +69,7 @@ export default function AdminLoginPage() {
       router.replace('/diyoration/dashboard');
       router.refresh();
     } catch {
-      setError('Tarmoq xatoligi yuz berdi');
+      setError('Tizimga ulanishda kutilmagan xatolik yuz berdi');
       setLoading(false);
     }
   };
@@ -65,7 +85,7 @@ export default function AdminLoginPage() {
           <div>
             <h1 className="text-2xl font-black text-slate-900">Manbora Admin Paneli</h1>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              Nashriyot, kitobxonlar va moliyaviy boshqaruv tizimi
+              Supabase autentifikatsiyasi orqali himoyalangan boshqaruv tizimi
             </p>
           </div>
         </div>
@@ -73,10 +93,10 @@ export default function AdminLoginPage() {
         {/* Login Form */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xl shadow-blue-950/5 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Tizimga kirish</span>
+            <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Admin Kirish</span>
             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Xavfsiz ulanish</span>
+              <span>profiles.is_admin</span>
             </span>
           </div>
 
@@ -89,22 +109,22 @@ export default function AdminLoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Foydalanuvchi nomi</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Admin Email</label>
               <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
-                  type="text"
+                  type="email"
                   required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="diyoration"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-hidden focus:border-blue-600 bg-slate-50/50"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@manbora.uz"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Administrator paroli</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Maxfiy parol</label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
@@ -113,7 +133,7 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-hidden focus:border-blue-600 bg-slate-50/50"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -121,23 +141,22 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg shadow-blue-600/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-2xl text-xs font-black shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
             >
               {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Tekshirilmoqda...</span>
+                </>
               ) : (
                 <>
-                  <span>Kirish</span>
+                  <span>Boshqaruv paneliga kirish</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
         </div>
-
-        <p className="text-center text-[11px] text-slate-400 font-medium">
-          Manbora Admin System v2.0 • Maxfiy va xavfsiz boshqaruv paneli
-        </p>
       </div>
     </div>
   );

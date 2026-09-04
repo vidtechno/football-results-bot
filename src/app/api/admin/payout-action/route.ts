@@ -1,22 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getCurrentProfile } from '@/lib/supabase/server';
-import { getAdminSession } from '@/lib/admin/auth';
+import { verifyAdminProfile } from '@/lib/admin/auth';
 import { executeAdminApprovePayout, executeAdminRejectPayout } from '@/lib/financial/engine';
 
 export async function POST(request: Request) {
   try {
-    const adminSession = await getAdminSession();
-    const profile = await getCurrentProfile(request.headers.get('Authorization'));
-
-    const isAdmin = Boolean(adminSession || (profile && profile.is_admin));
-    if (!isAdmin) {
+    const admin = await verifyAdminProfile(request.headers.get('Authorization'));
+    if (!admin) {
       return NextResponse.json(
         { success: false, error: 'Faqat administratorlar bu amalni bajarishi mumkin' },
         { status: 403 },
       );
     }
 
-    const adminId = profile?.id || adminSession?.userId || '00000000-0000-0000-0000-000000000000';
     const body = await request.json();
     const requestId = String(body.requestId || '');
     const action = String(body.action || ''); // 'mark_paid' | 'reject'
@@ -38,13 +33,13 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await executeAdminApprovePayout(adminId, requestId, proofUrl, adminNote);
+      const result = await executeAdminApprovePayout(admin.id, requestId, proofUrl, adminNote);
       if (!result.success) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }
       return NextResponse.json(result);
     } else if (action === 'reject') {
-      const result = await executeAdminRejectPayout(adminId, requestId, adminNote, false);
+      const result = await executeAdminRejectPayout(admin.id, requestId, adminNote, false);
       if (!result.success) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }

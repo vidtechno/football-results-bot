@@ -54,6 +54,29 @@ function AdminDashboardContent() {
   const [proofUrl, setProofUrl] = useState('');
   const [adminNote, setAdminNote] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [revealedCards, setRevealedCards] = useState<Record<string, string>>({});
+  const [revealingCardId, setRevealingCardId] = useState<string | null>(null);
+
+  async function handleRevealCard(payoutId: string) {
+    setRevealingCardId(payoutId);
+    try {
+      const res = await fetch('/api/admin/payout-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payoutId }),
+      });
+      const data = await res.json();
+      if (data.success && data.cardNumber) {
+        setRevealedCards((prev) => ({ ...prev, [payoutId]: data.cardNumber }));
+      } else {
+        alert(data.error || 'Kartani ochishda xatolik yuz berdi');
+      }
+    } catch {
+      alert('Tarmoq xatosi');
+    } finally {
+      setRevealingCardId(null);
+    }
+  }
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -67,6 +90,21 @@ function AdminDashboardContent() {
   async function loadDashboardData() {
     setLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        window.location.href = '/diyoration';
+        return;
+      }
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!currentProfile?.is_admin) {
+        window.location.href = '/diyoration';
+        return;
+      }
       // 1. Stats
       const { count: usersCount } = await supabase
         .from('profiles')
@@ -546,7 +584,35 @@ function AdminDashboardContent() {
                         <span className="text-[11px] text-slate-400">@{p.author?.username}</span>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-slate-800">
-                        {p.masked_card}
+                        {revealedCards[p.id] ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs font-mono select-all">
+                              {revealedCards[p.id]}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(revealedCards[p.id]);
+                                alert('Karta raqami nusxalandi');
+                              }}
+                              className="text-[10px] text-slate-500 hover:text-slate-800 underline font-sans font-bold"
+                            >
+                              Nusxa
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span>{p.masked_card}</span>
+                            <button
+                              type="button"
+                              disabled={revealingCardId === p.id}
+                              onClick={() => handleRevealCard(p.id)}
+                              className="text-[10px] text-blue-600 hover:text-blue-800 font-bold font-sans bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 transition-colors"
+                            >
+                              {revealingCardId === p.id ? '...' : 'Ko‘rish'}
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4 font-black text-slate-900">
                         {formatUZS(p.requested_amount)}

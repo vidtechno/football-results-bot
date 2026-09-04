@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
-import { getAdminSession, logAdminAction } from '@/lib/admin/auth';
+import { createAdminClient } from '@/lib/supabase/server';
+import { verifyAdminProfile, logAdminAction } from '@/lib/admin/auth';
 
 export async function GET() {
   try {
@@ -26,18 +26,14 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const adminSession = await getAdminSession();
-    const profile = await getCurrentProfile(request.headers.get('Authorization'));
-
-    const isAdmin = Boolean(adminSession || (profile && profile.is_admin));
-    if (!isAdmin) {
+    const admin = await verifyAdminProfile(request.headers.get('Authorization'));
+    if (!admin) {
       return NextResponse.json(
         { success: false, error: 'Faqat administratorlar sozlamalarni o‘zgartirishi mumkin' },
         { status: 403 },
       );
     }
 
-    const adminId = profile?.id || adminSession?.userId || '00000000-0000-0000-0000-000000000000';
     const body = await request.json();
     const { commissionPercentage, minimumPayout, telegramUsername } = body;
 
@@ -67,7 +63,7 @@ export async function POST(request: Request) {
       });
     }
 
-    await logAdminAction(supabase, adminId, 'update_platform_settings', 'platform_settings', 'global', {
+    await logAdminAction(supabase, admin.id, 'update_platform_settings', 'platform_settings', 'global', {
       commissionPercentage,
       minimumPayout,
       telegramUsername,

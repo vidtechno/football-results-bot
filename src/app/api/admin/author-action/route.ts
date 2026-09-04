@@ -1,21 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
-import { getAdminSession, logAdminAction } from '@/lib/admin/auth';
+import { createAdminClient } from '@/lib/supabase/server';
+import { verifyAdminProfile, logAdminAction } from '@/lib/admin/auth';
 
 export async function POST(request: Request) {
   try {
-    const adminSession = await getAdminSession();
-    const profile = await getCurrentProfile(request.headers.get('Authorization'));
-
-    const isAdmin = Boolean(adminSession || (profile && profile.is_admin));
-    if (!isAdmin) {
+    const admin = await verifyAdminProfile(request.headers.get('Authorization'));
+    if (!admin) {
       return NextResponse.json(
         { success: false, error: 'Faqat administratorlar bu amalni bajarishi mumkin' },
         { status: 403 },
       );
     }
 
-    const adminId = profile?.id || adminSession?.userId || '00000000-0000-0000-0000-000000000000';
     const body = await request.json();
     const userId = String(body.userId || '');
     const action = String(body.action || ''); // 'approve' | 'reject'
@@ -44,7 +40,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
       }
 
-      await logAdminAction(supabase, adminId, 'approve_author', 'author_profiles', userId, {});
+      await logAdminAction(supabase, admin.id, 'approve_author', 'author_profiles', userId, {});
 
       return NextResponse.json({ success: true, message: 'Mualliflik arizasi tasdiqlandi' });
     } else if (action === 'reject') {
@@ -61,7 +57,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
       }
 
-      await logAdminAction(supabase, adminId, 'reject_author', 'author_profiles', userId, {
+      await logAdminAction(supabase, admin.id, 'reject_author', 'author_profiles', userId, {
         reason: rejectionReason,
       });
 

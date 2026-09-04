@@ -57,18 +57,16 @@ Migratsiya quyidagilarni o‘z ichiga oladi:
 
 ## 🛡️ Birinchi administratorni xavfsiz tayinlash
 
-Foydalanuvchilar o‘zlariga o‘zlari admin maqomini bera olmaydi. Birinchi adminni tayinlash uchun:
+Foydalanuvchilar o‘zlariga o‘zlari admin maqomini bera olmaydi (triggerlar va RLS orqali bloklangan). Birinchi adminni tayinlash faqat auth foydalanuvchisining aniq UUID identifikatori orqali amalga oshiriladi:
 
-1. Foydalanuvchi saytda ro‘yxatdan o‘tadi (masalan: `diyorbek`).
-2. Supabase SQL Editor orqali quyidagi buyruqni bajaring:
+1. Foydalanuvchi saytda (`/royxatdan-otish`) yoki Supabase Auth orqali ro‘yxatdan o‘tadi.
+2. Supabase SQL Editor orqali quyidagi xavfsiz SQL buyrug‘ini bajaring (UUID ni foydalanuvchining haqiqiy `auth.users.id` qiymati bilan almashtiring):
 
 ```sql
 UPDATE public.profiles
 SET is_admin = true
-WHERE username = 'diyorbek';
+WHERE id = '00000000-0000-0000-0000-000000000000'::uuid;
 ```
-
-Shuningdek, `/diyoration` admin paneliga kirish uchun `.env.local` orqali `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` va `ADMIN_SESSION_SECRET` sozlanishi mumkin.
 
 ---
 
@@ -77,17 +75,16 @@ Shuningdek, `/diyoration` admin paneliga kirish uchun `.env.local` orqali `ADMIN
 `.env.local` faylida quyidagi kalitlar o‘rnatilgan bo‘lishi lozim:
 
 ```env
-# Supabase Client
+# Supabase Client (Public)
 NEXT_PUBLIC_SUPABASE_URL=https://your-supabase-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 
-# Supabase Server-Side Secret Key
+# Supabase Server-Side Service Role Key (Faqat server tomonida - brauzerga hech qachon chiqmasligi shart)
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key-here
 
-# Admin Panel Credentials
-ADMIN_USERNAME=diyoration
-ADMIN_PASSWORD_HASH=pbkdf2$100000$your_salt$your_derived_key
-ADMIN_SESSION_SECRET=your_long_64_character_random_string_here
+# Bank kartalari shifrlash kaliti (AES-256-GCM uchun 32-baytlik kalit)
+# Generatsiya qilish: openssl rand -hex 32
+CARD_ENCRYPTION_KEY=your_64_hex_character_or_32_byte_secret_here
 ```
 
 ---

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { executeAuthorPayoutRequest } from '@/lib/financial/engine';
-import { isValidCardNumber } from '@/lib/utils/currency';
+import { maskCardNumber } from '@/lib/utils/currency';
+import { isValidUzbekCardNumber, encryptCardData } from '@/lib/utils/encryption';
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const amount = Number(body.amount);
     const legalName = String(body.legalName || '').trim();
-    const cardNumber = String(body.cardNumber || '').replace(/\s+/g, '');
+    const rawCardNumber = String(body.cardNumber || '').replace(/\s+/g, '');
     const authorNote = String(body.authorNote || '').trim();
 
     if (isNaN(amount) || amount < 100000) {
@@ -29,23 +30,28 @@ export async function POST(request: Request) {
 
     if (!legalName) {
       return NextResponse.json(
-        { success: false, error: 'Karta egasining ismi talab qilinadi' },
+        { success: false, error: 'Karta egasining to‘liq ismi talab qilinadi' },
         { status: 400 },
       );
     }
 
-    if (!isValidCardNumber(cardNumber)) {
+    if (!isValidUzbekCardNumber(rawCardNumber)) {
       return NextResponse.json(
-        { success: false, error: 'Karta raqami 16 ta raqamdan iborat bo‘lishi lozim' },
+        { success: false, error: 'Karta raqami noto‘g‘ri yoki 16 ta raqamdan iborat emas' },
         { status: 400 },
       );
     }
+
+    // Encrypt card using AES-256-GCM secret key and create masked representation
+    const maskedCard = maskCardNumber(rawCardNumber);
+    const encryptedCard = encryptCardData(rawCardNumber);
 
     const result = await executeAuthorPayoutRequest(
       profile.id,
       amount,
       legalName,
-      cardNumber,
+      encryptedCard,
+      maskedCard,
       authorNote,
     );
 

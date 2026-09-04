@@ -199,7 +199,7 @@ export async function getChapterForReading(
 
   const { data: chapter } = await supabase
     .from('chapters')
-    .select('*')
+    .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
     .eq('work_id', work.id)
     .eq('slug', chapterSlug)
     .single();
@@ -257,10 +257,21 @@ export async function getChapterForReading(
     }
   }
 
-  // If no access, hide full content!
+  // Strictly fetch chapter content from protected chapter_contents table ONLY if hasAccess is true
+  let content = '';
+  if (hasAccess) {
+    const { data: contentRecord } = await supabase
+      .from('chapter_contents')
+      .select('content')
+      .eq('chapter_id', chapter.id)
+      .maybeSingle();
+
+    content = contentRecord?.content || '';
+  }
+
   const sanitizedChapter: Chapter = {
     ...chapter,
-    content: hasAccess ? chapter.content : '',
+    content,
   };
 
   return {

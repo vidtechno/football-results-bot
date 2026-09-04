@@ -2,10 +2,14 @@ import { describe, it, expect } from 'vitest';
 import {
   formatUZS,
   maskCardNumber,
-  isValidCardNumber,
   calculateCommission,
   generateIdempotencyKey,
 } from '@/lib/utils/currency';
+import {
+  encryptCardData,
+  decryptCardData,
+  isValidUzbekCardNumber,
+} from '@/lib/utils/encryption';
 
 describe('Financial and Currency Utilities', () => {
   describe('formatUZS', () => {
@@ -28,21 +32,65 @@ describe('Financial and Currency Utilities', () => {
     });
   });
 
-  describe('maskCardNumber and isValidCardNumber', () => {
-    it('validates 16 digit card numbers correctly', () => {
-      expect(isValidCardNumber('8600123456789012')).toBe(true);
-      expect(isValidCardNumber('8600 1234 5678 9012')).toBe(true);
-      expect(isValidCardNumber('86001234')).toBe(false);
-      expect(isValidCardNumber('abcd1234efgh5678')).toBe(false);
+  describe('Bank Card Masking & Uzbek Format Validation', () => {
+    it('validates Uzbek card formats (Uzcard 8600, Humo 9860, Visa 4, Mastercard 5)', () => {
+      expect(isValidUzbekCardNumber('8600 1234 5678 9012')).toBe(true);
+      expect(isValidUzbekCardNumber('9860 1234 5678 9012')).toBe(true);
+      expect(isValidUzbekCardNumber('4123 4567 8901 2345')).toBe(true);
+      expect(isValidUzbekCardNumber('5412 3456 7890 1234')).toBe(true);
     });
 
-    it('masks card numbers preserving first 4 and last 4 digits', () => {
+    it('rejects cards with invalid lengths or non-numeric characters', () => {
+      expect(isValidUzbekCardNumber('8600 1234 5678')).toBe(false);
+      expect(isValidUzbekCardNumber('86001234567890123')).toBe(false);
+      expect(isValidUzbekCardNumber('8600abcd56789012')).toBe(false);
+      expect(isValidUzbekCardNumber('')).toBe(false);
+    });
+
+    it('masks card numbers preserving only first 4 and last 4 digits', () => {
       expect(maskCardNumber('8600123456789012')).toBe('8600 **** **** 9012');
       expect(maskCardNumber('9860 1111 2222 3333')).toBe('9860 **** **** 3333');
     });
 
     it('returns placeholder on invalid length', () => {
       expect(maskCardNumber('1234')).toBe('**** **** **** ****');
+    });
+  });
+
+  describe('Card AES-256-GCM Server-Side Encryption', () => {
+    it('encrypts and decrypts card numbers accurately', () => {
+      const originalCard = '8600123456789012';
+      const encrypted = encryptCardData(originalCard);
+
+      // Ciphertext must never contain the plain text card number
+      expect(encrypted).not.toContain(originalCard);
+      expect(encrypted).not.toContain('86001234');
+
+      // Decryption restores exact plain text
+      const decrypted = decryptCardData(encrypted);
+      expect(decrypted).toBe(originalCard);
+    });
+
+    it('generates unique ciphertexts for identical inputs due to random IVs', () => {
+      const card = '9860987654321098';
+      const enc1 = encryptCardData(card);
+      const enc2 = encryptCardData(card);
+
+      expect(enc1).not.toBe(enc2);
+      expect(decryptCardData(enc1)).toBe(card);
+      expect(decryptCardData(enc2)).toBe(card);
+    });
+
+    it('fails safely when decrypting tampered data', () => {
+      const card = '8600111122223333';
+      const encrypted = encryptCardData(card);
+
+      // Tamper ciphertext
+      const buffer = Buffer.from(encrypted, 'base64');
+      buffer[buffer.length - 1] ^= 0xff; // flip last bit
+      const tampered = buffer.toString('base64');
+
+      expect(() => decryptCardData(tampered)).toThrow();
     });
   });
 
@@ -77,7 +125,7 @@ describe('Financial and Currency Utilities', () => {
     });
   });
 
-  describe('Purchase Atomicity & Idempotency Rules', () => {
+  describe('Purchase Atomicity, Idempotency & Paid-Content Access', () => {
     it('generates unique keys with specified prefix', () => {
       const key1 = generateIdempotencyKey('buy');
       const key2 = generateIdempotencyKey('buy');
@@ -86,7 +134,6 @@ describe('Financial and Currency Utilities', () => {
     });
 
     it('validates that identical idempotency key or existing active purchase prevents duplicate charges', () => {
-      // Simulate ledger transaction state
       const initialReaderBalance = 50000;
       const chapterPrice = 15000;
       const existingPurchases = new Set<string>();
@@ -134,6 +181,66 @@ describe('Financial and Currency Utilities', () => {
 
       expect(() => verifyBalance(readerBalance, bookPrice)).toThrow('Hisobingizda mablag‘ yetarli emas');
     });
+
+    it('enforces paid chapter content isolation for non-buyers vs buyers', () => {
+      interface MockChapter {
+        id: string;
+        is_free: boolean;
+      }
+
+      function resolveChapterContent(
+        chapter: MockChapter,
+        authorId: string,
+        currentUser: { id?: string; isAdmin?: boolean; hasPurchased?: boolean } | null,
+        actualDbContent: string,
+      ): { content: string; hasAccess: boolean } {
+        // Free chapter
+        if (chapter.is_free) {
+          return { content: actualDbContent, hasAccess: true };
+        }
+        if (!currentUser || !currentUser.id) {
+          return { content: '', hasAccess: false };
+        }
+        if (currentUser.isAdmin || currentUser.id === authorId || currentUser.hasPurchased) {
+          return { content: actualDbContent, hasAccess: true };
+        }
+        return { content: '', hasAccess: false };
+      }
+
+      const paidChapter: MockChapter = { id: 'ch-102', is_free: false };
+      const secretStory = 'Bu faqat xarid qilgan kitobxonlar o‘qishi mumkin bo‘lgan bob matni...';
+      const authorId = 'author-uuid-1';
+
+      // 1. Anonymous visitor
+      const anon = resolveChapterContent(paidChapter, authorId, null, secretStory);
+      expect(anon.hasAccess).toBe(false);
+      expect(anon.content).toBe('');
+
+      // 2. Authenticated non-buyer
+      const nonBuyer = resolveChapterContent(paidChapter, authorId, { id: 'reader-2', hasPurchased: false }, secretStory);
+      expect(nonBuyer.hasAccess).toBe(false);
+      expect(nonBuyer.content).toBe('');
+
+      // 3. Another author
+      const otherAuthor = resolveChapterContent(paidChapter, authorId, { id: 'other-author-3', hasPurchased: false }, secretStory);
+      expect(otherAuthor.hasAccess).toBe(false);
+      expect(otherAuthor.content).toBe('');
+
+      // 4. Buyer
+      const buyer = resolveChapterContent(paidChapter, authorId, { id: 'buyer-4', hasPurchased: true }, secretStory);
+      expect(buyer.hasAccess).toBe(true);
+      expect(buyer.content).toBe(secretStory);
+
+      // 5. Author of the work
+      const author = resolveChapterContent(paidChapter, authorId, { id: authorId }, secretStory);
+      expect(author.hasAccess).toBe(true);
+      expect(author.content).toBe(secretStory);
+
+      // 6. Admin
+      const admin = resolveChapterContent(paidChapter, authorId, { id: 'admin-uuid', isAdmin: true }, secretStory);
+      expect(admin.hasAccess).toBe(true);
+      expect(admin.content).toBe(secretStory);
+    });
   });
 
   describe('Author Payout Rules & Reservation Lifecycle', () => {
@@ -158,15 +265,12 @@ describe('Financial and Currency Utilities', () => {
       let reservedEarnings = 0;
       const requestedAmount = 100000;
 
-      // Simulate reservation
       expect(availableEarnings).toBeGreaterThanOrEqual(requestedAmount);
       availableEarnings -= requestedAmount;
       reservedEarnings += requestedAmount;
 
       expect(availableEarnings).toBe(50000);
       expect(reservedEarnings).toBe(100000);
-
-      // Author cannot request more than now available
       expect(availableEarnings >= requestedAmount).toBe(false);
     });
 
@@ -175,7 +279,6 @@ describe('Financial and Currency Utilities', () => {
       let reservedEarnings = 100000;
       const reversedAmount = 100000;
 
-      // Simulate rejection reversal
       reservedEarnings -= reversedAmount;
       availableEarnings += reversedAmount;
 

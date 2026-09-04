@@ -1,22 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
-import { getAdminSession, verifyIsAdmin } from '@/lib/admin/auth';
+import { createAdminClient } from '@/lib/supabase/server';
+import { verifyAdminProfile } from '@/lib/admin/auth';
 import { executeAdminApproveTopup } from '@/lib/financial/engine';
 
 export async function POST(request: Request) {
   try {
-    const adminSession = await getAdminSession();
-    const profile = await getCurrentProfile(request.headers.get('Authorization'));
-
-    const isAdmin = Boolean(adminSession || (profile && profile.is_admin));
-    if (!isAdmin) {
+    const admin = await verifyAdminProfile(request.headers.get('Authorization'));
+    if (!admin) {
       return NextResponse.json(
         { success: false, error: 'Faqat administratorlar bu amalni bajarishi mumkin' },
         { status: 403 },
       );
     }
 
-    const adminId = profile?.id || adminSession?.userId || '00000000-0000-0000-0000-000000000000';
     const body = await request.json();
     const requestId = String(body.requestId || '');
     const action = String(body.action || ''); // 'approve' | 'reject'
@@ -31,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'approve') {
-      const result = await executeAdminApproveTopup(adminId, requestId, proofUrl, adminNote);
+      const result = await executeAdminApproveTopup(admin.id, requestId, proofUrl, adminNote);
       if (!result.success) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }
@@ -43,7 +39,7 @@ export async function POST(request: Request) {
         .update({
           status: 'rejected',
           admin_note: adminNote,
-          reviewed_by: adminId !== '00000000-0000-0000-0000-000000000000' ? adminId : null,
+          reviewed_by: admin.id,
           reviewed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })

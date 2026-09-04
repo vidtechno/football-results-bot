@@ -12,30 +12,18 @@ export async function GET(request: Request) {
     const supabase = createAdminClient();
 
     const [
-      { data: topups },
       { data: payouts },
       { data: works },
       { data: authors },
+      { data: workRevisions },
     ] = await Promise.all([
-      supabase.from('topup_requests').select('id, amount, created_at').eq('status', 'pending').limit(5),
       supabase.from('payout_requests').select('id, requested_amount, created_at').eq('status', 'pending').limit(5),
       supabase.from('works').select('id, title, created_at').eq('status', 'pending_review').limit(5),
       supabase.from('author_profiles').select('user_id, pen_name, created_at').eq('status', 'pending').limit(5),
+      supabase.from('work_revisions').select('id, title, created_at').eq('status', 'pending_review').limit(5),
     ]);
 
     const notifications: any[] = [];
-
-    (topups || []).forEach((t) => {
-      notifications.push({
-        id: `topup_${t.id}`,
-        title: 'Yangi hisob to‘ldirish',
-        summary: `Mablag‘: ${t.amount} so‘m tasdiqlash kutilmoqda`,
-        link_url: '/diyoration/dashboard?tab=topups',
-        created_at: t.created_at,
-        is_read: false,
-        type: 'topup',
-      });
-    });
 
     (payouts || []).forEach((p) => {
       notifications.push({
@@ -66,10 +54,22 @@ export async function GET(request: Request) {
         id: `author_${a.user_id}`,
         title: 'Mualliflik arizasi',
         summary: `"${a.pen_name}" mualliflik arizasi berdi`,
-        link_url: '/diyoration/dashboard?tab=authors',
+        link_url: '/diyoration/mualliflar',
         created_at: a.created_at,
         is_read: false,
         type: 'author',
+      });
+    });
+
+    (workRevisions || []).forEach((r) => {
+      notifications.push({
+        id: `revision_${r.id}`,
+        title: 'Yangi tahrir moderatsiyasi',
+        summary: `"${r.title}" asariga yangi tahrir yuborildi`,
+        link_url: '/diyoration/tahrirlar',
+        created_at: r.created_at,
+        is_read: false,
+        type: 'revision',
       });
     });
 

@@ -14,6 +14,8 @@ import {
   LogOut,
   ShieldCheck,
   Zap,
+  FileDiff,
+  DollarSign,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { clsx } from 'clsx';
@@ -42,12 +44,14 @@ export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: Adm
 
   const navItems = [
     { label: 'Boshqaruv paneli', href: '/diyoration/dashboard', icon: LayoutDashboard },
-    { label: 'Hisob to‘ldirishlar', href: '/diyoration/dashboard?tab=topups', icon: Wallet },
-    { label: 'Pul yechish (Payout)', href: '/diyoration/dashboard?tab=payouts', icon: CreditCard },
-    { label: 'Asarlar moderatsiyasi', href: '/diyoration/dashboard?tab=works', icon: BookOpen },
-    { label: 'Muallif arizalari', href: '/diyoration/dashboard?tab=authors', icon: PenTool },
-    { label: 'Foydalanuvchilar', href: '/diyoration/dashboard?tab=users', icon: Users },
-    { label: 'Sozlamalar & Audit', href: '/diyoration/settings', icon: Settings },
+    { label: 'Foydalanuvchilar', href: '/diyoration/foydalanuvchilar', icon: Users },
+    { label: 'Mualliflar', href: '/diyoration/mualliflar', icon: PenTool },
+    { label: 'Asarlar', href: '/diyoration/asarlar', icon: BookOpen },
+    { label: 'Tahrirlar moderatsiyasi', href: '/diyoration/tahrirlar', icon: FileDiff },
+    { label: 'Pul yechish so‘rovlari', href: '/diyoration/yechish-sorovlari', icon: CreditCard },
+    { label: 'Moliyaviy tarix', href: '/diyoration/moliya', icon: DollarSign },
+    { label: 'Audit jurnali', href: '/diyoration/audit', icon: ShieldCheck },
+    { label: 'Sozlamalar', href: '/diyoration/settings', icon: Settings },
   ];
 
   return (

@@ -45,11 +45,18 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ success: true, message: 'Asar muvaffaqiyatli nashr qilindi' });
     } else if (action === 'reject') {
+      if (!rejectionReason) {
+        return NextResponse.json(
+          { success: false, error: 'Rad etish sababi majburiy ko‘rsatilishi shart' },
+          { status: 400 },
+        );
+      }
+
       const { error: updateError } = await supabase
         .from('works')
         .update({
           status: 'rejected',
-          rejection_reason: rejectionReason || 'Moderatsiya talablariga mos kelmadi',
+          rejection_reason: rejectionReason,
           updated_at: new Date().toISOString(),
         })
         .eq('id', workId);
@@ -63,6 +70,64 @@ export async function POST(request: Request) {
       });
 
       return NextResponse.json({ success: true, message: 'Asar rad etildi' });
+    } else if (action === 'unpublish') {
+      if (!rejectionReason) {
+        return NextResponse.json(
+          { success: false, error: 'Nashrdan olish sababi majburiy ko‘rsatilishi shart' },
+          { status: 400 },
+        );
+      }
+
+      const { error: updateError } = await supabase
+        .from('works')
+        .update({
+          status: 'draft',
+          rejection_reason: rejectionReason,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', workId);
+
+      if (updateError) {
+        return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+      }
+
+      await logAdminAction(supabase, admin.id, 'unpublish_work', 'works', workId, {
+        reason: rejectionReason,
+      });
+
+      return NextResponse.json({ success: true, message: 'Asar nashrdan olindi va qoralamaga o‘tkazildi' });
+    } else if (action === 'archive') {
+      const { error: updateError } = await supabase
+        .from('works')
+        .update({
+          status: 'archived',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', workId);
+
+      if (updateError) {
+        return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+      }
+
+      await logAdminAction(supabase, admin.id, 'archive_work', 'works', workId, {});
+
+      return NextResponse.json({ success: true, message: 'Asar arxivlandi' });
+    } else if (action === 'restore') {
+      const { error: updateError } = await supabase
+        .from('works')
+        .update({
+          status: 'published',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', workId);
+
+      if (updateError) {
+        return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+      }
+
+      await logAdminAction(supabase, admin.id, 'restore_work', 'works', workId, {});
+
+      return NextResponse.json({ success: true, message: 'Asar arxivdan chiqarildi va nashr qilindi' });
     } else {
       return NextResponse.json(
         { success: false, error: 'Noto‘g‘ri harakat' },

@@ -18,6 +18,8 @@ import {
   ShieldCheck,
   PenTool,
   Settings,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { supabase } from '@/lib/supabase/client';
@@ -47,6 +49,7 @@ function KabinetContent() {
   const [library, setLibrary] = useState<LibraryItem[]>([]);
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [isTopupOpen, setIsTopupOpen] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'library' | 'topups' | 'transactions' | 'purchases'>(
     tabParam === 'topups'
@@ -171,8 +174,27 @@ function KabinetContent() {
             <div className="flex items-center gap-3 mt-1 text-xs text-[#78716C] font-medium">
               {profile ? (
                 <>
-                  <span>
-                    ID: <strong className="font-mono text-[#1C1917]">{profile.public_id}</strong>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>ID:</span>
+                    <strong className="font-mono text-[#1C1917] bg-[#F5F2EC] px-1.5 py-0.5 rounded text-[11px]">
+                      {profile.public_id}
+                    </strong>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(profile.public_id);
+                        setIdCopied(true);
+                        setTimeout(() => setIdCopied(false), 2000);
+                      }}
+                      className="p-1 text-stone-400 hover:text-amber-800 transition-colors"
+                      title="Manbora ID nusxalash"
+                    >
+                      {idCopied ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                   </span>
                   <span>@{profile.username}</span>
                 </>
@@ -510,11 +532,10 @@ function KabinetContent() {
         <TopupModal
           isOpen={isTopupOpen}
           onClose={() => setIsTopupOpen(false)}
-          userPublicId={profile.public_id}
-          onSuccess={async () => {
-            await refreshAuth();
-            if (user?.id) loadTabUserData(user.id);
-          }}
+          userBalance={balance ?? 0}
+          userName={profile.display_name}
+          publicId={profile.public_id}
+          userEmail={user?.email}
         />
       )}
     </div>

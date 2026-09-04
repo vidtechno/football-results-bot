@@ -44,11 +44,18 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ success: true, message: 'Mualliflik arizasi tasdiqlandi' });
     } else if (action === 'reject') {
+      if (!rejectionReason) {
+        return NextResponse.json(
+          { success: false, error: 'Arizani rad etish sababi majburiy ko‘rsatilishi shart' },
+          { status: 400 },
+        );
+      }
+
       const { error: updateError } = await supabase
         .from('author_profiles')
         .update({
           status: 'rejected',
-          rejection_reason: rejectionReason || 'Ariza talablarga mos kelmadi',
+          rejection_reason: rejectionReason,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId);
@@ -62,6 +69,54 @@ export async function POST(request: Request) {
       });
 
       return NextResponse.json({ success: true, message: 'Mualliflik arizasi rad etildi' });
+    } else if (action === 'suspend' || action === 'restrict') {
+      const reason = rejectionReason || 'Administrator tomonidan nashr qilish to‘xtatildi';
+      const { error: updateError } = await supabase
+        .from('author_profiles')
+        .update({
+          status: 'suspended',
+          rejection_reason: reason,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+      }
+
+      await logAdminAction(supabase, admin.id, 'suspend_author', 'author_profiles', userId, {
+        reason,
+      });
+
+      return NextResponse.json({ success: true, message: 'Mualliflik huquqi vaqtincha cheklandi' });
+    } else if (action === 'restore') {
+      const { error: updateError } = await supabase
+        .from('author_profiles')
+        .update({
+          status: 'approved',
+          rejection_reason: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+      }
+
+      await logAdminAction(supabase, admin.id, 'restore_author', 'author_profiles', userId, {});
+
+      return NextResponse.json({ success: true, message: 'Mualliflik maqomi qayta tiklandi' });
+    } else if (action === 'note') {
+      const note = String(body.note || '').trim();
+      if (!note) {
+        return NextResponse.json({ success: false, error: 'Izoh matni bo‘sh bo‘lishi mumkin emas' }, { status: 400 });
+      }
+
+      await logAdminAction(supabase, admin.id, 'author_admin_note', 'author_profiles', userId, {
+        note,
+      });
+
+      return NextResponse.json({ success: true, message: 'Administrator izohi qayd etildi' });
     } else {
       return NextResponse.json(
         { success: false, error: 'Noto‘g‘ri harakat' },

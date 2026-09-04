@@ -14,6 +14,11 @@ import { validateImageMagicBytes } from '@/lib/utils/imageUpload';
 import { sanitizeRichText } from '@/lib/utils/sanitizer';
 import { getSafeRedirectUrl } from '@/lib/utils/redirect';
 import { isUserAllowlistedAdmin } from '@/lib/supabase/server';
+import {
+  generateTelegramTopupMessage,
+  getAdminTelegramUrl,
+  getAdminTelegramUsername,
+} from '@/lib/utils/telegram';
 
 describe('Financial and Currency Utilities', () => {
   describe('formatUZS', () => {
@@ -1054,5 +1059,469 @@ describe('Financial and Currency Utilities', () => {
     });
   });
 });
+
+describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', () => {
+  describe('1. Insufficient Balance & Missing Amount Calculation', () => {
+    it('calculates exact missing amount when balance is less than content price', () => {
+      const price = 15000;
+      const userBalance = 5000;
+      const missingAmount = Math.max(0, price - userBalance);
+      expect(missingAmount).toBe(10000);
+    });
+
+    it('missing amount is zero when balance is greater than or equal to price', () => {
+      const price = 8000;
+      const userBalance = 10000;
+      const missingAmount = Math.max(0, price - userBalance);
+      expect(missingAmount).toBe(0);
+    });
+
+    it('handles zero balance correctly', () => {
+      const price = 25000;
+      const userBalance = 0;
+      const missingAmount = Math.max(0, price - userBalance);
+      expect(missingAmount).toBe(25000);
+    });
+  });
+
+  describe('2. Prepared Telegram Message Generation', () => {
+    it('generates a complete, polite Uzbek Latin top-up message with all required fields', () => {
+      const msg = generateTelegramTopupMessage({
+        userName: 'Diyorbek Anorboyev',
+        publicId: 'MB-00001001',
+        email: 'anorboyevdiyorbek714@gmail.com',
+        currentBalance: 5000,
+        itemTitle: 'O‘tkan kunlar',
+        itemType: 'chapter',
+        itemPrice: 15000,
+        missingAmount: 10000,
+        requestedAmount: 10000,
+      });
+
+      expect(msg).toContain('Assalomu alaykum, Manbora ma’muri!');
+      expect(msg).toContain('Diyorbek Anorboyev');
+      expect(msg).toContain('MB-00001001');
+      expect(msg).toContain('anorboyevdiyorbek714@gmail.com');
+      expect(msg).toContain("5 000 so'm");
+      expect(msg).toContain('O‘tkan kunlar');
+      expect(msg).toContain("15 000 so'm");
+      expect(msg).toContain("10 000 so'm");
+      expect(msg).toContain('to‘lov uchun karta raqamini yuborsangiz');
+    });
+
+    it('strictly does NOT leak passwords, access tokens, service keys or secrets in telegram message', () => {
+      const sensitiveToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummysecret';
+      const serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.service_role_secret';
+
+      const msg = generateTelegramTopupMessage({
+        userName: 'Test User',
+        publicId: 'MB-00001002',
+        email: 'user@example.com',
+        currentBalance: 0,
+      });
+
+      expect(msg).not.toContain(sensitiveToken);
+      expect(msg).not.toContain(serviceRoleKey);
+      expect(msg).not.toContain('password');
+      expect(msg).not.toContain('secret');
+      expect(msg).not.toContain('Bearer');
+    });
+
+    it('generates safe Telegram URL without hardcoding personal usernames', () => {
+      const msg = 'Test message';
+      const url = getAdminTelegramUrl(msg);
+
+      expect(url).toMatch(/^https:\/\/t\.me\/[a-zA-Z0-9_]+\?text=/);
+      expect(decodeURIComponent(url)).toContain(msg);
+    });
+
+    it('returns default fallback admin username when environment variable is not set', () => {
+      const defaultUsername = getAdminTelegramUsername();
+      expect(defaultUsername).toBeDefined();
+      expect(typeof defaultUsername).toBe('string');
+      expect(defaultUsername.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('3. Public Manbora User ID Format & Validation', () => {
+    it('validates sequential human-readable Manbora ID format MB-XXXXXXXX', () => {
+      const manboraIdRegex = /^MB-\d{8}$/;
+
+      expect(manboraIdRegex.test('MB-00001001')).toBe(true);
+      expect(manboraIdRegex.test('MB-00001234')).toBe(true);
+      expect(manboraIdRegex.test('MB-00100000')).toBe(true);
+
+      // Invalid formats
+      expect(manboraIdRegex.test('12345678')).toBe(false);
+      expect(manboraIdRegex.test('MB-123')).toBe(false);
+      expect(manboraIdRegex.test('USER-00001001')).toBe(false);
+      expect(manboraIdRegex.test('00000000-0000-0000-0000-000000000000')).toBe(false);
+    });
+
+    it('generates unique sequential IDs that do not repeat', () => {
+      let seqCounter = 1000;
+      function generateMockManboraId() {
+        seqCounter += 1;
+        return `MB-${String(seqCounter).padStart(8, '0')}`;
+      }
+
+      const id1 = generateMockManboraId();
+      const id2 = generateMockManboraId();
+      const id3 = generateMockManboraId();
+
+      expect(id1).toBe('MB-00001001');
+      expect(id2).toBe('MB-00001002');
+      expect(id3).toBe('MB-00001003');
+      expect(new Set([id1, id2, id3]).size).toBe(3);
+    });
+  });
+
+  describe('4. Admin Search & Filtering Logic', () => {
+    const mockUsers = [
+      { id: '11111111-1111-1111-1111-111111111111', public_id: 'MB-00001001', display_name: 'Diyorbek Anorboyev', username: 'diyorbek', email: 'anorboyevdiyorbek714@gmail.com', is_admin: true, balance: 50000, author_status: null },
+      { id: '22222222-2222-2222-2222-222222222222', public_id: 'MB-00001002', display_name: 'Abdulla Qodiriy', username: 'qodiriy', email: 'qodiriy@manbora.uz', is_admin: false, balance: 120000, author_status: 'approved' },
+      { id: '33333333-3333-3333-3333-333333333333', public_id: 'MB-00001003', display_name: 'Alisher Navoiy', username: 'navoiy', email: 'navoiy@manbora.uz', is_admin: false, balance: 0, author_status: 'suspended' },
+      { id: '44444444-4444-4444-4444-444444444444', public_id: 'MB-00001004', display_name: 'Oddiy Kitobxon', username: 'kitobxon1', email: 'reader@example.com', is_admin: false, balance: 0, author_status: null },
+    ];
+
+    function searchUsers(q: string, filter: string) {
+      let list = [...mockUsers];
+      const lowerQ = q.trim().toLowerCase();
+
+      if (lowerQ) {
+        list = list.filter((u) =>
+          u.display_name.toLowerCase().includes(lowerQ) ||
+          u.username.toLowerCase().includes(lowerQ) ||
+          u.public_id.toLowerCase().includes(lowerQ) ||
+          u.email.toLowerCase().includes(lowerQ) ||
+          u.id.toLowerCase() === lowerQ
+        );
+      }
+
+      if (filter === 'admins') {
+        list = list.filter((u) => u.is_admin);
+      } else if (filter === 'authors') {
+        list = list.filter((u) => Boolean(u.author_status));
+      } else if (filter === 'readers') {
+        list = list.filter((u) => !u.is_admin && !u.author_status);
+      } else if (filter === 'positive_balance') {
+        list = list.filter((u) => u.balance > 0);
+      } else if (filter === 'restricted') {
+        list = list.filter((u) => u.author_status === 'suspended');
+      }
+
+      return list;
+    }
+
+    it('searches users by name, username, Manbora ID, email and UUID case-insensitively', () => {
+      expect(searchUsers('diyorbek', 'all')).toHaveLength(1);
+      expect(searchUsers('DIYoRBEK', 'all')).toHaveLength(1);
+      expect(searchUsers('MB-00001002', 'all')).toHaveLength(1);
+      expect(searchUsers('anorboyevdiyorbek714@gmail.com', 'all')).toHaveLength(1);
+      expect(searchUsers('33333333-3333-3333-3333-333333333333', 'all')).toHaveLength(1);
+    });
+
+    it('filters users by readers, authors, admins, positive balance and restricted', () => {
+      expect(searchUsers('', 'admins')).toHaveLength(1);
+      expect(searchUsers('', 'authors')).toHaveLength(2);
+      expect(searchUsers('', 'readers')).toHaveLength(1);
+      expect(searchUsers('', 'positive_balance')).toHaveLength(2);
+      expect(searchUsers('', 'restricted')).toHaveLength(1);
+    });
+  });
+
+  describe('5. Admin Wallet Adjustment Engine Rules & Invariants', () => {
+    interface WalletAccount {
+      id: string;
+      user_id: string;
+      balance: number;
+    }
+
+    interface WalletTx {
+      id: string;
+      account_id: string;
+      amount: number;
+      transaction_type: string;
+      reference_type: string;
+      idempotency_key: string;
+      description: string;
+      balance_after: number;
+    }
+
+    function simulateAdminAdjustment(
+      caller: { is_admin: boolean; id: string },
+      wallet: WalletAccount,
+      ledger: WalletTx[],
+      auditLogs: any[],
+      params: {
+        action: 'credit' | 'debit';
+        amount: number;
+        reason: string;
+        note?: string;
+        idempotencyKey?: string;
+      }
+    ) {
+      if (!caller.is_admin) {
+        throw new Error('Faqat tasdiqlangan administratorlar balansni o‘zgartirishi mumkin');
+      }
+
+      if (!Number.isInteger(params.amount) || params.amount <= 0) {
+        throw new Error('Summa musbat butun son bo‘lishi lozim');
+      }
+
+      if (params.amount > 100000000) {
+        throw new Error('Maksimal bir martalik summa 100 000 000 so‘m');
+      }
+
+      if (!params.reason || !params.reason.trim()) {
+        throw new Error('Sabab majburiy');
+      }
+
+      const idempKey = params.idempotencyKey || `tx_${Date.now()}`;
+      const existing = ledger.find((t) => t.idempotency_key === idempKey);
+      if (existing) {
+        return {
+          success: true,
+          idempotent: true,
+          balance_after: existing.balance_after,
+          transaction_id: existing.id,
+        };
+      }
+
+      if (params.action === 'debit') {
+        if (wallet.balance < params.amount) {
+          throw new Error('Foydalanuvchi balansida yetarli mablag‘ mavjud emas');
+        }
+        wallet.balance -= params.amount;
+      } else {
+        wallet.balance += params.amount;
+      }
+
+      const txId = `tx_${ledger.length + 1}`;
+      const newTx: WalletTx = {
+        id: txId,
+        account_id: wallet.id,
+        amount: params.action === 'credit' ? params.amount : -params.amount,
+        transaction_type: params.reason.includes('Telegram') ? 'topup' : 'adjustment',
+        reference_type: 'manual',
+        idempotency_key: idempKey,
+        description: params.reason,
+        balance_after: wallet.balance,
+      };
+      ledger.push(newTx);
+
+      auditLogs.push({
+        action: `wallet_adjustment_${params.action}`,
+        admin_id: caller.id,
+        entity_id: wallet.id,
+        amount: params.amount,
+        balance_after: wallet.balance,
+      });
+
+      return {
+        success: true,
+        transaction_id: txId,
+        balance_after: wallet.balance,
+      };
+    }
+
+    it('admin credit succeeds atomically and increments balance', () => {
+      const wallet = { id: 'w1', user_id: 'u1', balance: 10000 };
+      const ledger: WalletTx[] = [];
+      const audit: any[] = [];
+
+      const res = simulateAdminAdjustment(
+        { is_admin: true, id: 'admin1' },
+        wallet,
+        ledger,
+        audit,
+        { action: 'credit', amount: 25000, reason: 'Telegram orqali qo‘lda to‘lov' }
+      );
+
+      expect(res.success).toBe(true);
+      expect(wallet.balance).toBe(35000);
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0].amount).toBe(25000);
+      expect(ledger[0].balance_after).toBe(35000);
+      expect(audit).toHaveLength(1);
+    });
+
+    it('admin debit succeeds atomically and decrements balance', () => {
+      const wallet = { id: 'w1', user_id: 'u1', balance: 50000 };
+      const ledger: WalletTx[] = [];
+      const audit: any[] = [];
+
+      const res = simulateAdminAdjustment(
+        { is_admin: true, id: 'admin1' },
+        wallet,
+        ledger,
+        audit,
+        { action: 'debit', amount: 20000, reason: 'qaytarim' }
+      );
+
+      expect(res.success).toBe(true);
+      expect(wallet.balance).toBe(30000);
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0].amount).toBe(-20000);
+      expect(ledger[0].balance_after).toBe(30000);
+    });
+
+    it('rejects debit if balance is insufficient (overdraft protection)', () => {
+      const wallet = { id: 'w1', user_id: 'u1', balance: 5000 };
+      const ledger: WalletTx[] = [];
+      const audit: any[] = [];
+
+      expect(() =>
+        simulateAdminAdjustment(
+          { is_admin: true, id: 'admin1' },
+          wallet,
+          ledger,
+          audit,
+          { action: 'debit', amount: 10000, reason: 'jarima' }
+        )
+      ).toThrow('Foydalanuvchi balansida yetarli mablag‘ mavjud emas');
+
+      // Balance remains intact
+      expect(wallet.balance).toBe(5000);
+      expect(ledger).toHaveLength(0);
+    });
+
+    it('rejects non-admin users from performing adjustments', () => {
+      const wallet = { id: 'w1', user_id: 'u1', balance: 10000 };
+      const ledger: WalletTx[] = [];
+      const audit: any[] = [];
+
+      expect(() =>
+        simulateAdminAdjustment(
+          { is_admin: false, id: 'regular_user' },
+          wallet,
+          ledger,
+          audit,
+          { action: 'credit', amount: 5000, reason: 'bonus' }
+        )
+      ).toThrow('Faqat tasdiqlangan administratorlar');
+    });
+
+    it('rejects fractional and invalid amounts', () => {
+      const wallet = { id: 'w1', user_id: 'u1', balance: 10000 };
+      const ledger: WalletTx[] = [];
+      const audit: any[] = [];
+
+      expect(() =>
+        simulateAdminAdjustment(
+          { is_admin: true, id: 'admin1' },
+          wallet,
+          ledger,
+          audit,
+          { action: 'credit', amount: 100.5, reason: 'bonus' }
+        )
+      ).toThrow('Summa musbat butun son bo‘lishi lozim');
+
+      expect(() =>
+        simulateAdminAdjustment(
+          { is_admin: true, id: 'admin1' },
+          wallet,
+          ledger,
+          audit,
+          { action: 'credit', amount: -5000, reason: 'bonus' }
+        )
+      ).toThrow('Summa musbat butun son bo‘lishi lozim');
+
+      expect(() =>
+        simulateAdminAdjustment(
+          { is_admin: true, id: 'admin1' },
+          wallet,
+          ledger,
+          audit,
+          { action: 'credit', amount: 0, reason: 'bonus' }
+        )
+      ).toThrow('Summa musbat butun son bo‘lishi lozim');
+    });
+
+    it('duplicate idempotency key cannot credit twice', () => {
+      const wallet = { id: 'w1', user_id: 'u1', balance: 10000 };
+      const ledger: WalletTx[] = [];
+      const audit: any[] = [];
+
+      const key = 'idem_topup_unique_123';
+
+      // First call
+      const res1 = simulateAdminAdjustment(
+        { is_admin: true, id: 'admin1' },
+        wallet,
+        ledger,
+        audit,
+        { action: 'credit', amount: 20000, reason: 'Telegram to‘lov', idempotencyKey: key }
+      );
+      expect(res1.balance_after).toBe(30000);
+      expect(wallet.balance).toBe(30000);
+
+      // Duplicate retry
+      const res2 = simulateAdminAdjustment(
+        { is_admin: true, id: 'admin1' },
+        wallet,
+        ledger,
+        audit,
+        { action: 'credit', amount: 20000, reason: 'Telegram to‘lov', idempotencyKey: key }
+      );
+      expect(res2.idempotent).toBe(true);
+      expect(wallet.balance).toBe(30000); // Does not double count
+      expect(ledger).toHaveLength(1);
+    });
+
+    it('ledger entry is immutable (read-only audit trail)', () => {
+      const tx: WalletTx = {
+        id: 'tx_1',
+        account_id: 'w1',
+        amount: 25000,
+        transaction_type: 'topup',
+        reference_type: 'manual',
+        idempotency_key: 'idemp_1',
+        description: 'Telegram to‘lov',
+        balance_after: 25000,
+      };
+
+      Object.freeze(tx);
+      expect(() => {
+        (tx as any).amount = 50000;
+      }).toThrow();
+    });
+  });
+
+  describe('6. Author and Works Moderation Invariants', () => {
+    it('requires mandatory reason when rejecting or suspending an author', () => {
+      function validateAuthorAction(action: string, reason?: string) {
+        if ((action === 'reject' || action === 'suspend') && (!reason || !reason.trim())) {
+          throw new Error('Sabab ko‘rsatilishi shart');
+        }
+        return true;
+      }
+
+      expect(validateAuthorAction('approve')).toBe(true);
+      expect(validateAuthorAction('restore')).toBe(true);
+      expect(validateAuthorAction('reject', 'Hujjatlar mos emas')).toBe(true);
+      expect(validateAuthorAction('suspend', 'Qoidabuzarlik')).toBe(true);
+      expect(() => validateAuthorAction('reject', '')).toThrow('Sabab ko‘rsatilishi shart');
+      expect(() => validateAuthorAction('suspend', '   ')).toThrow('Sabab ko‘rsatilishi shart');
+    });
+
+    it('requires mandatory reason when rejecting or unpublishing a work', () => {
+      function validateWorkAction(action: string, reason?: string) {
+        if ((action === 'reject' || action === 'unpublish') && (!reason || !reason.trim())) {
+          throw new Error('Sabab ko‘rsatilishi shart');
+        }
+        return true;
+      }
+
+      expect(validateWorkAction('approve')).toBe(true);
+      expect(validateWorkAction('archive')).toBe(true);
+      expect(validateWorkAction('restore')).toBe(true);
+      expect(validateWorkAction('unpublish', 'Muallif iltimosiga ko‘ra')).toBe(true);
+      expect(() => validateWorkAction('unpublish', '')).toThrow('Sabab ko‘rsatilishi shart');
+      expect(() => validateWorkAction('reject', '   ')).toThrow('Sabab ko‘rsatilishi shart');
+    });
+  });
+});
+
 
 

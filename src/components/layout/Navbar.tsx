@@ -1,6 +1,5 @@
 'use client';
-
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -18,10 +17,12 @@ import {
 import { clsx } from 'clsx';
 import { formatUZS } from '@/lib/utils/currency';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { TopupModal } from '@/components/wallet/TopupModal';
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, profile, author, balance, isAdmin } = useAuth();
+  const [showTopupModal, setShowTopupModal] = useState(false);
 
   const navLinks = [
     { href: '/', label: 'Bosh sahifa', icon: BookOpen },
@@ -106,14 +107,15 @@ export function Navbar() {
             {user ? (
               <div className="flex items-center gap-2 sm:gap-2.5">
                 {balance !== null && (
-                  <Link
-                    href="/kabinet?tab=topups"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FEF3C7]/80 border border-[#FDE68A] text-[#92400E] text-xs font-bold hover:bg-[#FEF3C7] transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => setShowTopupModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FEF3C7]/80 border border-[#FDE68A] text-[#92400E] text-xs font-bold hover:bg-[#FEF3C7] transition-colors min-h-[36px]"
                     title="Hisobni to‘ldirish"
                   >
                     <Wallet className="w-3.5 h-3.5 text-[#B45309]" />
                     <span>{formatUZS(balance)}</span>
-                  </Link>
+                  </button>
                 )}
 
                 {/* Author workspace shortcut if author is approved */}
@@ -175,6 +177,15 @@ export function Navbar() {
           </div>
         </div>
       </div>
+
+      <TopupModal
+        isOpen={showTopupModal}
+        onClose={() => setShowTopupModal(false)}
+        userBalance={balance ?? 0}
+        userName={profile?.display_name || 'Foydalanuvchi'}
+        publicId={profile?.public_id || 'MB-00000000'}
+        userEmail={user?.email}
+      />
     </header>
   );
 }

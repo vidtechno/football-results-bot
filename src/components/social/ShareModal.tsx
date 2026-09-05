@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Share2, X, Copy, Check, Send, Facebook, Instagram } from 'lucide-react';
 
@@ -21,6 +21,15 @@ export function ShareModal({
 }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -61,9 +70,9 @@ export function ShareModal({
   };
 
   const handleNativeShare = async () => {
-    if (typeof navigator !== 'undefined' && navigator.share) {
+    if (typeof navigator !== 'undefined' && (navigator as any).share) {
       try {
-        await navigator.share({
+        await (navigator as any).share({
           title,
           text: shareText,
           url: shareUrl,
@@ -76,24 +85,31 @@ export function ShareModal({
   };
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+    >
       <div className="relative w-full max-w-sm bg-white rounded-3xl border border-stone-200 shadow-2xl p-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-          <div className="flex items-center gap-2 text-stone-900 font-serif font-bold text-base">
+          <div className="flex items-center gap-2 text-stone-900 font-bold text-base">
             <Share2 className="w-5 h-5 text-amber-600" />
             <span>Asarni ulashish</span>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors"
+            className="p-2 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Yopish"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="space-y-1">
-          <h4 className="font-serif font-bold text-stone-900 text-sm truncate">{title}</h4>
+          <h4 className="font-bold text-stone-900 text-sm truncate">{title}</h4>
           {authorName && <p className="text-xs text-stone-500 truncate">{authorName}</p>}
         </div>
 

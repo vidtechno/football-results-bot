@@ -29,6 +29,7 @@ import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
 import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useAuth } from '@/components/providers/AuthProvider';
 import type { Work, Chapter, Genre, WorkRevision } from '@/lib/types/platform';
 
 const RichTextEditor = dynamic(
@@ -47,6 +48,7 @@ interface AuthorWorkEditorPageProps {
 
 export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPageProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const workId = params.id;
 
   const [work, setWork] = useState<Work | null>(null);
@@ -75,6 +77,7 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
   // Chapter Editor Modal state
   const [isChapterModalOpen, setIsChapterModalOpen] = useState(false);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [newChapterSessionKey, setNewChapterSessionKey] = useState<string>('');
   const [chapterNumber, setChapterNumber] = useState<number>(1);
   const [chapterTitle, setChapterTitle] = useState('');
   const [chapterContent, setChapterContent] = useState('');
@@ -258,6 +261,7 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
   // Chapter Open / Edit
   function openNewChapterModal() {
     setEditingChapterId(null);
+    setNewChapterSessionKey(`new_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
     setChapterNumber(chapters.length + 1);
     setChapterTitle('');
     setChapterContent('');
@@ -316,6 +320,17 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
           type: 'success',
           text: 'Nashr qilingan bobga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderator tekshiruviga yuborildi.',
         });
+      }
+
+      // Safely delete the saved draft from localStorage
+      const savedDraftKey = user?.id
+        ? `manbora:draft:${user.id}:${workId}:${editingChapterId || newChapterSessionKey}`
+        : null;
+      if (savedDraftKey && typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem(savedDraftKey);
+          localStorage.removeItem(`${savedDraftKey}_time`);
+        } catch {}
       }
 
       setIsChapterModalOpen(false);
@@ -1024,7 +1039,13 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
                 <RichTextEditor
                   initialContent={chapterContent}
                   onChange={(html) => setChapterContent(html)}
-                  storageKey={`manbora_draft_${workId}_${editingChapterId || 'new'}`}
+                  storageKey={
+                    user?.id
+                      ? `manbora:draft:${user.id}:${workId}:${editingChapterId || newChapterSessionKey}`
+                      : undefined
+                  }
+                  workTitle={title || work?.title || 'Asar'}
+                  chapterTitle={chapterTitle || `${chapterNumber}-bob`}
                   placeholder="Bob matnini bu yerga yozing..."
                 />
               </div>

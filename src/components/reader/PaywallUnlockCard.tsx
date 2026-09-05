@@ -18,22 +18,28 @@ import { TopupModal } from '@/components/wallet/TopupModal';
 
 interface PaywallUnlockCardProps {
   workId: string;
-  chapterId: string;
-  chapterTitle: string;
+  chapterId?: string | null;
+  chapterTitle?: string;
   price: number;
   userBalance?: number;
   isLoggedIn: boolean;
   onUnlocked?: () => void;
+  isFullWork?: boolean;
+  workTitle?: string;
+  currentPath?: string;
 }
 
 export function PaywallUnlockCard({
   workId,
-  chapterId,
-  chapterTitle,
+  chapterId = null,
+  chapterTitle = 'Pullik bob',
   price,
   userBalance: initialBalance = 0,
   isLoggedIn,
   onUnlocked,
+  isFullWork = false,
+  workTitle,
+  currentPath,
 }: PaywallUnlockCardProps) {
   const { profile, user, balance: authBalance, refreshAuth } = useAuth();
   const currentBalance = typeof authBalance === 'number' ? authBalance : initialBalance;
@@ -47,12 +53,16 @@ export function PaywallUnlockCard({
   const hasEnoughBalance = currentBalance >= price;
   const remainingBalance = Math.max(0, currentBalance - price);
 
+  const redirectUrl = currentPath
+    ? `/kirish?redirect=${encodeURIComponent(currentPath)}`
+    : '/kirish?redirect=/asarlar';
+
   async function handleConfirmUnlock() {
     if (!isLoggedIn) return;
     setLoading(true);
     setError(null);
 
-    const idempotencyKey = `unlock_${chapterId}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const idempotencyKey = `unlock_${isFullWork ? 'work_' + workId : 'chapter_' + (chapterId || '')}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
     try {
       const res = await fetch('/api/purchases/unlock', {
@@ -60,7 +70,7 @@ export function PaywallUnlockCard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workId,
-          chapterId,
+          chapterId: isFullWork ? null : chapterId,
           idempotencyKey,
         }),
       });
@@ -96,17 +106,19 @@ export function PaywallUnlockCard({
         </div>
 
         <h3 className="font-serif text-lg sm:text-xl font-bold text-stone-900 mb-2">
-          Ushbu bob pullik kontent hisoblanadi
+          {isFullWork ? 'Ushbu kitob to‘liq pullik asar hisoblanadi' : 'Ushbu bob pullik kontent hisoblanadi'}
         </h3>
         <p className="text-stone-500 text-xs sm:text-sm mb-6 leading-relaxed max-w-md mx-auto">
-          Muallif ijodini qo‘llab-quvvatlash va bobni to‘liq mutolaa qilish uchun Manbora balansingizdan ochishingiz mumkin.
+          {isFullWork
+            ? `Muallif ushbu kitob uchun to‘liq yagona xarid narxini belgilagan (${formatUZS(price)}). Xariddan so‘ng asarning barcha joriy va kelajakdagi boblariga cheklovlarsiz va umrbod kirish huquqiga ega bo‘lasiz.`
+            : 'Muallif ijodini qo‘llab-quvvatlash va bobni to‘liq mutolaa qilish uchun Manbora balansingizdan ochishingiz mumkin.'}
         </p>
 
         {/* Price & Balance Box */}
         <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
           <div>
             <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
-              Bob narxi
+              {isFullWork ? 'Kitob narxi (to‘liq asar)' : 'Bob narxi'}
             </span>
             <p className="font-serif text-lg sm:text-xl font-bold text-amber-900">
               {formatUZS(price)}
@@ -136,7 +148,11 @@ export function PaywallUnlockCard({
         {success && (
           <div className="mb-5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 text-left">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-            <span>Bob muvaffaqiyatli ochildi! Mutolaa yuklanmoqda...</span>
+            <span>
+              {isFullWork
+                ? 'Kitob muvaffaqiyatli xarid qilindi! Barcha boblar ochildi.'
+                : 'Bob muvaffaqiyatli ochildi! Mutolaa yuklanmoqda...'}
+            </span>
           </div>
         )}
 
@@ -159,7 +175,9 @@ export function PaywallUnlockCard({
             <div className="space-y-1 text-xs text-stone-600">
               <div className="flex justify-between">
                 <span>Kontent:</span>
-                <span className="font-bold text-stone-900">{chapterTitle}</span>
+                <span className="font-bold text-stone-900">
+                  {isFullWork ? workTitle || 'To‘liq kitob' : chapterTitle}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>To‘lov summasi:</span>
@@ -181,12 +199,12 @@ export function PaywallUnlockCard({
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Ochilmoqda...</span>
+                    <span>Xarid qilinmoqda...</span>
                   </>
                 ) : (
                   <>
                     <ShieldCheck className="w-4 h-4" />
-                    <span>Tasdiqlash va xarid qilish</span>
+                    <span>{isFullWork ? 'Kitobni sotib olish' : 'Tasdiqlash va xarid qilish'}</span>
                   </>
                 )}
               </button>
@@ -206,7 +224,7 @@ export function PaywallUnlockCard({
         {!isLoggedIn ? (
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              href={`/kirish?redirect=/asarlar`}
+              href={redirectUrl}
               className="px-6 py-3 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 min-h-[44px]"
             >
               <span>Kirish yoki Ro‘yxatdan o‘tish</span>
@@ -220,7 +238,11 @@ export function PaywallUnlockCard({
               disabled={loading || success}
               className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto disabled:opacity-50 min-h-[44px]"
             >
-              <span>Balansdan ochish ({formatUZS(price)})</span>
+              <span>
+                {isFullWork
+                  ? `Kitobni sotib olish — ${formatUZS(price)}`
+                  : `Balansdan ochish (${formatUZS(price)})`}
+              </span>
               <ArrowRight className="w-4 h-4" />
             </button>
           )
@@ -229,7 +251,7 @@ export function PaywallUnlockCard({
             <div className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200/90 p-3.5 rounded-2xl text-left">
               Balansingizda mablag‘ yetarli emas (yetishmayotgan summa:{' '}
               <strong className="font-bold">{formatUZS(price - currentBalance)}</strong>).
-              Quyidagi tugma orqali ma’mur bilan bog‘lanib hisobingizni to‘ldirishingiz mumkin.
+              Quyidagi tugma orqali hisobingizni to‘ldirishingiz mumkin.
             </div>
 
             <button
@@ -254,9 +276,9 @@ export function PaywallUnlockCard({
         publicId={profile?.public_id || 'MB-00000000'}
         userEmail={user?.email}
         targetItem={{
-          title: chapterTitle,
+          title: isFullWork ? (workTitle || 'To‘liq kitob') : chapterTitle,
           price,
-          type: 'chapter',
+          type: isFullWork ? 'work' : 'chapter',
         }}
       />
     </>

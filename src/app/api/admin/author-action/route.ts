@@ -42,6 +42,16 @@ export async function POST(request: Request) {
 
       await logAdminAction(supabase, admin.id, 'approve_author', 'author_profiles', userId, {});
 
+      // Notify user
+      const { createInSiteNotification } = await import('@/lib/notifications/inSite');
+      await createInSiteNotification({
+        userId,
+        type: 'author_approved',
+        title: 'Mualliflik arizangiz tasdiqlandi!',
+        body: 'Tabriklaymiz! Siz endi Manborada o‘z asarlaringizni erkin nashr qilishingiz mumkin.',
+        linkUrl: '/muallif',
+      });
+
       return NextResponse.json({ success: true, message: 'Mualliflik arizasi tasdiqlandi' });
     } else if (action === 'reject') {
       if (!rejectionReason) {
@@ -66,6 +76,16 @@ export async function POST(request: Request) {
 
       await logAdminAction(supabase, admin.id, 'reject_author', 'author_profiles', userId, {
         reason: rejectionReason,
+      });
+
+      // Notify user
+      const { createInSiteNotification } = await import('@/lib/notifications/inSite');
+      await createInSiteNotification({
+        userId,
+        type: 'author_rejected',
+        title: 'Mualliflik arizangiz rad etildi',
+        body: `Mualliflik arizangiz rad etildi. Sabab: ${rejectionReason}`,
+        linkUrl: '/kabinet',
       });
 
       return NextResponse.json({ success: true, message: 'Mualliflik arizasi rad etildi' });

@@ -63,6 +63,20 @@ export async function POST(req: NextRequest) {
     const admin = createAdminClient();
 
     if (type === 'work') {
+      // Check author cannot follow own work
+      const { data: work } = await admin
+        .from('works')
+        .select('author_id')
+        .eq('id', targetId)
+        .maybeSingle();
+
+      if (work && work.author_id === profile.id) {
+        return NextResponse.json(
+          { error: 'Muallif o‘z asarini kuzata olmaydi' },
+          { status: 400 }
+        );
+      }
+
       // Check existing
       const { data: existing } = await admin
         .from('work_follows')
@@ -92,7 +106,14 @@ export async function POST(req: NextRequest) {
         message: isFollowing ? 'Asar kuzatuvga olindi' : 'Kuzatuv bekor qilindi',
       });
     } else {
-      // Author follow
+      // Author follow - cannot follow oneself
+      if (targetId === profile.id) {
+        return NextResponse.json(
+          { error: 'Foydalanuvchi o‘zini o‘zi kuzata olmaydi' },
+          { status: 400 }
+        );
+      }
+
       const { data: existing } = await admin
         .from('author_follows')
         .select('id')

@@ -97,15 +97,25 @@ export async function canReadChapter(
   const isWorkPublished = work.status === 'published';
   const isChapterPublished = chapter.status === 'published';
   const authorId = work.author_id;
-  const price = Number(chapter.price || 0);
-  const isFree = Boolean(chapter.is_free);
+  const rawPrice = Number(chapter.price || 0);
+
+  // Full purchase work protection:
+  // Under 'paid_full_work' or 'paid_book', individual chapter is_free=true is strictly ignored.
+  // The entire work requires a full-work purchase unless user is author or admin.
+  const isPaidFullWork =
+    work.access_type === 'paid_full_work' ||
+    work.access_type === 'paid_book' ||
+    (work.access_type !== 'paid_by_chapter' && work.access_type !== 'free' && Number(work.full_work_price || 0) > 0);
+
+  const isFree = !isPaidFullWork && Boolean(chapter.is_free);
+  const effectivePrice = isPaidFullWork ? Number(work.full_work_price || 0) : rawPrice;
 
   // Helper template for returning result
   const buildResult = (canRead: boolean, reason: ChapterAccessReason, content: string = ''): ChapterAccessResult => ({
     canRead,
     reason,
     isFree,
-    price,
+    price: effectivePrice,
     chapterNumber: chapter.chapter_number,
     title: chapter.title,
     slug: chapter.slug,
@@ -150,7 +160,7 @@ export async function canReadChapter(
     return buildResult(false, 'locked', '');
   }
 
-  // 3. Free chapter
+  // 3. Free chapter (strictly non-full-purchase works)
   if (isFree) {
     const { data: contentRec } = await supabase
       .from('chapter_contents')
@@ -163,14 +173,21 @@ export async function canReadChapter(
 
   // 4. Authenticated buyer with active purchase entitlement
   if (userId) {
-    const { data: purchases } = await supabase
+    let purchaseQuery = supabase
       .from('purchases')
       .select('id, purchase_type, chapter_id, work_id')
       .eq('buyer_id', userId)
       .eq('work_id', work.id)
-      .eq('status', 'active')
-      .or(`purchase_type.eq.full_work,chapter_id.eq.${chapter.id}`)
-      .limit(1);
+      .eq('status', 'active');
+
+    if (isPaidFullWork) {
+      // Full work purchase required
+      purchaseQuery = purchaseQuery.eq('purchase_type', 'full_work');
+    } else {
+      purchaseQuery = purchaseQuery.or(`purchase_type.eq.full_work,chapter_id.eq.${chapter.id}`);
+    }
+
+    const { data: purchases } = await purchaseQuery.limit(1);
 
     if (purchases && purchases.length > 0) {
       const purchase = purchases[0];
@@ -203,18 +220,27 @@ export async function getWorkChaptersAccessMap(
   options?: {
     customClient?: any;
     authorId?: string;
+    workAccessType?: string;
+    fullWorkPrice?: number;
   },
 ): Promise<Record<string, ChapterAccessStatus>> {
   const map: Record<string, ChapterAccessStatus> = {};
   const isAuthor = Boolean(userId && options?.authorId && userId === options.authorId);
+  const isPaidFullWork =
+    options?.workAccessType === 'paid_full_work' ||
+    options?.workAccessType === 'paid_book' ||
+    (options?.workAccessType !== 'paid_by_chapter' &&
+      options?.workAccessType !== 'free' &&
+      Number(options?.fullWorkPrice || 0) > 0);
 
   // Pre-fill defaults
   chapters.forEach((ch) => {
+    const isFree = !isPaidFullWork && Boolean(ch.is_free);
     map[ch.id] = {
-      isFree: ch.is_free,
+      isFree,
       isPurchased: false,
-      isLocked: !ch.is_free,
-      price: ch.is_free ? 0 : Number(ch.price || 0),
+      isLocked: !isFree,
+      price: isPaidFullWork ? Number(options?.fullWorkPrice || 0) : (isFree ? 0 : Number(ch.price || 0)),
     };
   });
 
@@ -244,18 +270,20 @@ export async function getWorkChaptersAccessMap(
     const hasFullWork = purchases.some((p: any) => p.purchase_type === 'full_work');
 
     chapters.forEach((ch) => {
-      if (ch.is_free) {
-        map[ch.id].isLocked = false;
-      } else if (hasFullWork) {
+      if (hasFullWork) {
         map[ch.id].isPurchased = true;
         map[ch.id].isLocked = false;
-      } else {
-        const isThisChapterPurchased = purchases.some(
-          (p: any) => p.purchase_type === 'chapter' && p.chapter_id === ch.id,
-        );
-        if (isThisChapterPurchased) {
-          map[ch.id].isPurchased = true;
+      } else if (!isPaidFullWork) {
+        if (ch.is_free) {
           map[ch.id].isLocked = false;
+        } else {
+          const isThisChapterPurchased = purchases.some(
+            (p: any) => p.purchase_type === 'chapter' && p.chapter_id === ch.id,
+          );
+          if (isThisChapterPurchased) {
+            map[ch.id].isPurchased = true;
+            map[ch.id].isLocked = false;
+          }
         }
       }
     });

@@ -15,12 +15,16 @@ export async function GET(request: Request) {
     const q = (searchParams.get('q') || '').trim();
     const status = searchParams.get('status') || 'all';
     const accessType = searchParams.get('access') || 'all';
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
+    const offset = (page - 1) * limit;
 
     const supabase = createAdminClient();
 
     let query = supabase
       .from('works')
-      .select(`
+      .select(
+        `
         id,
         title,
         slug,
@@ -45,12 +49,10 @@ export async function GET(request: Request) {
           price,
           is_free,
           status
-        ),
-        purchases (
-          id,
-          gross_amount
         )
-      `)
+      `,
+        { count: 'exact' }
+      )
       .order('created_at', { ascending: false });
 
     if (status !== 'all') {
@@ -61,21 +63,40 @@ export async function GET(request: Request) {
       query = query.eq('access_type', accessType);
     }
 
-    const { data: rawWorks, error } = await query;
+    // Push search down to DB
+    if (q) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+      if (isUuid) {
+        query = query.eq('id', q);
+      } else {
+        const sanitized = q.replace(/[%_,]/g, ' ');
+        const { data: matchedAuthors } = await supabase
+          .from('author_profiles')
+          .select('user_id')
+          .ilike('pen_name', `%${sanitized}%`);
+
+        const authorIds = (matchedAuthors || []).map((a) => a.user_id);
+        if (authorIds.length > 0) {
+          query = query.or(
+            `title.ilike.%${sanitized}%,slug.ilike.%${sanitized}%,author_id.in.(${authorIds.join(',')})`
+          );
+        } else {
+          query = query.or(`title.ilike.%${sanitized}%,slug.ilike.%${sanitized}%`);
+        }
+      }
+    }
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: rawWorks, count, error } = await query;
 
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    let works = (rawWorks || []).map((w: any) => {
+    const works = (rawWorks || []).map((w: any) => {
       const authorInfo = Array.isArray(w.author) ? w.author[0] : w.author;
-      const purchasesList = Array.isArray(w.purchases) ? w.purchases : [];
-      const totalPurchasesCount = purchasesList.length;
-      const totalPurchasesRevenue = purchasesList.reduce(
-        (sum: number, p: any) => sum + (Number(p.gross_amount) || 0),
-        0
-      );
-
       return {
         id: w.id,
         title: w.title,
@@ -94,25 +115,16 @@ export async function GET(request: Request) {
         chapters: (w.chapters || []).sort(
           (a: any, b: any) => a.chapter_number - b.chapter_number
         ),
-        sales_count: totalPurchasesCount,
-        sales_revenue: totalPurchasesRevenue,
+        chapters_count: (w.chapters || []).length,
       };
     });
-
-    if (q) {
-      const lower = q.toLowerCase();
-      works = works.filter(
-        (w) =>
-          w.title?.toLowerCase().includes(lower) ||
-          w.author_name?.toLowerCase().includes(lower) ||
-          w.id?.toLowerCase().includes(lower)
-      );
-    }
 
     return NextResponse.json({
       success: true,
       works,
-      total: works.length,
+      total: count || works.length,
+      page,
+      limit,
     });
   } catch (err: any) {
     return NextResponse.json(

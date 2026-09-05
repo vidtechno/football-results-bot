@@ -70,8 +70,7 @@ export async function getPublishedWorks(options?: {
         genre:genres (*)
       )
     `)
-    .eq('status', 'published')
-    .neq('is_archived', true);
+    .eq('status', 'published');
 
   if (options?.sortBy === 'price_asc') {
     q = q.order('full_work_price', { ascending: true });
@@ -212,6 +211,8 @@ export async function getWorkBySlug(
 
   const chapterAccessMap = await getWorkChaptersAccessMap(userId, workData.id, chapters, {
     authorId: workData.author_id,
+    workAccessType: workData.access_type,
+    fullWorkPrice: Number(workData.full_work_price || 0),
   });
 
   const work: Work = {
@@ -315,6 +316,8 @@ export async function getChapterForReading(
   // 2. Fetch full chapter access map for navigation and TOC
   const chapterAccessMap = await getWorkChaptersAccessMap(userId, work.id, chaptersList, {
     authorId: work.author_id,
+    workAccessType: work.access_type,
+    fullWorkPrice: Number(work.full_work_price || 0),
   });
 
   // 3. User balance if authenticated
@@ -504,8 +507,7 @@ export async function getPaginatedCatalogue(options?: {
     `,
       { count: 'exact' },
     )
-    .eq('status', 'published')
-    .neq('is_archived', true);
+    .eq('status', 'published');
 
   if (genreWorkIds !== null) {
     if (genreWorkIds.length === 0) {
@@ -515,7 +517,25 @@ export async function getPaginatedCatalogue(options?: {
   }
 
   if (options?.query) {
-    q = q.or(`title.ilike.%${options.query}%,description.ilike.%${options.query}%`);
+    const rawQ = options.query.trim();
+    // Normalize Uzbek apostrophes to wildcard to handle both ' and ’ and `
+    const normalized = rawQ.replace(/['`’‘ʻʼ]/g, '%');
+
+    // Also find author user_ids matching the search term
+    const { data: matchedAuthors } = await supabase
+      .from('author_profiles')
+      .select('user_id')
+      .ilike('pen_name', `%${normalized}%`);
+
+    const authorIds = (matchedAuthors || []).map((a) => a.user_id);
+
+    if (authorIds.length > 0) {
+      q = q.or(
+        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,author_id.in.(${authorIds.join(',')})`
+      );
+    } else {
+      q = q.or(`title.ilike.%${normalized}%,description.ilike.%${normalized}%`);
+    }
   }
 
   if (options?.type) {
@@ -534,10 +554,6 @@ export async function getPaginatedCatalogue(options?: {
     q = q.order('full_work_price', { ascending: true }).order('id', { ascending: true });
   } else if (options?.sortBy === 'price_desc') {
     q = q.order('full_work_price', { ascending: false }).order('id', { ascending: true });
-  } else if (options?.sortBy === 'popular') {
-    q = q.order('view_count', { ascending: false }).order('id', { ascending: true });
-  } else if (options?.sortBy === 'rating') {
-    q = q.order('rating', { ascending: false }).order('id', { ascending: true });
   } else {
     q = q.order('published_at', { ascending: false }).order('id', { ascending: true });
   }
@@ -636,7 +652,6 @@ export async function getPublicAuthor(identifier: string) {
       `)
       .eq('author_id', author.user_id)
       .eq('status', 'published')
-      .neq('is_archived', true)
       .order('published_at', { ascending: false }),
     supabase
       .from('author_follows')
@@ -644,7 +659,16 @@ export async function getPublicAuthor(identifier: string) {
       .eq('author_id', author.user_id),
   ]);
 
-  const works = (worksRes.data as Work[]) || [];
+  const rawWorks = (worksRes.data as any[]) || [];
+  // Ensure each work carries the author object so WorkCard displays the real author pen name!
+  const works = rawWorks.map((w) => ({
+    ...w,
+    author: {
+      pen_name: author.pen_name,
+      biography: author.biography,
+      user_id: author.user_id,
+    },
+  })) as Work[];
   const followerCount = followersRes.count || 0;
 
   // Calculate total public reads across all author's works

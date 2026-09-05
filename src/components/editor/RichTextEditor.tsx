@@ -36,6 +36,8 @@ interface RichTextEditorProps {
   onManualSave?: () => void;
   placeholder?: string;
   storageKey?: string;
+  workTitle?: string;
+  chapterTitle?: string;
 }
 
 export function RichTextEditor({
@@ -44,10 +46,14 @@ export function RichTextEditor({
   onManualSave,
   placeholder = 'Bob matnini bu yerda yozing...',
   storageKey,
+  workTitle,
+  chapterTitle,
 }: RichTextEditorProps) {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [hasDraftRecovery, setHasDraftRecovery] = useState(false);
+  const [recoveredDraftMeta, setRecoveredDraftMeta] = useState<{ work?: string; chapter?: string } | null>(null);
   const [stats, setStats] = useState({ wordCount: 0, charCount: 0 });
+  const autosaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -76,30 +82,75 @@ export function RichTextEditor({
       setSaveStatus('unsaved');
       onChange(cleanHtml);
 
-      // Autosave to localStorage
+      // Debounced autosave to localStorage (1000ms debounce)
       if (storageKey) {
-        try {
-          localStorage.setItem(storageKey, cleanHtml);
-          localStorage.setItem(`${storageKey}_time`, Date.now().toString());
-        } catch {
-          // ignore localStorage errors
-        }
+        if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
+        autosaveTimeoutRef.current = setTimeout(() => {
+          try {
+            const draftPayload = JSON.stringify({
+              content: cleanHtml,
+              time: Date.now(),
+              workTitle: workTitle || '',
+              chapterTitle: chapterTitle || '',
+            });
+            localStorage.setItem(storageKey, draftPayload);
+            localStorage.setItem(`${storageKey}_time`, Date.now().toString());
+            setSaveStatus('saved');
+          } catch {
+            // ignore localStorage errors
+          }
+        }, 1000);
       }
     },
   });
 
-  // Check for local draft recovery on mount
+  // Check for local draft recovery on mount & clean up legacy unpartitioned drafts
   useEffect(() => {
-    if (!storageKey) return;
+    if (typeof window === 'undefined') return;
+
+    // Safely remove obsolete legacy keys starting with 'manbora_draft_'
     try {
-      const savedDraft = localStorage.getItem(storageKey);
-      if (savedDraft && savedDraft !== initialContent && savedDraft.length > 20) {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('manbora_draft_')) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {}
+
+    if (!storageKey) return;
+
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+
+      let draftText = '';
+      let metaWork = workTitle;
+      let metaChap = chapterTitle;
+
+      if (raw.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(raw);
+          draftText = parsed.content || '';
+          if (parsed.workTitle) metaWork = parsed.workTitle;
+          if (parsed.chapterTitle) metaChap = parsed.chapterTitle;
+        } catch {
+          draftText = raw;
+        }
+      } else {
+        draftText = raw;
+      }
+
+      if (draftText && draftText !== initialContent && draftText.length > 20) {
         setHasDraftRecovery(true);
+        setRecoveredDraftMeta({ work: metaWork, chapter: metaChap });
       }
     } catch {
       // ignore
     }
-  }, [storageKey, initialContent]);
+  }, [storageKey, initialContent, workTitle, chapterTitle]);
 
   // Warn on uncommitted unsaved changes before leaving
   useEffect(() => {
@@ -113,22 +164,18 @@ export function RichTextEditor({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [saveStatus]);
 
-  // Debounced saved status display
-  useEffect(() => {
-    if (saveStatus === 'unsaved') {
-      const timer = setTimeout(() => {
-        setSaveStatus('saved');
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [saveStatus]);
-
   const handleRestoreDraft = useCallback(() => {
     if (!storageKey || !editor) return;
     try {
-      const savedDraft = localStorage.getItem(storageKey);
-      if (savedDraft) {
-        editor.commands.setContent(savedDraft);
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        let contentToSet = raw;
+        if (raw.startsWith('{')) {
+          try {
+            contentToSet = JSON.parse(raw).content || raw;
+          } catch {}
+        }
+        editor.commands.setContent(contentToSet);
         setHasDraftRecovery(false);
         setSaveStatus('saved');
       }
@@ -136,6 +183,16 @@ export function RichTextEditor({
       // ignore
     }
   }, [storageKey, editor]);
+
+  const handleDiscardDraft = useCallback(() => {
+    if (!storageKey) return;
+    try {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(`${storageKey}_time`);
+      setHasDraftRecovery(false);
+      setRecoveredDraftMeta(null);
+    } catch {}
+  }, [storageKey]);
 
   if (!editor) {
     return (
@@ -149,19 +206,34 @@ export function RichTextEditor({
     <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden shadow-xs flex flex-col">
       {/* Draft recovery banner if newer draft exists in browser */}
       {hasDraftRecovery && (
-        <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 flex items-center justify-between text-xs text-amber-900 font-medium">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
-            <span>Brauzeringizda saqlangan yangiroq qoralama topildi.</span>
+        <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 font-medium">
+          <div className="flex items-center gap-2 min-w-0">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="truncate">
+              Brauzeringizda saqlangan yangiroq qoralama topildi
+              {recoveredDraftMeta?.chapter
+                ? ` (${recoveredDraftMeta.work ? `${recoveredDraftMeta.work} — ` : ''}${recoveredDraftMeta.chapter})`
+                : ''}
+              .
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={handleRestoreDraft}
-            className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1 shadow-xs transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Qoralamani tiklash</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleRestoreDraft}
+              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1 shadow-xs transition-colors min-h-[36px]"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Tiklash</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDiscardDraft}
+              className="px-3 py-1.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-100 text-stone-700 font-bold transition-colors min-h-[36px]"
+            >
+              O‘chirish
+            </button>
+          </div>
         </div>
       )}
 

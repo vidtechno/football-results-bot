@@ -28,7 +28,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, profile, author, balance, isAdmin, signOut } = useAuth();
+  const { user, profile, author, balance, isAdmin, isLoading, signOut } = useAuth();
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
@@ -73,7 +73,7 @@ export function Navbar() {
               />
             </div>
             <div className="flex flex-col justify-center select-none">
-              <span className="text-lg sm:text-xl font-serif font-black text-[#1C1917] tracking-tight leading-none whitespace-nowrap">
+              <span className="text-lg sm:text-xl font-black text-[#1C1917] tracking-tight leading-none whitespace-nowrap">
                 Manbora
               </span>
               <span className="hidden sm:block text-[8.5px] sm:text-[9.5px] text-[#B45309] font-bold tracking-wider uppercase leading-tight pt-0.5 whitespace-nowrap">
@@ -121,7 +121,12 @@ export function Navbar() {
             {/* In-Site Notification Bell */}
             <NotificationBell />
 
-            {user ? (
+            {isLoading ? (
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 animate-pulse">
+                <div className="w-16 h-8 rounded-xl bg-stone-200/70" />
+                <div className="w-8 h-8 rounded-full bg-stone-200/70" />
+              </div>
+            ) : user ? (
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {/* Balance Wallet Pill */}
                 {balance !== null && (
@@ -146,10 +151,10 @@ export function Navbar() {
                     aria-label="Foydalanuvchi menyusi"
                   >
                     <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full bg-amber-600 text-white font-black text-xs flex items-center justify-center shadow-xs uppercase shrink-0">
-                      {profile?.display_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                      {(profile?.display_name || user.email || 'U').charAt(0).toUpperCase()}
                     </div>
                     <span className="hidden sm:block text-xs font-bold text-stone-800 max-w-[100px] truncate">
-                      {profile?.display_name || 'Kabinet'}
+                      {profile?.display_name || user.email?.split('@')[0] || 'Kabinet'}
                     </span>
                     <ChevronDown className="hidden sm:block w-3.5 h-3.5 text-stone-400 shrink-0" />
                   </button>

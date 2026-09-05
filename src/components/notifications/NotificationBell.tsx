@@ -114,7 +114,7 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
           {/* Header */}
           <div className="p-3.5 border-b border-[#F5F2EC] bg-[#FAF8F5] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="font-serif font-bold text-xs text-[#1C1917]">
+              <span className="font-bold text-xs text-[#1C1917]">
                 Bildirishnomalar
               </span>
               {unreadCount > 0 && (

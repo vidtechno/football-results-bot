@@ -24,6 +24,7 @@ interface ReviewItem {
 
 interface WorkReviewsSectionProps {
   workId: string;
+  workSlug?: string;
   workTitle: string;
   initialAverageRating?: number;
   initialRatingCount?: number;
@@ -31,6 +32,7 @@ interface WorkReviewsSectionProps {
 
 export function WorkReviewsSection({
   workId,
+  workSlug,
   workTitle,
   initialAverageRating = 0,
   initialRatingCount = 0,
@@ -173,7 +175,7 @@ export function WorkReviewsSection({
             <MessageSquare className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
+            <h2 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
               Kitobxonlar fikrlari va taqrizlar
             </h2>
             <p className="text-xs text-stone-500">
@@ -196,7 +198,7 @@ export function WorkReviewsSection({
 
       {/* Review Submission Box */}
       <div className="bg-white rounded-3xl border border-stone-200 p-5 sm:p-7 shadow-xs space-y-4">
-        <h3 className="font-serif font-bold text-stone-900 text-sm sm:text-base">
+        <h3 className="font-bold text-stone-900 text-sm sm:text-base">
           O‘z taqrizi va bahoingizni qoldiring
         </h3>
 
@@ -206,7 +208,7 @@ export function WorkReviewsSection({
               Fikr bildirish va baho qo‘yish uchun tizimga kiring.
             </span>
             <a
-              href={`/kirish?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}`}
+              href={`/kirish?redirect=${encodeURIComponent(workSlug ? `/asarlar/${workSlug}` : (typeof window !== 'undefined' ? window.location.pathname : '/asarlar'))}`}
               className="px-4 py-2 rounded-xl bg-stone-900 text-white font-bold text-center hover:bg-stone-800 transition-colors"
             >
               Tizimga kirish
@@ -336,7 +338,7 @@ export function WorkReviewsSection({
                       )}
                     </div>
                     <div>
-                      <h4 className="font-serif font-bold text-xs sm:text-sm text-stone-900">
+                      <h4 className="font-bold text-xs sm:text-sm text-stone-900">
                         {r.user?.display_name || 'Kitobxon'}
                       </h4>
                       <p className="text-[11px] text-stone-400">{formatUzbekDate(r.created_at)}</p>
@@ -356,7 +358,7 @@ export function WorkReviewsSection({
                 </div>
 
                 {/* Review Title */}
-                {r.title && <h5 className="font-serif font-bold text-xs sm:text-sm text-stone-800">{r.title}</h5>}
+                {r.title && <h5 className="font-bold text-xs sm:text-sm text-stone-800">{r.title}</h5>}
 
                 {/* Spoiler Mask or Content */}
                 {isSpoilerHidden ? (

@@ -2,6 +2,7 @@ import React from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import type { Metadata } from 'next';
 import {
   BookOpen,
   User,
@@ -13,7 +14,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { getWorkBySlug } from '@/lib/db/queries';
-import { getCurrentProfile } from '@/lib/supabase/server';
+import { getCurrentProfile, createServerClient } from '@/lib/supabase/server';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { WorkSocialToolbar } from '@/components/social/WorkSocialToolbar';
@@ -27,19 +28,72 @@ interface WorkDetailPageProps {
   };
 }
 
+export async function generateMetadata({ params }: WorkDetailPageProps): Promise<Metadata> {
+  const { work } = await getWorkBySlug(params.slug, null);
+  if (!work || work.status === 'archived') {
+    return { title: 'Asar topilmadi' };
+  }
+
+  const authorName =
+    work.author?.pen_name || work.author?.profile?.display_name || 'Muallif';
+
+  return {
+    title: `${work.title} — ${authorName}`,
+    description:
+      work.description?.slice(0, 160) ||
+      `«${work.title}» asari Manbora platformasida. Muallif: ${authorName}.`,
+    alternates: {
+      canonical: `/asarlar/${work.slug}`,
+    },
+    openGraph: {
+      title: `${work.title} — ${authorName}`,
+      description:
+        work.description?.slice(0, 160) ||
+        `«${work.title}» asari Manbora platformasida.`,
+      url: `/asarlar/${work.slug}`,
+      images: work.cover_url ? [{ url: work.cover_url, alt: work.title }] : [],
+    },
+  };
+}
+
 export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
   const profile = await getCurrentProfile();
+  const supabase = createServerClient();
   const { work, chapters, chapterAccessMap } = await getWorkBySlug(params.slug, profile?.id);
 
-  if (!work || work.is_archived) {
+  if (!work || work.status === 'archived') {
     notFound();
   }
 
   const isFree = work.access_type === 'free';
+  const isPaidFullWork =
+    (work.access_type as string) === 'paid_full_work' ||
+    (work.access_type as string) === 'paid_book' ||
+    ((work.access_type as string) !== 'paid_by_chapter' &&
+      work.access_type !== 'free' &&
+      Number(work.full_work_price || 0) > 0);
+
   const authorName =
     work.author?.pen_name || work.author?.profile?.display_name || 'Muallif';
   const authorUsername = work.author?.profile?.username;
   const firstChapter = chapters.length > 0 ? chapters[0] : null;
+
+  // Check if first chapter is unlocked (which indicates active purchase entitlement or author access)
+  const isWorkUnlocked = firstChapter ? !chapterAccessMap[firstChapter.id]?.isLocked : false;
+
+  // Fetch social follower count and follow state server-side
+  let initialIsFollowing = false;
+  let followerCount = 0;
+  if (work.id) {
+    const [{ count }, followCheck] = await Promise.all([
+      supabase.from('work_follows').select('id', { count: 'exact', head: true }).eq('work_id', work.id),
+      profile?.id
+        ? supabase.from('work_follows').select('id').eq('work_id', work.id).eq('user_id', profile.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    followerCount = count || 0;
+    initialIsFollowing = Boolean(followCheck.data);
+  }
 
   return (
     <div className="space-y-8 sm:space-y-12 pb-16">
@@ -69,7 +123,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center">
                 <BookOpen className="w-12 h-12 text-amber-800 mb-2" />
-                <span className="text-xs font-serif font-bold text-stone-500">{work.title}</span>
+                <span className="text-xs font-bold text-stone-500">{work.title}</span>
               </div>
             )}
           </div>
@@ -87,13 +141,13 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                 >
                   {isFree
                     ? 'Bepul mutolaa'
-                    : work.access_type === 'paid_full_work'
-                      ? `To‘liq asar: ${formatUZS(work.full_work_price)}`
+                    : isPaidFullWork
+                      ? `To‘liq asar: ${formatUZS(work.full_work_price || 0)}`
                       : 'Bobma-bob to‘lov'}
                 </span>
 
                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
-                  {work.type === 'serialized_story' ? 'Davomli qissa (Serial)' : 'Kitob'}
+                  {work.type === 'serialized_story' ? 'Davomli qissa' : 'Kitob'}
                 </span>
 
                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
@@ -101,7 +155,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                 </span>
               </div>
 
-              <h1 className="font-serif text-2xl sm:text-4xl font-bold text-stone-900 tracking-tight leading-snug">
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-stone-900 tracking-tight leading-snug">
                 {work.title}
               </h1>
 
@@ -146,13 +200,23 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
             {/* CTAs & Social Toolbar */}
             <div className="pt-3 flex flex-wrap items-center gap-3">
               {firstChapter ? (
-                <Link
-                  href={`/asarlar/${work.slug}/${firstChapter.slug}`}
-                  className="px-7 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center gap-2"
-                >
-                  <BookOpen className="w-4 h-4 text-stone-950" />
-                  <span>Mutolaani boshlash</span>
-                </Link>
+                isPaidFullWork && !isWorkUnlocked ? (
+                  <Link
+                    href={`/asarlar/${work.slug}/${firstChapter.slug}`}
+                    className="px-7 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center gap-2"
+                  >
+                    <Lock className="w-4 h-4 text-stone-950" />
+                    <span>Kitobni sotib olish — {formatUZS(work.full_work_price || 0)}</span>
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/asarlar/${work.slug}/${firstChapter.slug}`}
+                    className="px-7 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center gap-2"
+                  >
+                    <BookOpen className="w-4 h-4 text-stone-950" />
+                    <span>Mutolaani boshlash</span>
+                  </Link>
+                )
               ) : (
                 <div className="px-5 py-3 rounded-2xl bg-stone-100 text-stone-500 font-bold text-xs">
                   Hozircha boblar e’lon qilinmagan
@@ -163,6 +227,8 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                 workId={work.id}
                 workTitle={work.title}
                 authorName={authorName}
+                initialIsFollowing={initialIsFollowing}
+                initialFollowerCount={followerCount}
               />
             </div>
           </div>
@@ -174,7 +240,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-amber-800" />
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
+            <h2 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
               Mundarija ({chapters.length} ta bob)
             </h2>
           </div>
@@ -189,7 +255,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
             {chapters.map((ch) => {
               const access = chapterAccessMap[ch.id];
               const isPurchased = access?.isPurchased;
-              const isLocked = access ? access.isLocked : !ch.is_free;
+              const isLocked = access ? access.isLocked : (!ch.is_free || isPaidFullWork);
 
               return (
                 <Link
@@ -203,7 +269,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                       {ch.chapter_number}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="font-serif text-xs sm:text-sm font-bold text-stone-900 group-hover:text-amber-900 truncate transition-colors">
+                      <h4 className="text-xs sm:text-sm font-bold text-stone-900 group-hover:text-amber-900 truncate transition-colors">
                         {ch.title}
                       </h4>
                       {ch.published_at && (
@@ -215,7 +281,19 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                   </div>
 
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    {ch.is_free ? (
+                    {isPaidFullWork ? (
+                      isPurchased ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
+                          <Unlock className="w-3 h-3 text-emerald-700" />
+                          <span>Sotib olingan</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200/70">
+                          <Lock className="w-3 h-3 text-amber-700" />
+                          <span>Kitobni sotib oling</span>
+                        </span>
+                      )
+                    ) : ch.is_free ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
                         <Unlock className="w-3 h-3 text-emerald-700" />
                         <span>Bepul</span>
@@ -243,12 +321,13 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
       {/* Reviews & Ratings Section */}
       <WorkReviewsSection
         workId={work.id}
+        workSlug={work.slug}
         workTitle={work.title}
         initialAverageRating={Number(work.average_rating || 0)}
         initialRatingCount={Number(work.rating_count || 0)}
       />
 
-      {/* Structured Data (JSON-LD) for SEO */}
+      {/* Structured Data (JSON-LD Book) */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -275,21 +354,34 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
         }}
       />
 
-      {/* Mobile Sticky Read CTA Bar */}
+      {/* Mobile Sticky Read / Purchase CTA Bar */}
       {firstChapter && (
         <div className="md:hidden fixed bottom-[68px] left-0 right-0 z-30 p-3 bg-white/95 backdrop-blur-md border-t border-stone-200/80 shadow-lg px-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-bold text-stone-900 truncate">{work.title}</p>
             <p className="text-[11px] text-stone-500 truncate">
-              {isFree ? 'Bepul mutolaa' : formatUZS(work.full_work_price || 0)}
+              {isFree
+                ? 'Bepul mutolaa'
+                : isPaidFullWork
+                ? `To‘liq asar: ${formatUZS(work.full_work_price || 0)}`
+                : 'Bobma-bob to‘lov'}
             </p>
           </div>
           <Link
             href={`/asarlar/${work.slug}/${firstChapter.slug}`}
             className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs shadow-sm flex items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform"
           >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>O‘qish</span>
+            {isPaidFullWork && !isWorkUnlocked ? (
+              <>
+                <Lock className="w-3.5 h-3.5" />
+                <span>Xarid qilish</span>
+              </>
+            ) : (
+              <>
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>O‘qish</span>
+              </>
+            )}
           </Link>
         </div>
       )}

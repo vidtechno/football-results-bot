@@ -86,6 +86,20 @@ export async function POST(request: Request) {
       );
     }
 
+    // Notify user of balance adjustment
+    try {
+      const { createInSiteNotification } = await import('@/lib/notifications/inSite');
+      const { formatUZS } = await import('@/lib/utils/currency');
+      await createInSiteNotification({
+        userId,
+        type: 'wallet_adjustment',
+        title: action === 'credit' ? 'Balansingiz to‘ldirildi' : 'Balansdan mablag‘ yechildi',
+        body: `Hisobingiz ${formatUZS(amount)} ga ${action === 'credit' ? 'to‘ldirildi' : 'kamaytirildi'}. Sabab: ${reason}`,
+        linkUrl: '/kabinet',
+        data: { amount, action, reason },
+      });
+    } catch {}
+
     return NextResponse.json({
       success: true,
       receipt: data,

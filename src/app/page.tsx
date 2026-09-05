@@ -85,7 +85,7 @@ export default async function HomePage() {
             <span>O‘zbek adabiyoti va hikoyalar maydoni</span>
           </div>
 
-          <h1 className="font-serif text-2xl sm:text-4xl font-black text-[#1C1917] tracking-tight leading-tight">
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-[#1C1917] tracking-tight leading-tight">
             Sara asarlar, yangi hikoyalar va elektron kitoblar mutolaasi
           </h1>
 
@@ -154,7 +154,7 @@ export default async function HomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-[#B45309]" />
-              <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
                 Mutolaani davom ettirish
               </h2>
             </div>
@@ -197,7 +197,7 @@ export default async function HomePage() {
                   </div>
 
                   <div className="min-w-0 flex-1 space-y-1">
-                    <h4 className="font-serif font-bold text-[#1C1917] text-xs sm:text-sm truncate group-hover:text-[#B45309] transition-colors">
+                    <h4 className="font-bold text-[#1C1917] text-xs sm:text-sm truncate group-hover:text-[#B45309] transition-colors">
                       {w.title}
                     </h4>
                     <p className="text-[11px] text-[#78716C] truncate">
@@ -227,7 +227,7 @@ export default async function HomePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-[#B45309]" />
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
               Ommabop asarlar
             </h2>
           </div>
@@ -258,7 +258,7 @@ export default async function HomePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-[#B45309]" />
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
               Yangi nashrlar
             </h2>
           </div>
@@ -290,8 +290,8 @@ export default async function HomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#B45309]" />
-              <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
-                Davomli serial hikoyalar
+              <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
+                Bepul sara asarlar
               </h2>
             </div>
             <Link
@@ -316,8 +316,8 @@ export default async function HomePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bookmark className="w-4 h-4 text-[#B45309]" />
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
-              Bepul mutolaa
+            <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
+              To‘liq kitoblar
             </h2>
           </div>
           <Link
@@ -347,8 +347,8 @@ export default async function HomePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-[#B45309]" />
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
-              Janrlar bo‘yicha tanlang
+            <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
+              Janrlar bo‘yicha kashf qiling
             </h2>
           </div>
           <Link
@@ -407,7 +407,7 @@ export default async function HomePage() {
                   href={authorUrl}
                   className="group bg-white rounded-2xl border border-[#EAE5DD] p-4 text-center hover:border-[#B45309] transition-all flex flex-col items-center space-y-2 shadow-2xs hover:shadow-xs"
                 >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white flex items-center justify-center font-serif text-lg font-bold shadow-xs overflow-hidden shrink-0">
+                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white flex items-center justify-center text-lg font-bold shadow-xs overflow-hidden shrink-0">
                     {prof?.avatar_url ? (
                       <Image
                         src={prof.avatar_url}
@@ -421,7 +421,7 @@ export default async function HomePage() {
                     )}
                   </div>
                   <div className="min-w-0 w-full">
-                    <h4 className="font-serif font-bold text-[#1C1917] text-xs truncate group-hover:text-[#B45309] transition-colors">
+                    <h4 className="font-bold text-[#1C1917] text-xs truncate group-hover:text-[#B45309] transition-colors">
                       {author.pen_name}
                     </h4>
                     {prof?.username && (

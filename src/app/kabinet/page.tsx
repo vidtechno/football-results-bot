@@ -523,39 +523,59 @@ function KabinetContent() {
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl border border-[#EAE5DD] divide-y divide-[#F5F2EC] overflow-hidden shadow-2xs">
-                  {purchases.map((p) => (
-                    <div
-                      key={p.id}
-                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                    >
-                      <div>
-                        <h4 className="font-bold font-serif text-[#1C1917] text-sm">
-                          {p.work?.title}
-                        </h4>
-                        <p className="text-[11px] text-[#78716C] mt-0.5">
-                          {p.purchase_type === 'full_work'
-                            ? 'To‘liq asar'
-                            : `${p.chapter?.chapter_number}-bob: ${p.chapter?.title}`}
-                          {' • '}
-                          {formatUzbekDate(p.created_at)}
-                        </p>
-                      </div>
+                  {purchases.map((p) => {
+                    const isFull = p.purchase_type === 'full_work';
+                    const targetUrl = isFull || !p.chapter?.slug
+                      ? `/asarlar/${p.work?.slug || p.work_id}`
+                      : `/asarlar/${p.work?.slug || p.work_id}/${p.chapter.slug}`;
 
-                      <div className="text-right">
-                        <span className="font-black text-[#B45309]">
-                          {formatUZS(p.gross_amount)}
-                        </span>
-                        {p.work && (
-                          <Link
-                            href={`/asarlar/${p.work.slug}`}
-                            className="block text-[11px] font-bold text-[#78716C] hover:text-[#B45309] mt-0.5"
-                          >
-                            O‘qishga o‘tish →
-                          </Link>
-                        )}
+                    return (
+                      <div
+                        key={p.id}
+                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-[#FAF8F5] transition-colors"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                isFull
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                  : 'bg-stone-100 text-stone-700 border border-stone-200'
+                              }`}
+                            >
+                              {isFull ? 'Kitob xaridi' : 'Bob xaridi'}
+                            </span>
+                            <h4 className="font-bold text-[#1C1917] text-sm">
+                              {p.work?.title || 'Asar'}
+                            </h4>
+                          </div>
+
+                          <p className="text-[11px] text-[#78716C]">
+                            {isFull
+                              ? 'To‘liq kitob mutolaasi'
+                              : `${p.chapter?.chapter_number || ''}-bob: ${p.chapter?.title || 'Bob'}`}
+                            {' • '}
+                            {formatUzbekDate(p.created_at)}
+                          </p>
+                        </div>
+
+                        <div className="text-right flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1.5">
+                          <span className="font-black text-[#B45309] text-sm">
+                            {formatUZS(p.gross_amount)}
+                          </span>
+                          {p.work && (
+                            <Link
+                              href={targetUrl}
+                              className="inline-flex items-center gap-1 text-xs font-bold text-[#78716C] hover:text-[#B45309] transition-colors min-h-[32px]"
+                            >
+                              <span>O‘qishga o‘tish</span>
+                              <span>→</span>
+                            </Link>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

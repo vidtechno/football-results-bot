@@ -6,14 +6,41 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const workId = searchParams.get('workId');
+    const workIdentifier = searchParams.get('workId');
 
-    if (!workId) {
+    if (!workIdentifier) {
       return NextResponse.json({ error: 'workId talab qilinadi' }, { status: 400 });
     }
 
     const profile = await getCurrentProfile();
     const admin = createAdminClient();
+
+    // Support both work UUID and slug
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workIdentifier);
+    let workId = workIdentifier;
+    let authorId = '';
+
+    if (!isUuid) {
+      const { data: foundWork } = await admin
+        .from('works')
+        .select('id, author_id')
+        .eq('slug', workIdentifier)
+        .maybeSingle();
+
+      if (foundWork) {
+        workId = foundWork.id;
+        authorId = foundWork.author_id;
+      }
+    } else {
+      const { data: foundWork } = await admin
+        .from('works')
+        .select('author_id')
+        .eq('id', workId)
+        .maybeSingle();
+      if (foundWork) {
+        authorId = foundWork.author_id;
+      }
+    }
 
     // Fetch non-hidden reviews with author profile info
     const { data: reviews, error } = await admin
@@ -49,13 +76,7 @@ export async function GET(req: NextRequest) {
 
       // Check review eligibility:
       // 1. Is author?
-      const { data: work } = await admin
-        .from('works')
-        .select('author_id')
-        .eq('id', workId)
-        .maybeSingle();
-
-      if (work && work.author_id === profile.id) {
+      if (authorId && authorId === profile.id) {
         eligibility = { canReview: false, reason: 'Muallif o‘z asariga taqriz qoldira olmaydi' };
       } else {
         // 2. Already reviewed?
@@ -76,7 +97,7 @@ export async function GET(req: NextRequest) {
               .select('id')
               .eq('buyer_id', profile.id)
               .eq('work_id', workId)
-              .eq('status', 'completed')
+              .in('status', ['active', 'completed'])
               .limit(1),
           ]);
 
@@ -115,9 +136,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { workId, rating, title, content, containsSpoilers } = body;
+    const { workId: rawWorkId, rating, title, content, containsSpoilers } = body;
 
-    if (!workId || !rating || !content) {
+    if (!rawWorkId || !rating || !content) {
       return NextResponse.json({ error: 'Barcha maydonlar to‘ldirilishi shart' }, { status: 400 });
     }
 
@@ -132,22 +153,27 @@ export async function POST(req: NextRequest) {
 
     const admin = createAdminClient();
 
-    // Verify not the author
-    const { data: work } = await admin
-      .from('works')
-      .select('author_id, rating_count, average_rating')
-      .eq('id', workId)
-      .maybeSingle();
+    // Verify work exists - support both UUID and slug
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawWorkId);
+    let workQuery = admin.from('works').select('id, author_id');
+    if (isUuid) {
+      workQuery = workQuery.eq('id', rawWorkId);
+    } else {
+      workQuery = workQuery.eq('slug', rawWorkId);
+    }
+    const { data: work } = await workQuery.maybeSingle();
 
     if (!work) {
       return NextResponse.json({ error: 'Asar topilmadi' }, { status: 404 });
     }
 
+    const workId = work.id;
+
     if (work.author_id === profile.id) {
       return NextResponse.json({ error: 'Muallif o‘z asariga taqriz yoza olmaydi' }, { status: 403 });
     }
 
-    // Verify reading eligibility
+    // Verify reading or purchase eligibility
     const [progressRes, purchaseRes] = await Promise.all([
       admin
         .from('reading_progress')
@@ -160,7 +186,7 @@ export async function POST(req: NextRequest) {
         .select('id')
         .eq('buyer_id', profile.id)
         .eq('work_id', workId)
-        .eq('status', 'completed')
+        .in('status', ['active', 'completed'])
         .limit(1),
     ]);
 
@@ -175,7 +201,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Insert or update review
+    // Insert review
     const { data: review, error: insertError } = await admin
       .from('work_reviews')
       .insert({
@@ -194,28 +220,32 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error('Error creating review:', insertError);
-      return NextResponse.json({ error: 'Taqriz saqlanmadi yoki allaqachon mavjud' }, { status: 400 });
+      return NextResponse.json({ error: 'Taqriz saqlanmadi yoki siz allaqachon taqriz qoldirgansiz' }, { status: 400 });
     }
 
-    // Update work's rating stats
-    const { data: allWorkRatings } = await admin
-      .from('work_reviews')
-      .select('rating')
-      .eq('work_id', workId)
-      .eq('is_hidden', false);
+    // Update work's rating stats gracefully
+    try {
+      const { data: allWorkRatings } = await admin
+        .from('work_reviews')
+        .select('rating')
+        .eq('work_id', workId)
+        .eq('is_hidden', false);
 
-    if (allWorkRatings && allWorkRatings.length > 0) {
-      const count = allWorkRatings.length;
-      const sum = allWorkRatings.reduce((acc, r) => acc + r.rating, 0);
-      const avg = Number((sum / count).toFixed(1));
+      if (allWorkRatings && allWorkRatings.length > 0) {
+        const count = allWorkRatings.length;
+        const sum = allWorkRatings.reduce((acc, r) => acc + r.rating, 0);
+        const avg = Number((sum / count).toFixed(1));
 
-      await admin
-        .from('works')
-        .update({
-          average_rating: avg,
-          rating_count: count,
-        })
-        .eq('id', workId);
+        await admin
+          .from('works')
+          .update({
+            average_rating: avg,
+            rating_count: count,
+          })
+          .eq('id', workId);
+      }
+    } catch {
+      // ignore rating stats column update error if migration pending
     }
 
     return NextResponse.json({ success: true, review });

@@ -43,6 +43,31 @@ export async function POST(request: Request) {
 
       await logAdminAction(supabase, admin.id, 'publish_work', 'works', workId, {});
 
+      // Notify author & followers
+      const { createInSiteNotification, notifyAuthorFollowers } = await import('@/lib/notifications/inSite');
+      const { data: work } = await supabase
+        .from('works')
+        .select(`
+          id, title, slug, author_id,
+          author:author_profiles (pen_name)
+        `)
+        .eq('id', workId)
+        .maybeSingle();
+
+      if (work) {
+        await createInSiteNotification({
+          userId: work.author_id,
+          type: 'work_approved',
+          title: 'Asaringiz tasdiqlandi va nashr qilindi!',
+          body: `«${work.title}» asaringiz muvaffaqiyatli moderator ko‘rigidan o‘tib, ommaga e’lon qilindi.`,
+          linkUrl: `/asarlar/${work.slug}`,
+          data: { workId: work.id },
+        });
+
+        const authorPen = (Array.isArray(work.author) ? work.author[0]?.pen_name : (work.author as any)?.pen_name) || 'Muallif';
+        await notifyAuthorFollowers(work.author_id, authorPen, work.title, `/asarlar/${work.slug}`);
+      }
+
       return NextResponse.json({ success: true, message: 'Asar muvaffaqiyatli nashr qilindi' });
     } else if (action === 'reject') {
       if (!rejectionReason) {
@@ -68,6 +93,25 @@ export async function POST(request: Request) {
       await logAdminAction(supabase, admin.id, 'reject_work', 'works', workId, {
         reason: rejectionReason,
       });
+
+      // Notify author
+      const { createInSiteNotification } = await import('@/lib/notifications/inSite');
+      const { data: work } = await supabase
+        .from('works')
+        .select('id, title, author_id')
+        .eq('id', workId)
+        .maybeSingle();
+
+      if (work) {
+        await createInSiteNotification({
+          userId: work.author_id,
+          type: 'work_rejected',
+          title: 'Asaringiz rad etildi',
+          body: `«${work.title}» asaringiz moderator tomonidan rad etildi. Sabab: ${rejectionReason}`,
+          linkUrl: `/muallif/asar/${work.id}`,
+          data: { workId: work.id },
+        });
+      }
 
       return NextResponse.json({ success: true, message: 'Asar rad etildi' });
     } else if (action === 'unpublish') {

@@ -66,7 +66,7 @@ export function WorkCard({
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-gradient-to-br from-[#ECE6DD] to-[#DDD5C9] text-stone-600">
               <BookOpen className="w-8 h-8 text-stone-400 mb-1.5" />
-              <span className="font-serif font-bold text-xs line-clamp-3 text-stone-800 leading-tight">
+              <span className="font-bold text-xs line-clamp-3 text-stone-800 leading-tight">
                 {work.title}
               </span>
             </div>
@@ -107,21 +107,26 @@ export function WorkCard({
 
         {/* Work Metadata Below Cover */}
         <div className="pt-2 flex flex-col flex-1">
-          {/* Work Title (Clamped to 2 lines) */}
-          <h3 className="font-serif font-bold text-xs sm:text-sm text-stone-900 leading-snug line-clamp-2 group-hover:text-amber-800 transition-colors">
+          {/* Work Title (Clamped to 2 lines, Inkitt bold style) */}
+          <h3 className="font-bold text-sm sm:text-base text-stone-900 leading-snug line-clamp-2 group-hover:text-amber-800 transition-colors tracking-tight">
             {work.title}
           </h3>
 
           {/* Author Pen Name */}
-          <p className="text-[11px] text-stone-500 font-medium truncate mt-0.5">
+          <p className="text-xs text-stone-500 font-medium truncate mt-0.5">
             {authorName}
           </p>
 
-          {/* Genre / Tag & Reading progress note */}
+          {/* Genre / Work type / Reading progress note */}
           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
             {genreName && (
-              <span className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#F4EFEB] text-[#78716C] border border-[#E7E2D9]">
+              <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-[#F4EFEB] text-[#78716C] border border-[#E7E2D9]">
                 {genreName}
+              </span>
+            )}
+            {work.work_type && (
+              <span className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500 border border-stone-200">
+                {work.work_type === 'story' ? 'Hikoya' : work.work_type === 'book' ? 'Kitob' : work.work_type}
               </span>
             )}
             {typeof lastReadChapterNumber === 'number' && (

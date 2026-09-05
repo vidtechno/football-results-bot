@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Flag, X, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -34,6 +34,15 @@ export function ReportModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -77,17 +86,24 @@ export function ReportModal({
   };
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+    >
       <div className="relative w-full max-w-md bg-white rounded-3xl border border-stone-200 shadow-2xl p-6 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-          <div className="flex items-center gap-2 text-stone-900 font-serif font-bold text-base">
+          <div className="flex items-center gap-2 text-stone-900 font-bold text-base">
             <Flag className="w-5 h-5 text-rose-600" />
             <span>Shikoyat bildirish</span>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors"
+            className="p-2 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Yopish"
           >
             <X className="w-5 h-5" />
           </button>
@@ -96,7 +112,7 @@ export function ReportModal({
         {isSuccess ? (
           <div className="py-8 text-center space-y-3">
             <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-            <h4 className="font-serif font-bold text-stone-900 text-base">Shikoyatingiz qabul qilindi</h4>
+            <h4 className="font-bold text-stone-900 text-base">Shikoyatingiz qabul qilindi</h4>
             <p className="text-xs text-stone-500 max-w-xs mx-auto">
               Moderatsiya jamoasi ushbu murojaatni qisqa vaqt ichida ko‘rib chiqadi. Rahmat!
             </p>

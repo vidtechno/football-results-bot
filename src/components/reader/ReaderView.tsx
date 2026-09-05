@@ -58,9 +58,9 @@ export function ReaderView({
 }: ReaderViewProps) {
   const router = useRouter();
 
-  // Reader Preferences (Persisted locally)
+  // Reader Preferences (Persisted locally, default modern Sans-serif)
   const [theme, setTheme] = useState<ReaderTheme>('light');
-  const [fontFamily, setFontFamily] = useState<FontFamily>('serif');
+  const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
   const [fontSize, setFontSize] = useState<number>(18);
   const [lineHeight, setLineHeight] = useState<LineHeight>('relaxed');
   const [contentWidth, setContentWidth] = useState<ContentWidth>('medium');
@@ -68,6 +68,18 @@ export function ReaderView({
   // UI Drawer & Settings state
   const [showSettings, setShowSettings] = useState(false);
   const [showToc, setShowToc] = useState(false);
+
+  // Close TOC and Settings on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowToc(false);
+        setShowSettings(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Chapter indices
   const currentIndex = allChapters.findIndex((c) => c.id === currentChapter.id);
@@ -84,6 +96,13 @@ export function ReaderView({
       ? nextChapterAccess.isLocked
       : !nextChapter.is_free
     : false;
+
+  const isPaidFullWork =
+    (work.access_type as string) === 'paid_full_work' ||
+    (work.access_type as string) === 'paid_book' ||
+    ((work.access_type as string) !== 'paid_by_chapter' &&
+      work.access_type !== 'free' &&
+      Number(work.full_work_price || 0) > 0);
 
   // ~200-Word Deterministic Pagination Engine
   const paginated = useMemo(() => {
@@ -214,37 +233,59 @@ export function ReaderView({
   const contentTopRef = useRef<HTMLDivElement | null>(null);
   const isInitialMount = useRef(true);
 
-  // Scroll to content start on page turn (accounting for sticky header & reduced motion)
+  // Synchronize currentPage with URL query parameter ?page=X without full reload
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const currentPageInUrl = parseInt(url.searchParams.get('page') || '1', 10);
+    if (currentPageInUrl !== currentPage) {
+      if (currentPage === 1) {
+        url.searchParams.delete('page');
+      } else {
+        url.searchParams.set('page', String(currentPage));
+      }
+      window.history.pushState({ page: currentPage }, '', url.toString());
+    }
+  }, [currentPage]);
+
+  // Listen to popstate for browser Back/Forward navigation
+  useEffect(() => {
+    function handlePopState() {
+      if (typeof window === 'undefined') return;
+      const url = new URL(window.location.href);
+      const p = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+      setCurrentPage(Math.min(p, paginated.totalPages));
+    }
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [paginated.totalPages]);
+
+  // Scroll to content start on page turn (accounting for sticky header - precise/instant scroll)
   const scrollToContentStart = useCallback(() => {
     if (typeof window === 'undefined') return;
     const el = contentTopRef.current;
     if (!el) return;
 
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const stickyHeaderOffset = 72; // Header height + spacing offset
-
     const elementPosition = el.getBoundingClientRect().top;
     const offsetPosition = elementPosition + window.pageYOffset - stickyHeaderOffset;
 
     window.scrollTo({
       top: Math.max(0, offsetPosition),
-      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      behavior: 'auto', // Precise/instant scroll, not smooth, ensuring no lag or offset issues
     });
 
     // Move accessible focus without intrusive focus ring
     el.focus({ preventScroll: true });
   }, []);
 
-  // Trigger smooth scroll when logical page changes (skip initial restore)
+  // Trigger scroll when logical page changes (skip initial mount)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    const raf = requestAnimationFrame(() => {
-      scrollToContentStart();
-    });
-    return () => cancelAnimationFrame(raf);
+    scrollToContentStart();
   }, [currentPage, scrollToContentStart]);
 
   // Page turn handlers
@@ -364,7 +405,7 @@ export function ReaderView({
           <div className="max-w-md mx-auto mt-2 p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xl space-y-5 animate-in fade-in slide-in-from-top-2 duration-150 text-stone-800 dark:text-stone-200">
             {/* Theme picker */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2 font-serif">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2">
                 Mavzu
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -421,7 +462,7 @@ export function ReaderView({
 
             {/* Font Family */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2 font-serif">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2">
                 Shrift turi
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -461,7 +502,7 @@ export function ReaderView({
             {/* Font Size */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 font-serif">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
                   Hajm
                 </label>
                 <span className="text-xs font-mono font-bold text-amber-600">{fontSize}px</span>
@@ -487,7 +528,7 @@ export function ReaderView({
 
             {/* Line Height */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2 font-serif">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2">
                 Qatorlar oralig‘i
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -514,7 +555,7 @@ export function ReaderView({
 
             {/* Content Width */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2 font-serif">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2">
                 Matn kengligi
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -544,12 +585,17 @@ export function ReaderView({
 
       {/* Table of Contents Drawer Modal */}
       {showToc && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowToc(false);
+          }}
+          className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-150"
+        >
           <div className="w-full max-w-sm h-full bg-white dark:bg-stone-900 border-l border-stone-200 dark:border-stone-800 p-5 overflow-y-auto flex flex-col justify-between shadow-2xl">
             <div>
               <div className="flex items-center justify-between pb-4 border-b border-stone-100 dark:border-stone-800 mb-4">
                 <div>
-                  <h3 className="font-serif font-bold text-base text-stone-900 dark:text-stone-100">
+                  <h3 className="font-bold text-base text-stone-900 dark:text-stone-100">
                     Mundarija
                   </h3>
                   <span className="text-xs text-stone-400">{allChapters.length} ta bob</span>
@@ -641,11 +687,11 @@ export function ReaderView({
         )}
 
         {/* Chapter Header */}
-        <header className="mb-8 sm:mb-12 text-center border-b border-stone-200/60 dark:border-stone-800 pb-6">
-          <span className="text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-2 block font-serif">
+        <header className="text-center max-w-2xl mx-auto space-y-3 pb-8 border-b border-stone-200/60 dark:border-stone-800">
+          <span className="text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-2 block">
             {currentChapter.chapter_number}-bob
           </span>
-          <h1 className="font-serif text-2xl sm:text-4xl font-bold tracking-tight leading-snug">
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight leading-snug">
             {currentChapter.title}
           </h1>
 
@@ -713,11 +759,14 @@ export function ReaderView({
         ) : (
           <PaywallUnlockCard
             workId={work.id}
-            chapterId={currentChapter.id}
+            chapterId={isPaidFullWork ? null : currentChapter.id}
             chapterTitle={currentChapter.title}
-            price={currentChapter.price}
+            price={isPaidFullWork ? Number(work.full_work_price || 0) : currentChapter.price}
             userBalance={userBalance}
             isLoggedIn={isLoggedIn}
+            isFullWork={isPaidFullWork}
+            workTitle={work.title}
+            currentPath={`/asarlar/${work.slug}/${currentChapter.slug}`}
           />
         )}
 
@@ -739,13 +788,14 @@ export function ReaderView({
             <div />
           )}
 
-          <Link
-            href={`/asarlar/${work.slug}`}
-            className="flex items-center gap-1.5 text-xs font-serif font-bold opacity-75 hover:opacity-100"
+          <button
+            type="button"
+            onClick={() => setShowToc(true)}
+            className="flex items-center gap-1.5 text-xs font-bold opacity-75 hover:opacity-100 hover:text-amber-700 transition-colors"
           >
             <BookOpen className="w-4 h-4" />
             <span className="hidden sm:inline">Mundarija</span>
-          </Link>
+          </button>
 
           {nextChapter ? (
             isNextLocked ? (

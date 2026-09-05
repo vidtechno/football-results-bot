@@ -175,7 +175,7 @@ export function TopupModal({
               <Wallet className="w-5 h-5 text-amber-700" />
             </div>
             <div className="min-w-0">
-              <h2 id="topup-modal-title" className="text-base font-serif font-bold text-stone-900 leading-tight truncate">
+              <h2 id="topup-modal-title" className="text-base font-bold text-stone-900 leading-tight truncate">
                 Hisobni to‘ldirish
               </h2>
               <span className="text-[11px] text-stone-500 font-medium block truncate">
@@ -204,11 +204,11 @@ export function TopupModal({
                   <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">
                     Tanlangan {targetItem.type === 'chapter' ? 'bob' : 'asar'}
                   </span>
-                  <p className="font-serif font-bold text-stone-900 text-sm mt-0.5 line-clamp-1">
+                  <p className="font-bold text-stone-900 text-sm mt-0.5 line-clamp-1">
                     {targetItem.title}
                   </p>
                 </div>
-                <span className="font-serif font-bold text-stone-900 text-sm">
+                <span className="font-bold text-stone-900 text-sm">
                   {formatUZS(targetItem.price)}
                 </span>
               </div>
@@ -231,7 +231,7 @@ export function TopupModal({
             <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/90 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-stone-500 font-medium">Joriy balansingiz:</span>
-                <span className="font-serif font-bold text-stone-900 text-sm">
+                <span className="font-bold text-stone-900 text-sm">
                   {formatUZS(userBalance)}
                 </span>
               </div>
@@ -292,7 +292,7 @@ export function TopupModal({
 
           {/* 6 Step-by-Step Instructions */}
           <div className="space-y-2.5">
-            <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wide flex items-center gap-1.5 font-serif">
+            <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wide flex items-center gap-1.5">
               <HelpCircle className="w-4 h-4 text-amber-700" />
               <span>To‘ldirish tartibi (6 bosqich):</span>
             </h4>

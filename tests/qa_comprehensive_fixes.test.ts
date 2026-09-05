@@ -742,4 +742,36 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
       expect(work3Stats.sales_revenue).toBe(0);
     });
   });
+
+  describe('15. Migration 019 SQL Idempotency and Ledger Verification', () => {
+    it('Verifies migration 019 does not reference non-existent wallet_ledger_entries', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const migrationSql = fs.readFileSync(
+        path.resolve(process.cwd(), 'supabase/migrations/019_idor_entitlements_and_pricing_canonical.sql'),
+        'utf8'
+      );
+
+      // Must NOT contain phantom table name
+      expect(migrationSql.includes('wallet_ledger_entries')).toBe(false);
+
+      // Must use canonical production wallet_transactions table
+      expect(migrationSql.includes('public.wallet_transactions')).toBe(true);
+
+      // Must use to_regclass checks for tables
+      expect(migrationSql.includes("to_regclass('public.wallet_transactions')")).toBe(true);
+      expect(migrationSql.includes("to_regclass('public.wallet_accounts')")).toBe(true);
+      expect(migrationSql.includes("to_regclass('public.entitlements')")).toBe(true);
+
+      // Must have IF NOT EXISTS protections for tables and indexes
+      expect(migrationSql.includes('CREATE TABLE IF NOT EXISTS public.entitlements')).toBe(true);
+      expect(migrationSql.includes('CREATE INDEX IF NOT EXISTS idx_entitlements_user_work')).toBe(true);
+      expect(migrationSql.includes('uq_user_work_chapter_entitlement')).toBe(true);
+
+      // Must have ON CONFLICT DO NOTHING or NOT EXISTS to prevent duplicate backfills
+      expect(migrationSql.includes('ON CONFLICT DO NOTHING')).toBe(true);
+      expect(migrationSql.includes('check_canonical_pricing_modes')).toBe(true);
+    });
+  });
 });

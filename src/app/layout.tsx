@@ -1,22 +1,23 @@
 import type { Metadata } from 'next';
-import { Inter, Merriweather } from 'next/font/google';
+import { Manrope, Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 
-const inter = Inter({
+const manrope = Manrope({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-sans',
   display: 'swap',
+  weight: ['400', '500', '600', '700', '800'],
 });
 
-const merriweather = Merriweather({
-  weight: ['300', '400', '700', '900'],
+const sourceSerif = Source_Serif_4({
   subsets: ['latin'],
   variable: '--font-serif',
   display: 'swap',
+  weight: ['400', '600', '700', '900'],
 });
 
 export const metadata: Metadata = {
@@ -81,7 +82,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="uz" className={`${inter.variable} ${merriweather.variable}`}>
+    <html lang="uz" className={`${manrope.variable} ${sourceSerif.variable}`}>
       <body className="bg-background text-stone-900 min-h-screen flex flex-col antialiased selection:bg-amber-100 selection:text-amber-950">
         <AuthProvider>
           <Navbar />

@@ -16,6 +16,8 @@ import { getWorkBySlug } from '@/lib/db/queries';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
+import { WorkSocialToolbar } from '@/components/social/WorkSocialToolbar';
+import { WorkReviewsSection } from '@/components/reviews/WorkReviewsSection';
 
 export const revalidate = 30;
 
@@ -141,7 +143,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
               </div>
             )}
 
-            {/* CTAs */}
+            {/* CTAs & Social Toolbar */}
             <div className="pt-3 flex flex-wrap items-center gap-3">
               {firstChapter ? (
                 <Link
@@ -156,6 +158,12 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                   Hozircha boblar e’lon qilinmagan
                 </div>
               )}
+
+              <WorkSocialToolbar
+                workId={work.id}
+                workTitle={work.title}
+                authorName={authorName}
+              />
             </div>
           </div>
         </div>
@@ -231,6 +239,41 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
           </div>
         )}
       </section>
+
+      {/* Reviews & Ratings Section */}
+      <WorkReviewsSection
+        workId={work.id}
+        workTitle={work.title}
+        initialAverageRating={Number(work.average_rating || 0)}
+        initialRatingCount={Number(work.rating_count || 0)}
+      />
+
+      {/* Structured Data (JSON-LD) for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Book',
+            name: work.title,
+            description: work.description || undefined,
+            image: work.cover_url || undefined,
+            author: {
+              '@type': 'Person',
+              name: authorName,
+            },
+            inLanguage: 'uz',
+            aggregateRating:
+              Number(work.rating_count || 0) > 0
+                ? {
+                    '@type': 'AggregateRating',
+                    ratingValue: Number(work.average_rating || 5),
+                    reviewCount: Number(work.rating_count || 1),
+                  }
+                : undefined,
+          }),
+        }}
+      />
 
       {/* Mobile Sticky Read CTA Bar */}
       {firstChapter && (

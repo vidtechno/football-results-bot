@@ -2,9 +2,11 @@ import React from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { BookOpen, ChevronRight, PenTool } from 'lucide-react';
-import { getAuthorByUsername } from '@/lib/db/queries';
-import { WorkGrid } from '@/components/works/WorkGrid';
+import type { Metadata } from 'next';
+import { BookOpen, ChevronRight, Eye, Users, Sparkles, CheckCircle } from 'lucide-react';
+import { getPublicAuthor } from '@/lib/db/queries';
+import { WorkCard } from '@/components/work/WorkCard';
+import { FollowButton } from '@/components/social/FollowButton';
 
 export const revalidate = 60;
 
@@ -14,15 +16,29 @@ interface AuthorPublicProfilePageProps {
   };
 }
 
+export async function generateMetadata({ params }: AuthorPublicProfilePageProps): Promise<Metadata> {
+  const result = await getPublicAuthor(params.username);
+  if (!result || !result.author) {
+    return { title: 'Muallif topilmadi | Manbora' };
+  }
+
+  const { author } = result;
+  return {
+    title: `${author.pen_name} — Muallif profili | Manbora`,
+    description: author.biography || `${author.pen_name}ning Manbora platformasidagi sara kitoblari va hikoyalari.`,
+  };
+}
+
 export default async function AuthorPublicProfilePage({
   params,
 }: AuthorPublicProfilePageProps) {
-  const { author, works } = await getAuthorByUsername(params.username);
+  const result = await getPublicAuthor(params.username);
 
-  if (!author) {
+  if (!result || !result.author) {
     notFound();
   }
 
+  const { author, works, totalWorks, totalReads, followerCount } = result;
   const profile = author.profile;
 
   return (
@@ -54,10 +70,11 @@ export default async function AuthorPublicProfilePage({
             )}
           </div>
 
-          <div className="space-y-2 flex-1">
+          <div className="space-y-3 flex-1">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <span className="px-3 py-1 rounded-xl bg-[#FEF3C7] text-[#92400E] text-xs font-black uppercase tracking-wide border border-[#FDE68A]">
-                Tasdiqlangan muallif
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-[#FEF3C7] text-[#92400E] text-xs font-black uppercase tracking-wide border border-[#FDE68A]">
+                <CheckCircle className="w-3.5 h-3.5 text-amber-700" />
+                <span>Tasdiqlangan muallif</span>
               </span>
               {profile?.username && (
                 <span className="text-xs text-[#78716C] font-medium">
@@ -74,11 +91,29 @@ export default async function AuthorPublicProfilePage({
               {author.biography || 'Muallif hali o‘zi haqida ma’lumot qoldirmagan.'}
             </p>
 
-            <div className="pt-2 flex items-center justify-center sm:justify-start gap-4 text-xs text-[#78716C] font-bold">
+            {/* Public Statistics */}
+            <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-4 sm:gap-6 text-xs text-[#78716C] font-bold">
               <div className="flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-[#B45309]" />
-                <span>{works.length} ta e’lon qilingan asar</span>
+                <span>{totalWorks} ta chop etilgan asar</span>
               </div>
+              <div className="flex items-center gap-1.5">
+                <Eye className="w-4 h-4 text-[#B45309]" />
+                <span>{totalReads.toLocaleString('uz-UZ')} ta mutolaa</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-[#B45309]" />
+                <span>{followerCount} ta obunachi</span>
+              </div>
+            </div>
+
+            {/* Follow Action */}
+            <div className="pt-2 flex items-center justify-center sm:justify-start">
+              <FollowButton
+                type="author"
+                targetId={author.user_id}
+                initialFollowerCount={followerCount}
+              />
             </div>
           </div>
         </div>
@@ -86,19 +121,41 @@ export default async function AuthorPublicProfilePage({
 
       {/* Author Works Grid */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-[#B45309]" />
-          <h2 className="text-lg sm:text-xl font-black font-serif text-[#1C1917] tracking-tight">
-            Muallifning asarlari
-          </h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-[#B45309]" />
+            <h2 className="text-lg sm:text-xl font-black font-serif text-[#1C1917] tracking-tight">
+              Muallifning asarlari ({works.length})
+            </h2>
+          </div>
         </div>
 
-        <WorkGrid
-          works={works}
-          emptyMessage="Ushbu muallif hozircha biron asar e’lon qilmagan."
-        />
+        {works.length === 0 ? (
+          <div className="p-8 text-center bg-white rounded-3xl border border-[#EAE5DD] text-stone-500 text-xs font-semibold shadow-xs">
+            Ushbu muallif hozircha biron asar e’lon qilmagan.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
+            {works.map((work) => (
+              <WorkCard key={work.id} work={work} context="catalogue" />
+            ))}
+          </div>
+        )}
       </section>
+
+      {/* Structured Data (JSON-LD) for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Person',
+            name: author.pen_name,
+            description: author.biography || undefined,
+            image: profile?.avatar_url || undefined,
+          }),
+        }}
+      />
     </div>
   );
 }
-

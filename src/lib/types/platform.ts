@@ -44,6 +44,8 @@ export interface Profile {
   public_id: string;
   display_name: string;
   username: string;
+  full_name?: string;
+  email?: string;
   avatar_url: string | null;
   bio: string | null;
   telegram_username: string | null;
@@ -60,12 +62,13 @@ export interface WorkRevision {
   work_id: string;
   author_id: string;
   title: string;
-  description: string | null;
+  description: string;
   cover_url: string | null;
   type: WorkType;
   access_type: WorkAccessType;
   full_work_price: number;
   age_rating: string;
+  completion_status: WorkCompletionStatus;
   status: RevisionStatus;
   moderator_id?: string | null;
   rejection_reason?: string | null;
@@ -73,7 +76,6 @@ export interface WorkRevision {
   created_at: string;
   updated_at: string;
   work?: Work;
-  author?: Profile;
 }
 
 export interface ChapterRevision {
@@ -133,6 +135,9 @@ export interface Work {
   language: string;
   is_archived?: boolean;
   pending_revision?: boolean;
+  average_rating?: number;
+  rating_count?: number;
+  view_count?: number;
   published_at: string | null;
   created_at: string;
   updated_at: string;

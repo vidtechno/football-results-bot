@@ -12,10 +12,11 @@ import {
   Users,
   ChevronRight,
   Clock,
+  Layers,
 } from 'lucide-react';
 import { getPublishedWorks, getActiveGenres } from '@/lib/db/queries';
 import { getCurrentProfile, createServerClient } from '@/lib/supabase/server';
-import { WorkCard } from '@/components/works/WorkCard';
+import { WorkCard } from '@/components/work/WorkCard';
 import type { Work, Genre } from '@/lib/types/platform';
 
 export const revalidate = 60; // Revalidate every minute
@@ -24,9 +25,10 @@ export default async function HomePage() {
   const profile = await getCurrentProfile();
   const supabase = createServerClient();
 
-  const [allWorks, freeWorks, genres, authorList] = await Promise.all([
+  const [allWorks, freeWorks, serializedStories, genres, authorList] = await Promise.all([
     getPublishedWorks({ limit: 12 }),
-    getPublishedWorks({ accessType: 'free', limit: 5 }),
+    getPublishedWorks({ accessType: 'free', limit: 6 }),
+    getPublishedWorks({ type: 'serialized_story', limit: 6 }),
     getActiveGenres(),
     supabase
       .from('author_profiles')
@@ -69,36 +71,36 @@ export default async function HomePage() {
     }
   }
 
-  const popularWorks = allWorks.slice(0, 5);
-  const newArrivals = allWorks.slice(2, 7);
+  const popularWorks = allWorks.slice(0, 6);
+  const newArrivals = allWorks.slice(2, 8);
   const authors = (authorList.data || []) as any[];
 
   return (
-    <div className="space-y-10 sm:space-y-14 pb-12">
-      {/* 1. Compact Discovery & Search Introduction */}
+    <div className="space-y-10 sm:space-y-14 pb-16">
+      {/* 1. Compact Discovery Hero & Filter Pills */}
       <section className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-10 shadow-xs relative overflow-hidden">
         <div className="max-w-3xl space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] text-xs font-bold">
             <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
-            <span>O‘zbek kitob va davomli asarlar maydoni</span>
+            <span>O‘zbek adabiyoti va hikoyalar maydoni</span>
           </div>
 
           <h1 className="font-serif text-2xl sm:text-4xl font-black text-[#1C1917] tracking-tight leading-tight">
-            Sara asarlar va yangi hikoyalar mutolaasi
+            Sara asarlar, yangi hikoyalar va elektron kitoblar mutolaasi
           </h1>
 
           <p className="text-xs sm:text-sm text-[#78716C] leading-relaxed font-medium max-w-xl">
-            Manbora — mustaqil o‘zbek mualliflari bilan kitobxonlarni birlashtiruvchi adabiy platforma. Bobma-bob yoki to‘liq asarlarni onlayn o‘qing.
+            Manbora — mustaqil mualliflar bilan kitobxonlarni birlashtiruvchi zamonaviy adabiy platforma. Bobma-bob serial asarlar va to‘liq kitoblarni onlayn o‘qing.
           </p>
 
           {/* Quick Search Bar */}
-          <form method="GET" action="/asarlar" className="pt-2 flex items-center gap-2 max-w-lg">
+          <form method="GET" action="/qidiruv" className="pt-2 flex items-center gap-2 max-w-lg">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-[#A8A29E] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 name="q"
-                placeholder="Asar nomi, muallif yoki mavzu bo‘yicha qidiring..."
+                placeholder="Asar nomi, muallif yoki kalit so‘z..."
                 className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-[#FAF8F5] border border-[#EAE5DD] focus:bg-white focus:border-[#B45309] focus:ring-2 focus:ring-[#FEF3C7] outline-hidden text-xs sm:text-sm text-[#1C1917] placeholder-[#A8A29E] transition-all"
               />
             </div>
@@ -109,10 +111,44 @@ export default async function HomePage() {
               Qidirish
             </button>
           </form>
+
+          {/* Discovery Filter Pills */}
+          <div className="pt-2 flex flex-wrap items-center gap-2 text-xs">
+            <Link
+              href="/asarlar"
+              className="px-3.5 py-1.5 rounded-xl bg-stone-900 text-white font-bold hover:bg-stone-800 transition-colors shadow-2xs"
+            >
+              Barcha asarlar
+            </Link>
+            <Link
+              href="/kitoblar"
+              className="px-3.5 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200/80 font-bold hover:bg-amber-100 transition-colors"
+            >
+              Elektron kitoblar
+            </Link>
+            <Link
+              href="/hikoyalar"
+              className="px-3.5 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200/80 font-bold hover:bg-amber-100 transition-colors"
+            >
+              Serial hikoyalar
+            </Link>
+            <Link
+              href="/asarlar?access=free"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200/80 font-bold hover:bg-emerald-100 transition-colors"
+            >
+              Bepul asarlar
+            </Link>
+            <Link
+              href="/janrlar"
+              className="px-3.5 py-1.5 rounded-xl bg-stone-100 text-stone-700 hover:bg-stone-200 font-bold transition-colors"
+            >
+              Barcha janrlar
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* 2. Davom ettirish (Shown ONLY when relevant) */}
+      {/* 2. Mutolaani davom ettirish (Shown ONLY when relevant) */}
       {continueReadingItems.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -209,21 +245,21 @@ export default async function HomePage() {
             Hozircha ommabop asarlar mavjud emas.
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
             {popularWorks.map((work: Work) => (
-              <WorkCard key={work.id} work={work} />
+              <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
           </div>
         )}
       </section>
 
-      {/* 4. Yangi asarlar (New Works) */}
+      {/* 4. Yangi nashrlar (New Works) */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-[#B45309]" />
             <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
-              Yangi asarlar
+              Yangi nashrlar
             </h2>
           </div>
           <Link
@@ -240,15 +276,42 @@ export default async function HomePage() {
             Hozircha yangi asarlar mavjud emas.
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
             {newArrivals.map((work: Work) => (
-              <WorkCard key={work.id} work={work} />
+              <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
           </div>
         )}
       </section>
 
-      {/* 5. Bepul o‘qish (Free Reading) */}
+      {/* 5. Davomli Serial Hikoyalar */}
+      {serializedStories.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#B45309]" />
+              <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
+                Davomli serial hikoyalar
+              </h2>
+            </div>
+            <Link
+              href="/hikoyalar"
+              className="text-xs font-bold text-[#B45309] hover:underline flex items-center gap-1"
+            >
+              Barcha hikoyalar
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
+            {serializedStories.map((work: Work) => (
+              <WorkCard key={work.id} work={work} context="catalogue" />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 6. Bepul mutolaa (Free Reading) */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -271,22 +334,25 @@ export default async function HomePage() {
             Hozircha bepul asarlar mavjud emas.
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
             {freeWorks.map((work: Work) => (
-              <WorkCard key={work.id} work={work} />
+              <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
           </div>
         )}
       </section>
 
-      {/* 6. Janrlar (Genres) */}
-      <section className="space-y-4" id="janrlar">
+      {/* 7. Janrlar bo‘yicha tanlang (Direct links to /janrlar/[slug]) */}
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
-            Janrlar bo‘yicha tanlang
-          </h2>
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-[#B45309]" />
+            <h2 className="font-serif text-lg sm:text-xl font-bold text-[#1C1917] tracking-tight">
+              Janrlar bo‘yicha tanlang
+            </h2>
+          </div>
           <Link
-            href="/asarlar"
+            href="/janrlar"
             className="text-xs font-bold text-[#B45309] hover:underline flex items-center gap-1"
           >
             Barcha janrlar
@@ -294,12 +360,12 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           {genres.map((g: Genre) => (
             <Link
               key={g.id}
-              href={`/asarlar?genre=${g.slug}`}
-              className="px-4 py-2 rounded-2xl bg-white border border-[#EAE5DD] hover:border-[#B45309] hover:bg-[#FEF3C7]/40 text-[#57534E] hover:text-[#92400E] text-xs font-bold transition-all shadow-2xs"
+              href={`/janrlar/${g.slug}`}
+              className="px-3.5 py-2 rounded-2xl bg-white border border-[#EAE5DD] hover:border-amber-400 hover:bg-amber-50/50 text-[#57534E] hover:text-amber-900 text-xs font-bold transition-all shadow-2xs"
             >
               {g.name}
             </Link>
@@ -307,7 +373,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 7. Tavsiya etilgan mualliflar (Featured Authors) */}
+      {/* 8. Tavsiya etilgan mualliflar */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -333,7 +399,7 @@ export default async function HomePage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
             {authors.map((author) => {
               const prof = author.profile;
-              const authorUrl = prof?.username ? `/mualliflar/${prof.username}` : '#';
+              const authorUrl = prof?.username ? `/mualliflar/${prof.username}` : `/mualliflar/${author.user_id}`;
 
               return (
                 <Link

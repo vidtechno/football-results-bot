@@ -4,6 +4,8 @@ import { getChapterForReading } from '@/lib/db/queries';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { ReaderView } from '@/components/reader/ReaderView';
 
+import type { Metadata } from 'next';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0; // Fresh access check on each read, zero shared caching
 
@@ -14,6 +16,19 @@ interface ReadingPageProps {
   };
   searchParams?: {
     page?: string;
+  };
+}
+
+export async function generateMetadata({ params }: ReadingPageProps): Promise<Metadata> {
+  const { work, chapter } = await getChapterForReading(params.slug, params.chapterSlug, null);
+  if (!work || !chapter) {
+    return { title: 'Bob mutolaasi | Manbora' };
+  }
+
+  const authorName = work.author?.pen_name || 'Muallif';
+  return {
+    title: `${chapter.title} — ${work.title} | Manbora`,
+    description: `«${work.title}» asarining ${chapter.chapter_number}-bobi. Muallif: ${authorName}. Manbora platformasida o‘qing.`,
   };
 }
 

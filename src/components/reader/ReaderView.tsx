@@ -211,11 +211,46 @@ export function ReaderView({
     };
   }, [currentPage, saveProgressToServer]);
 
+  const contentTopRef = useRef<HTMLDivElement | null>(null);
+  const isInitialMount = useRef(true);
+
+  // Scroll to content start on page turn (accounting for sticky header & reduced motion)
+  const scrollToContentStart = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const el = contentTopRef.current;
+    if (!el) return;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const stickyHeaderOffset = 72; // Header height + spacing offset
+
+    const elementPosition = el.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - stickyHeaderOffset;
+
+    window.scrollTo({
+      top: Math.max(0, offsetPosition),
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+    });
+
+    // Move accessible focus without intrusive focus ring
+    el.focus({ preventScroll: true });
+  }, []);
+
+  // Trigger smooth scroll when logical page changes (skip initial restore)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const raf = requestAnimationFrame(() => {
+      scrollToContentStart();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [currentPage, scrollToContentStart]);
+
   // Page turn handlers
   const goToPrevPage = useCallback(() => {
     if (currentPage > 1) {
       setCurrentPage((p) => p - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (prevChapter) {
       router.push(`/asarlar/${work.slug}/${prevChapter.slug}`);
     }
@@ -224,7 +259,6 @@ export function ReaderView({
   const goToNextPage = useCallback(() => {
     if (currentPage < paginated.totalPages) {
       setCurrentPage((p) => p + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (nextChapter) {
       router.push(`/asarlar/${work.slug}/${nextChapter.slug}`);
     }
@@ -594,6 +628,7 @@ export function ReaderView({
 
       {/* Main Reading Content Container */}
       <main className={clsx('mx-auto px-4 sm:px-8 py-8 sm:py-14', widthClasses)}>
+        <div ref={contentTopRef} tabIndex={-1} className="focus:outline-hidden" aria-hidden="true" />
         {/* Author Preview Banner */}
         {accessReason === 'author' && (
           <div className="mb-8 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs font-semibold flex items-center gap-3 shadow-xs">

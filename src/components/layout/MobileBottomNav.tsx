@@ -20,7 +20,7 @@ export function MobileBottomNav() {
   const tabs = [
     { href: '/', label: 'Bosh sahifa', icon: BookOpen, exact: true },
     { href: '/asarlar', label: 'Asarlar', icon: Compass, exact: false },
-    { href: '/asarlar?focus=search', label: 'Qidiruv', icon: Search, exact: false },
+    { href: '/qidiruv', label: 'Qidiruv', icon: Search, exact: false },
     { href: '/kutubxona', label: 'Kutubxonam', icon: Bookmark, exact: false },
     { href: user ? '/kabinet' : '/kirish', label: 'Profil', icon: User, exact: false },
   ];
@@ -36,9 +36,7 @@ export function MobileBottomNav() {
           const Icon = tab.icon;
           const isActive = tab.exact
             ? pathname === tab.href
-            : tab.href === '/asarlar?focus=search'
-            ? pathname === '/asarlar' && tab.href.includes('focus=search')
-            : pathname.startsWith(tab.href.split('?')[0]);
+            : pathname.startsWith(tab.href);
 
           return (
             <Link

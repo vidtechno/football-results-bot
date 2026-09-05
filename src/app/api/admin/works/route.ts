@@ -95,8 +95,29 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
+    const workIds = (rawWorks || []).map((w: any) => w.id);
+    const salesMap = new Map<string, { count: number; revenue: number; authorEarnings: number; platformFee: number }>();
+
+    if (workIds.length > 0) {
+      const { data: purchases } = await supabase
+        .from('purchases')
+        .select('work_id, gross_amount, author_net_amount, commission_amount, status')
+        .in('work_id', workIds)
+        .in('status', ['active', 'completed', 'paid']);
+
+      (purchases || []).forEach((p: any) => {
+        const existing = salesMap.get(p.work_id) || { count: 0, revenue: 0, authorEarnings: 0, platformFee: 0 };
+        existing.count += 1;
+        existing.revenue += Number(p.gross_amount || 0);
+        existing.authorEarnings += Number(p.author_net_amount || 0);
+        existing.platformFee += Number(p.commission_amount || 0);
+        salesMap.set(p.work_id, existing);
+      });
+    }
+
     const works = (rawWorks || []).map((w: any) => {
       const authorInfo = Array.isArray(w.author) ? w.author[0] : w.author;
+      const stats = salesMap.get(w.id) || { count: 0, revenue: 0, authorEarnings: 0, platformFee: 0 };
       return {
         id: w.id,
         title: w.title,
@@ -116,6 +137,10 @@ export async function GET(request: Request) {
           (a: any, b: any) => a.chapter_number - b.chapter_number
         ),
         chapters_count: (w.chapters || []).length,
+        sales_count: stats.count,
+        sales_revenue: stats.revenue,
+        author_earnings: stats.authorEarnings,
+        platform_fee: stats.platformFee,
       };
     });
 

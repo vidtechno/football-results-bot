@@ -6,7 +6,17 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/diyoration/', '/api/'],
+        disallow: [
+          '/diyoration/',
+          '/api/',
+          '/kabinet',
+          '/kutubxona',
+          '/bildirishnomalar',
+          '/muallif/asar/',
+          '/kirish',
+          '/royxatdan-otish',
+          '/tiklash',
+        ],
       },
     ],
     sitemap: 'https://manbora.uz/sitemap.xml',

@@ -19,13 +19,16 @@ interface AuthorPublicProfilePageProps {
 export async function generateMetadata({ params }: AuthorPublicProfilePageProps): Promise<Metadata> {
   const result = await getPublicAuthor(params.username);
   if (!result || !result.author) {
-    return { title: 'Muallif topilmadi | Manbora' };
+    return { title: 'Muallif topilmadi' };
   }
 
   const { author } = result;
   return {
-    title: `${author.pen_name} — Muallif profili | Manbora`,
+    title: `${author.pen_name} — Muallif profili`,
     description: author.biography || `${author.pen_name}ning Manbora platformasidagi sara kitoblari va hikoyalari.`,
+    alternates: {
+      canonical: `/mualliflar/${params.username}`,
+    },
   };
 }
 

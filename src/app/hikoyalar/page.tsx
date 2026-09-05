@@ -9,8 +9,11 @@ import { CataloguePagination } from '@/components/catalogue/CataloguePagination'
 export const revalidate = 30;
 
 export const metadata: Metadata = {
-  title: 'Hikoyalar va Qissalar | Manbora',
+  title: 'Hikoyalar va Qissalar',
   description: 'Bobma-bob yangilanuvchi o‘zbekcha serial hikoyalar, qissalar va novellalar. Yangi boblarni kuzatib boring.',
+  alternates: {
+    canonical: '/hikoyalar',
+  },
 };
 
 interface HikoyalarPageProps {

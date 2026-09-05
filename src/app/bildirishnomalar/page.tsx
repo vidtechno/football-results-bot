@@ -9,8 +9,12 @@ import { formatUzbekDate } from '@/lib/utils/formatters';
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: 'Bildirishnomalar | Manbora',
+  title: 'Bildirishnomalar',
   description: 'Yangi boblar, xaridlar, hisob to‘ldirishlari va muhim tizim bildirishnomalari.',
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default async function BildirishnomalarPage() {

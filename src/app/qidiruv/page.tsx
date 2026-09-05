@@ -9,8 +9,15 @@ import { CataloguePagination } from '@/components/catalogue/CataloguePagination'
 export const revalidate = 15;
 
 export const metadata: Metadata = {
-  title: 'Asarlarni qidirish | Manbora',
+  title: 'Asarlarni qidirish',
   description: 'Kitoblar, serial hikoyalar, qissalar va sevimli mualliflaringizni nomi, janri yoki kalit so‘zlar bo‘yicha tez qidiring.',
+  alternates: {
+    canonical: '/qidiruv',
+  },
+  robots: {
+    index: false,
+    follow: true,
+  },
 };
 
 const TRENDING_SEARCHES = [

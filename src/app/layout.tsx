@@ -8,14 +8,14 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
-  variable: '--font-ui',
+  variable: '--font-inter',
   display: 'swap',
   weight: ['400', '500', '600', '700', '800'],
 });
 
 const sourceSerif = Source_Serif_4({
   subsets: ['latin', 'latin-ext'],
-  variable: '--font-reading-serif',
+  variable: '--font-source-serif',
   display: 'swap',
   weight: ['400', '600', '700', '900'],
 });

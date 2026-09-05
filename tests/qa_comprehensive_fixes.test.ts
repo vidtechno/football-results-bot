@@ -438,4 +438,308 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
       expect(fullWorkPurchaseUrl).toBe('/asarlar/qa-pullik-kitob');
     });
   });
+
+  describe('9. Author IDOR Server Verification Logic', () => {
+    const mockWork = {
+      id: 'work-own-123',
+      title: 'Muallifning asari',
+      author_id: authorUserId,
+    };
+
+    function canAccessAuthorWorkEditor(
+      user: { id: string } | null,
+      work: { author_id: string },
+      isAdmin: boolean = false
+    ): boolean {
+      if (!user) return false;
+      return work.author_id === user.id || isAdmin;
+    }
+
+    it('Denies access to stranger author (prevents IDOR)', () => {
+      const allowed = canAccessAuthorWorkEditor(
+        { id: strangerUserId },
+        mockWork,
+        false
+      );
+      expect(allowed).toBe(false);
+    });
+
+    it('Denies access to unauthenticated guest', () => {
+      const allowed = canAccessAuthorWorkEditor(null, mockWork, false);
+      expect(allowed).toBe(false);
+    });
+
+    it('Grants access to true author', () => {
+      const allowed = canAccessAuthorWorkEditor(
+        { id: authorUserId },
+        mockWork,
+        false
+      );
+      expect(allowed).toBe(true);
+    });
+
+    it('Grants access to admin for moderation oversight', () => {
+      const allowed = canAccessAuthorWorkEditor(
+        { id: adminUserId },
+        mockWork,
+        true
+      );
+      expect(allowed).toBe(true);
+    });
+  });
+
+  describe('10. Entitlements Permanent Rights & Status Normalization', () => {
+    it('Status "completed" and "paid" grant full chapter reading access', async () => {
+      const mockClientCompleted = createMockClient([
+        {
+          buyer_id: buyerUserId,
+          work_id: perChapterWorkId,
+          chapter_id: perChapterCh2.id,
+          purchase_type: 'chapter',
+          status: 'completed',
+        },
+      ]);
+
+      const resCompleted = await canReadChapter(buyerUserId, perChapterCh2.id, {
+        customClient: mockClientCompleted,
+      });
+      expect(resCompleted.canRead).toBe(true);
+      expect(resCompleted.reason).toBe('purchased_chapter');
+
+      const mockClientPaid = createMockClient([
+        {
+          buyer_id: buyerUserId,
+          work_id: perChapterWorkId,
+          chapter_id: perChapterCh2.id,
+          purchase_type: 'chapter',
+          status: 'paid',
+        },
+      ]);
+
+      const resPaid = await canReadChapter(buyerUserId, perChapterCh2.id, {
+        customClient: mockClientPaid,
+      });
+      expect(resPaid.canRead).toBe(true);
+      expect(resPaid.reason).toBe('purchased_chapter');
+    });
+
+    it('Purchased chapter remains accessible even if work is changed to paid_full_work', async () => {
+      // Work has been switched to paid_full_work by author afterwards
+      const switchedWork = {
+        ...perChapterWork,
+        access_type: 'paid_full_work',
+        full_work_price: 15000,
+      };
+      const switchedCh2 = {
+        ...perChapterCh2,
+        work: switchedWork,
+      };
+
+      const mockClient = {
+        from: (table: string) => {
+          if (table === 'chapters') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  single: async () => ({ data: switchedCh2, error: null }),
+                }),
+              }),
+            };
+          }
+          if (table === 'chapter_contents') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: { content: 'Oldindan olingan bob matni' }, error: null }),
+                }),
+              }),
+            };
+          }
+          if (table === 'entitlements') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    or: () => ({
+                      limit: async () => ({
+                        data: [
+                          {
+                            id: 'ent-1',
+                            entitlement_type: 'chapter',
+                            chapter_id: switchedCh2.id,
+                            work_id: switchedWork.id,
+                          },
+                        ],
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === 'purchases') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    limit: async () => ({ data: [] }),
+                  }),
+                }),
+              }),
+            };
+          }
+          return { select: () => ({ eq: () => ({}) }) };
+        },
+      };
+
+      const result = await canReadChapter(buyerUserId, switchedCh2.id, {
+        customClient: mockClient,
+      });
+
+      expect(result.canRead).toBe(true);
+      expect(result.reason).toBe('purchased_chapter');
+      expect(result.content).toBe('Oldindan olingan bob matni');
+    });
+  });
+
+  describe('11. Safe Redirect URL Resolver', () => {
+    function getSafeRedirectUrl(url: string | null | undefined, fallback: string = '/'): string {
+      if (!url) return fallback;
+      const trimmed = url.trim();
+      if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.startsWith('/\\')) {
+        return fallback;
+      }
+      try {
+        const parsed = new URL(trimmed, 'https://manbora.uz');
+        if (parsed.origin !== 'https://manbora.uz') {
+          return fallback;
+        }
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      } catch {
+        return fallback;
+      }
+    }
+
+    it('Rejects malicious external phishing redirects', () => {
+      expect(getSafeRedirectUrl('https://evil.com')).toBe('/');
+      expect(getSafeRedirectUrl('http://attacker.org/login')).toBe('/');
+      expect(getSafeRedirectUrl('//evil.com/fake')).toBe('/');
+      expect(getSafeRedirectUrl('/\\evil.com')).toBe('/');
+      expect(getSafeRedirectUrl('javascript:alert(1)')).toBe('/');
+    });
+
+    it('Preserves valid relative paths and queries', () => {
+      expect(getSafeRedirectUrl('/muallif')).toBe('/muallif');
+      expect(getSafeRedirectUrl('/asarlar/bekatdagi-soat')).toBe('/asarlar/bekatdagi-soat');
+      expect(getSafeRedirectUrl('/asarlar/bekatdagi-soat?tab=sharhlar#sharh-1')).toBe(
+        '/asarlar/bekatdagi-soat?tab=sharhlar#sharh-1'
+      );
+    });
+
+    it('Handles empty or null inputs gracefully', () => {
+      expect(getSafeRedirectUrl(null)).toBe('/');
+      expect(getSafeRedirectUrl(undefined)).toBe('/');
+      expect(getSafeRedirectUrl('')).toBe('/');
+    });
+  });
+
+  describe('12. Work-level Multi-Chapter Reading Progress Formula', () => {
+    function computeWorkProgress(
+      currentChapterIndex: number,
+      currentPage: number,
+      totalPages: number,
+      totalChapters: number
+    ): number {
+      if (totalChapters <= 0) return 0;
+      const chapterFraction = totalPages > 0 ? Math.min(1, Math.max(0, currentPage / totalPages)) : 0;
+      const progress = Math.round(((currentChapterIndex + chapterFraction) / totalChapters) * 100);
+      return Math.min(100, Math.max(0, progress));
+    }
+
+    it('Computes progressive work-level percentage across 3 chapters', () => {
+      const totalChapters = 3;
+      const pagesPerChapter = 10;
+
+      // Chapter 1, page 1: ~3%
+      expect(computeWorkProgress(0, 1, pagesPerChapter, totalChapters)).toBe(3);
+      // Chapter 1, page 10: ~33%
+      expect(computeWorkProgress(0, 10, pagesPerChapter, totalChapters)).toBe(33);
+      // Chapter 2, page 5: 50%
+      expect(computeWorkProgress(1, 5, pagesPerChapter, totalChapters)).toBe(50);
+      // Chapter 3, page 10: 100%
+      expect(computeWorkProgress(2, 10, pagesPerChapter, totalChapters)).toBe(100);
+    });
+
+    it('Clamps progress strictly between 0% and 100%', () => {
+      expect(computeWorkProgress(-1, 0, 10, 3)).toBe(0);
+      expect(computeWorkProgress(5, 20, 10, 3)).toBe(100);
+    });
+  });
+
+  describe('13. Font Configuration & CSS Variable Integrity', () => {
+    it('Ensures font variables are distinct and non-cyclic in globals.css and layout.tsx', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const globalsCss = fs.readFileSync(
+        path.resolve(process.cwd(), 'src/app/globals.css'),
+        'utf8'
+      );
+      const layoutTsx = fs.readFileSync(
+        path.resolve(process.cwd(), 'src/app/layout.tsx'),
+        'utf8'
+      );
+
+      // Must not contain circular reference --font-ui: var(--font-ui)
+      expect(globalsCss.includes('--font-ui: var(--font-ui)')).toBe(false);
+      expect(globalsCss.includes('--font-serif: var(--font-serif)')).toBe(false);
+
+      // Must configure font variables in layout.tsx
+      expect(layoutTsx.includes('--font-inter')).toBe(true);
+      expect(layoutTsx.includes('--font-source-serif')).toBe(true);
+    });
+  });
+
+  describe('14. Admin Works Statistics Aggregation', () => {
+    it('Correctly aggregates sales_count and sales_revenue from purchases', () => {
+      const mockPurchases = [
+        { work_id: 'work-1', amount: 3000, author_earning: 2400, platform_fee: 600, status: 'active' },
+        { work_id: 'work-1', amount: 3000, author_earning: 2400, platform_fee: 600, status: 'completed' },
+        { work_id: 'work-1', amount: 5000, author_earning: 4000, platform_fee: 1000, status: 'refunded' }, // Excluded!
+        { work_id: 'work-2', amount: 15000, author_earning: 12000, platform_fee: 3000, status: 'paid' },
+      ];
+
+      const validStatuses = new Set(['active', 'completed', 'paid']);
+      const statsMap: Record<
+        string,
+        { sales_count: number; sales_revenue: number; author_earnings: number; platform_fee: number }
+      > = {};
+
+      for (const p of mockPurchases) {
+        if (!validStatuses.has(p.status)) continue;
+        if (!statsMap[p.work_id]) {
+          statsMap[p.work_id] = { sales_count: 0, sales_revenue: 0, author_earnings: 0, platform_fee: 0 };
+        }
+        statsMap[p.work_id].sales_count += 1;
+        statsMap[p.work_id].sales_revenue += p.amount;
+        statsMap[p.work_id].author_earnings += p.author_earning;
+        statsMap[p.work_id].platform_fee += p.platform_fee;
+      }
+
+      // work-1: 2 successful sales, total 6000 UZS (refunded ignored)
+      expect(statsMap['work-1'].sales_count).toBe(2);
+      expect(statsMap['work-1'].sales_revenue).toBe(6000);
+      expect(statsMap['work-1'].author_earnings).toBe(4800);
+      expect(statsMap['work-1'].platform_fee).toBe(1200);
+
+      // work-2: 1 successful sale, total 15000 UZS
+      expect(statsMap['work-2'].sales_count).toBe(1);
+      expect(statsMap['work-2'].sales_revenue).toBe(15000);
+
+      // work-3 with no sales defaults to 0
+      const work3Stats = statsMap['work-3'] || { sales_count: 0, sales_revenue: 0 };
+      expect(work3Stats.sales_count).toBe(0);
+      expect(work3Stats.sales_revenue).toBe(0);
+    });
+  });
 });

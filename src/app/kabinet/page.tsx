@@ -233,7 +233,9 @@ function KabinetContent() {
 
         {/* Balance Card & Author Link */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-          {author && author.status === 'approved' ? (
+          {authLoading ? (
+            <Skeleton className="h-10 w-36 rounded-2xl" />
+          ) : author && author.status === 'approved' ? (
             <Link
               href="/muallif"
               className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] font-bold text-xs hover:bg-[#FDE68A] transition-colors"

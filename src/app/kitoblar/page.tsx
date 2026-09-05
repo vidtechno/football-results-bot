@@ -9,8 +9,11 @@ import { CataloguePagination } from '@/components/catalogue/CataloguePagination'
 export const revalidate = 30;
 
 export const metadata: Metadata = {
-  title: 'Kitoblar | Manbora',
+  title: 'Kitoblar',
   description: 'O‘zbek adabiyotining sara elektron kitoblari, romanlari va qissalari. To‘liq asarlar mutolaasi.',
+  alternates: {
+    canonical: '/kitoblar',
+  },
 };
 
 interface KitoblarPageProps {

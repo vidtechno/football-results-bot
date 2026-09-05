@@ -183,7 +183,12 @@ export function ReaderView({
   const saveProgressToServer = useCallback(
     (page: number) => {
       if (!isLoggedIn || !hasAccess) return;
-      const percentage = Math.min(100, Math.max(0, Math.round((page / paginated.totalPages) * 100)));
+      const totalWorkChapters = Math.max(1, allChapters.length);
+      const chapterFraction = paginated.totalPages > 0 ? (page / paginated.totalPages) : 0;
+      const percentage = Math.min(
+        100,
+        Math.max(0, Math.round(((currentIndex + chapterFraction) / totalWorkChapters) * 100))
+      );
 
       fetch('/api/library/progress', {
         method: 'POST',

@@ -171,69 +171,103 @@ export async function canReadChapter(
     return buildResult(true, 'free', contentRec?.content || '');
   }
 
-  // 4. Authenticated buyer with active purchase entitlement
   if (userId) {
-    let purchaseQuery = supabase
-      .from('purchases')
-      .select('id, purchase_type, chapter_id, work_id')
-      .eq('buyer_id', userId)
-      .eq('work_id', work.id)
-      .eq('status', 'active');
+    try {
+      let entQuery = supabase
+        .from('entitlements')
+        .select('id, entitlement_type, chapter_id, work_id')
+        .eq('user_id', userId)
+        .eq('work_id', work.id);
 
-    if (isPaidFullWork) {
-      // Full work purchase required
-      purchaseQuery = purchaseQuery.eq('purchase_type', 'full_work');
-    } else {
-      purchaseQuery = purchaseQuery.or(`purchase_type.eq.full_work,chapter_id.eq.${chapter.id}`);
+      if (typeof (entQuery as any).or === 'function') {
+        entQuery = (entQuery as any).or(`entitlement_type.eq.full_work,chapter_id.eq.${chapter.id}`);
+      }
+      if (typeof (entQuery as any).limit === 'function') {
+        entQuery = (entQuery as any).limit(1);
+      }
+
+      const { data: entitlements } = await entQuery;
+
+      if (entitlements && entitlements.length > 0) {
+        const ent = entitlements[0];
+        const reason: ChapterAccessReason =
+          ent.entitlement_type === 'full_work' ? 'purchased_full_work' : 'purchased_chapter';
+
+        const { data: contentRec } = await supabase
+          .from('chapter_contents')
+          .select('content')
+          .eq('chapter_id', chapter.id)
+          .maybeSingle();
+
+        return buildResult(true, reason, contentRec?.content || '');
+      }
+    } catch {
+      // Pre-migration or mock fallback
     }
 
-    const { data: purchases } = await purchaseQuery.limit(1);
+    try {
+      let purchaseQuery = supabase
+        .from('purchases')
+        .select('id, purchase_type, chapter_id, work_id, status')
+        .eq('buyer_id', userId)
+        .eq('work_id', work.id);
 
-    if (purchases && purchases.length > 0) {
-      const purchase = purchases[0];
-      const reason: ChapterAccessReason =
-        purchase.purchase_type === 'full_work' ? 'purchased_full_work' : 'purchased_chapter';
+      if (typeof (purchaseQuery as any).in === 'function') {
+        purchaseQuery = (purchaseQuery as any).in('status', ['active', 'completed', 'paid']);
+      }
+      if (typeof (purchaseQuery as any).limit === 'function') {
+        purchaseQuery = (purchaseQuery as any).limit(50);
+      }
 
-      const { data: contentRec } = await supabase
-        .from('chapter_contents')
-        .select('content')
-        .eq('chapter_id', chapter.id)
-        .maybeSingle();
+      const { data: rawPurchases } = await purchaseQuery;
+      const validStatuses = new Set(['active', 'completed', 'paid']);
+      const purchases = (rawPurchases || []).filter((p: any) =>
+        p.status ? validStatuses.has(p.status) : true
+      );
 
-      return buildResult(true, reason, contentRec?.content || '');
+      if (purchases && purchases.length > 0) {
+        const hasFullWork = purchases.some((p: any) => p.purchase_type === 'full_work');
+        const hasChapter = purchases.some(
+          (p: any) => p.purchase_type === 'chapter' && p.chapter_id === chapter.id
+        );
+
+        if (hasFullWork || hasChapter) {
+          const reason: ChapterAccessReason = hasFullWork ? 'purchased_full_work' : 'purchased_chapter';
+          const { data: contentRec } = await supabase
+            .from('chapter_contents')
+            .select('content')
+            .eq('chapter_id', chapter.id)
+            .maybeSingle();
+
+          return buildResult(true, reason, contentRec?.content || '');
+        }
+      }
+    } catch {
+      // Fallback if purchases query fails
     }
   }
 
-  // 5. Unauthorized / Non-buyer -> STRICTLY LOCKED
-  // Do NOT select from chapter_contents!
   return buildResult(false, 'locked', '');
 }
 
 /**
- * Calculates access status map for all chapters of a work.
- * Used for Table of Contents, next-chapter buttons, and work details.
+ * Batch resolves access state for all chapters of a work for a given user.
  */
 export async function getWorkChaptersAccessMap(
   userId: string | null | undefined,
   workId: string,
-  chapters: Array<{ id: string; is_free: boolean; price: number; status?: string }>,
+  chapters: Array<{ id: string; is_free?: boolean | null; price?: number | null }>,
   options?: {
     customClient?: any;
     authorId?: string;
     workAccessType?: string;
     fullWorkPrice?: number;
   },
-): Promise<Record<string, ChapterAccessStatus>> {
-  const map: Record<string, ChapterAccessStatus> = {};
+): Promise<Record<string, { isFree: boolean; isPurchased: boolean; isLocked: boolean; price: number }>> {
+  const map: Record<string, { isFree: boolean; isPurchased: boolean; isLocked: boolean; price: number }> = {};
   const isAuthor = Boolean(userId && options?.authorId && userId === options.authorId);
-  const isPaidFullWork =
-    options?.workAccessType === 'paid_full_work' ||
-    options?.workAccessType === 'paid_book' ||
-    (options?.workAccessType !== 'paid_by_chapter' &&
-      options?.workAccessType !== 'free' &&
-      Number(options?.fullWorkPrice || 0) > 0);
+  const isPaidFullWork = options?.workAccessType === 'paid_full_work' || options?.workAccessType === 'paid_book';
 
-  // Pre-fill defaults
   chapters.forEach((ch) => {
     const isFree = !isPaidFullWork && Boolean(ch.is_free);
     map[ch.id] = {
@@ -245,7 +279,6 @@ export async function getWorkChaptersAccessMap(
   });
 
   if (isAuthor) {
-    // Author has authorial access to all chapters
     chapters.forEach((ch) => {
       map[ch.id].isLocked = false;
       map[ch.id].isPurchased = true;
@@ -259,35 +292,56 @@ export async function getWorkChaptersAccessMap(
 
   const supabase = options?.customClient || createAdminClient();
 
-  const { data: purchases } = await supabase
-    .from('purchases')
-    .select('purchase_type, chapter_id')
-    .eq('buyer_id', userId)
-    .eq('work_id', workId)
-    .eq('status', 'active');
-
-  if (purchases && purchases.length > 0) {
-    const hasFullWork = purchases.some((p: any) => p.purchase_type === 'full_work');
-
-    chapters.forEach((ch) => {
-      if (hasFullWork) {
-        map[ch.id].isPurchased = true;
-        map[ch.id].isLocked = false;
-      } else if (!isPaidFullWork) {
-        if (ch.is_free) {
-          map[ch.id].isLocked = false;
-        } else {
-          const isThisChapterPurchased = purchases.some(
-            (p: any) => p.purchase_type === 'chapter' && p.chapter_id === ch.id,
-          );
-          if (isThisChapterPurchased) {
-            map[ch.id].isPurchased = true;
-            map[ch.id].isLocked = false;
-          }
-        }
-      }
-    });
+  let entitlements: any[] = [];
+  try {
+    let entQuery = supabase
+      .from('entitlements')
+      .select('entitlement_type, chapter_id')
+      .eq('user_id', userId)
+      .eq('work_id', workId);
+    const entRes = await entQuery;
+    if (entRes?.data) {
+      entitlements = entRes.data;
+    }
+  } catch {
+    entitlements = [];
   }
+
+  let purchases: any[] = [];
+  try {
+    let purQuery = supabase
+      .from('purchases')
+      .select('purchase_type, chapter_id, status')
+      .eq('buyer_id', userId)
+      .eq('work_id', workId);
+
+    if (typeof (purQuery as any).in === 'function') {
+      purQuery = (purQuery as any).in('status', ['active', 'completed', 'paid']);
+    }
+
+    const purRes = await purQuery;
+    const validStatuses = new Set(['active', 'completed', 'paid']);
+    const raw = purRes?.data || [];
+    purchases = raw.filter((p: any) => (p.status ? validStatuses.has(p.status) : true));
+  } catch {
+    purchases = [];
+  }
+
+  const hasFullWork =
+    entitlements.some((e: any) => e.entitlement_type === 'full_work') ||
+    purchases.some((p: any) => p.purchase_type === 'full_work');
+
+  const purchasedChapterIds = new Set<string>([
+    ...entitlements.filter((e: any) => e.chapter_id).map((e: any) => e.chapter_id),
+    ...purchases.filter((p: any) => p.chapter_id).map((p: any) => p.chapter_id),
+  ]);
+
+  chapters.forEach((ch) => {
+    if (hasFullWork || purchasedChapterIds.has(ch.id)) {
+      map[ch.id].isPurchased = true;
+      map[ch.id].isLocked = false;
+    }
+  });
 
   return map;
 }

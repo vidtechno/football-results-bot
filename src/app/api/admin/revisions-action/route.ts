@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     const { data: rawWorkRevs, error: workErr } = await adminClient
       .from('work_revisions')
       .select('*')
-      .eq('status', 'pending_review')
+      .or('status.eq.pending_review,status.eq.pending,status.is.null')
       .order('created_at', { ascending: false });
 
     if (workErr) {
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     const { data: rawChapRevs, error: chapErr } = await adminClient
       .from('chapter_revisions')
       .select('*')
-      .eq('status', 'pending_review')
+      .or('status.eq.pending_review,status.eq.pending,status.is.null')
       .order('created_at', { ascending: false });
 
     if (chapErr) {
@@ -222,6 +222,24 @@ export async function POST(request: Request) {
           // ignore
         }
 
+        // Notify author of work revision approval
+        try {
+          const { data: revData } = await adminClient.from('work_revisions').select('author_id, work_id, title').eq('id', revisionId).maybeSingle();
+          if (revData?.author_id) {
+            const { createInSiteNotification } = await import('@/lib/notifications/inSite');
+            await createInSiteNotification({
+              userId: revData.author_id,
+              type: 'revision_approved',
+              title: 'Asar tahriri tasdiqlandi',
+              body: `«${revData.title || 'Asar'}» asariga kiritgan tahriringiz tasdiqlandi va jonli nashr yangilandi.`,
+              linkUrl: `/muallif/asar/${revData.work_id}`,
+              data: { revisionId, workId: revData.work_id },
+            });
+          }
+        } catch {
+          // ignore
+        }
+
         return NextResponse.json({ success: true, message: 'Asar tahriri tasdiqlandi va yangilandi', data: rpcData });
       } else {
         // Chapter revision
@@ -287,6 +305,24 @@ export async function POST(request: Request) {
           // ignore
         }
 
+        // Notify author of approval
+        try {
+          const { data: revData } = await adminClient.from('chapter_revisions').select('author_id, work_id, title').eq('id', revisionId).maybeSingle();
+          if (revData?.author_id) {
+            const { createInSiteNotification } = await import('@/lib/notifications/inSite');
+            await createInSiteNotification({
+              userId: revData.author_id,
+              type: 'revision_approved',
+              title: 'Bob tahriri tasdiqlandi',
+              body: `«${revData.title || 'Bob'}» bobiga kiritgan tahriringiz tasdiqlandi va jonli nashr yangilandi.`,
+              linkUrl: `/muallif/asar/${revData.work_id}`,
+              data: { revisionId, workId: revData.work_id },
+            });
+          }
+        } catch {
+          // ignore
+        }
+
         return NextResponse.json({ success: true, message: 'Bob tahriri tasdiqlandi va jonli nashr yangilandi', data: rpcData });
       }
     } else {
@@ -300,6 +336,14 @@ export async function POST(request: Request) {
       }
 
       const tableName = type === 'work_revision' ? 'work_revisions' : 'chapter_revisions';
+
+      // Fetch author info before update for notification
+      const { data: revToReject } = await adminClient
+        .from(tableName)
+        .select('author_id, work_id, title')
+        .eq('id', revisionId)
+        .maybeSingle();
+
       const { error } = await adminClient
         .from(tableName)
         .update({
@@ -313,6 +357,23 @@ export async function POST(request: Request) {
 
       if (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      }
+
+      // Notify author of rejection
+      if (revToReject?.author_id) {
+        try {
+          const { createInSiteNotification } = await import('@/lib/notifications/inSite');
+          await createInSiteNotification({
+            userId: revToReject.author_id,
+            type: 'revision_rejected',
+            title: 'Tahriringiz rad etildi',
+            body: `«${revToReject.title || 'Tahrir'}» rad etildi. Sabab: ${cleanReason}`,
+            linkUrl: `/muallif/asar/${revToReject.work_id}`,
+            data: { revisionId, cleanReason },
+          });
+        } catch {
+          // ignore
+        }
       }
 
       try {

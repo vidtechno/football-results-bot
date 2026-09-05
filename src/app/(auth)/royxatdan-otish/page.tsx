@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { UserPlus, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { getSafeRedirectUrl } from '@/lib/utils/redirect';
 
-export default function RoyxatdanOtishPage() {
+function RoyxatdanOtishForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawRedirect = searchParams.get('redirect');
+  const redirectUrl = getSafeRedirectUrl(rawRedirect, '/kabinet');
 
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
@@ -50,7 +54,7 @@ export default function RoyxatdanOtishPage() {
         throw new Error(signUpError.message);
       }
 
-      router.push('/kabinet');
+      router.push(redirectUrl);
       router.refresh();
     } catch (err: any) {
       setError(err.message || 'Ro‘yxatdan o‘tishda xatolik yuz berdi');
@@ -172,7 +176,7 @@ export default function RoyxatdanOtishPage() {
         <div className="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-500 font-medium">
           Allaqachon hisobingiz bormi?{' '}
           <Link
-            href="/kirish"
+            href={rawRedirect ? `/kirish?redirect=${encodeURIComponent(rawRedirect)}` : '/kirish'}
             className="font-bold text-blue-600 hover:text-blue-700 hover:underline"
           >
             Kirish
@@ -180,5 +184,13 @@ export default function RoyxatdanOtishPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RoyxatdanOtishPage() {
+  return (
+    <Suspense fallback={<div className="max-w-md mx-auto my-8 p-8 text-center text-xs text-stone-500 animate-pulse">Yuklanmoqda...</div>}>
+      <RoyxatdanOtishForm />
+    </Suspense>
   );
 }

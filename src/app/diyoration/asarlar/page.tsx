@@ -255,7 +255,7 @@ export default function AdminWorksManagementPage() {
                       {/* Sales Stats (Private metadata summary) */}
                       <div className="flex items-center gap-3 mt-2 text-[11px] font-bold">
                         <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                          Xaridlar: {w.sales_count} ta ({formatUZS(w.sales_revenue)})
+                          Xaridlar: {w.sales_count ?? 0} ta ({formatUZS(w.sales_revenue ?? 0)})
                         </span>
                         <span className="text-slate-400 font-mono text-[10px]">
                           ID: {w.id.slice(0, 8)}...
@@ -390,7 +390,7 @@ export default function AdminWorksManagementPage() {
                   <div>
                     <span className="text-[10px] text-slate-400 font-bold block">Umumiy xaridlar:</span>
                     <span className="font-bold text-emerald-700">
-                      {selectedWork.sales_count} ta xarid ({formatUZS(selectedWork.sales_revenue)})
+                      {selectedWork.sales_count ?? 0} ta xarid ({formatUZS(selectedWork.sales_revenue ?? 0)})
                     </span>
                   </div>
                 </div>

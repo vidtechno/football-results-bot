@@ -24,8 +24,12 @@ import type { Work } from '@/lib/types/platform';
 export const revalidate = 0; // Dynamic personal data
 
 export const metadata: Metadata = {
-  title: 'Mening kutubxonam | Manbora',
+  title: 'Mening kutubxonam',
   description: 'Shaxsiy mutolaa jurnali: o‘qilayotgan, sotib olingan, saqlangan, sevimli asarlar va kuzatilayotgan mualliflar.',
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 type LibraryTab =

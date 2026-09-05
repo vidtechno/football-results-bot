@@ -29,12 +29,15 @@ export async function generateMetadata({ params }: GenreDetailPageProps): Promis
     .maybeSingle();
 
   if (!genre) {
-    return { title: 'Janr topilmadi | Manbora' };
+    return { title: 'Janr topilmadi' };
   }
 
   return {
-    title: `${genre.name} janridagi asarlar | Manbora`,
+    title: `${genre.name} janridagi asarlar`,
     description: genre.description || `${genre.name} janridagi sara kitoblar, hikoyalar va qissalar mutolaasi.`,
+    alternates: {
+      canonical: `/janrlar/${params.slug}`,
+    },
   };
 }
 

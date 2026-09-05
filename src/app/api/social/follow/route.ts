@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Noto‘g‘ri parametrlar' }, { status: 400 });
     }
 
-    const profile = await getCurrentProfile();
+    const profile = await getCurrentProfile(req.headers.get('Authorization'));
     const admin = createAdminClient();
 
     let isFollowing = false;
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const profile = await getCurrentProfile();
+    const profile = await getCurrentProfile(req.headers.get('Authorization'));
     if (!profile) {
       return NextResponse.json({ error: 'Iltimos, avval tizimga kiring' }, { status: 401 });
     }

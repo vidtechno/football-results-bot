@@ -3,7 +3,7 @@ import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 
 export async function GET(req: NextRequest) {
   try {
-    const profile = await getCurrentProfile();
+    const profile = await getCurrentProfile(req.headers.get('Authorization'));
     if (!profile) {
       return NextResponse.json({ notifications: [], unread_count: 0 });
     }
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const profile = await getCurrentProfile();
+    const profile = await getCurrentProfile(req.headers.get('Authorization'));
     if (!profile) {
       return NextResponse.json({ error: 'Iltimos, avval tizimga kiring' }, { status: 401 });
     }

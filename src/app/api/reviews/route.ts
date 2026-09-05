@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'workId talab qilinadi' }, { status: 400 });
     }
 
-    const profile = await getCurrentProfile();
+    const profile = await getCurrentProfile(req.headers.get('Authorization'));
     const admin = createAdminClient();
 
     // Support both work UUID and slug
@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const profile = await getCurrentProfile();
+    const profile = await getCurrentProfile(req.headers.get('Authorization'));
     if (!profile) {
       return NextResponse.json({ error: 'Iltimos, avval tizimga kiring' }, { status: 401 });
     }
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
         .select('id')
         .eq('buyer_id', profile.id)
         .eq('work_id', workId)
-        .in('status', ['active', 'completed'])
+        .in('status', ['active', 'completed', 'paid'])
         .limit(1),
     ]);
 
@@ -201,26 +201,59 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Insert review
-    const { data: review, error: insertError } = await admin
+    // Check if user already submitted a review (edit support)
+    const { data: existingReview } = await admin
       .from('work_reviews')
-      .insert({
-        work_id: workId,
-        user_id: profile.id,
-        rating: numRating,
-        title: title ? title.trim() : null,
-        content: content.trim(),
-        contains_spoilers: Boolean(containsSpoilers),
-      })
-      .select(`
-        id, rating, title, content, contains_spoilers, helpful_count, created_at,
-        user:profiles(id, display_name, username, avatar_url)
-      `)
-      .single();
+      .select('id')
+      .eq('work_id', workId)
+      .eq('user_id', profile.id)
+      .maybeSingle();
 
-    if (insertError) {
-      console.error('Error creating review:', insertError);
-      return NextResponse.json({ error: 'Taqriz saqlanmadi yoki siz allaqachon taqriz qoldirgansiz' }, { status: 400 });
+    let review: any = null;
+    if (existingReview) {
+      const { data: updatedReview, error: updateError } = await admin
+        .from('work_reviews')
+        .update({
+          rating: numRating,
+          title: title ? title.trim() : null,
+          content: content.trim(),
+          contains_spoilers: Boolean(containsSpoilers),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingReview.id)
+        .select(`
+          id, rating, title, content, contains_spoilers, helpful_count, created_at,
+          user:profiles(id, display_name, username, avatar_url)
+        `)
+        .single();
+
+      if (updateError) {
+        console.error('Error updating review:', updateError);
+        return NextResponse.json({ error: 'Taqrizni yangilashda xatolik yuz berdi' }, { status: 400 });
+      }
+      review = updatedReview;
+    } else {
+      const { data: insertedReview, error: insertError } = await admin
+        .from('work_reviews')
+        .insert({
+          work_id: workId,
+          user_id: profile.id,
+          rating: numRating,
+          title: title ? title.trim() : null,
+          content: content.trim(),
+          contains_spoilers: Boolean(containsSpoilers),
+        })
+        .select(`
+          id, rating, title, content, contains_spoilers, helpful_count, created_at,
+          user:profiles(id, display_name, username, avatar_url)
+        `)
+        .single();
+
+      if (insertError) {
+        console.error('Error creating review:', insertError);
+        return NextResponse.json({ error: 'Taqriz saqlanmadi' }, { status: 400 });
+      }
+      review = insertedReview;
     }
 
     // Update work's rating stats gracefully

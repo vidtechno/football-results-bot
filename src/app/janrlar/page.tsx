@@ -7,8 +7,11 @@ import { getGenresWithCounts } from '@/lib/db/queries';
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: 'Janrlar katalogi | Manbora',
+  title: 'Janrlar katalogi',
   description: 'O‘zbek adabiyoti va jahon asarlari janrlar bo‘yicha: Roman, Qissa, Detektiv, Fantastika, Tarixiy, Biznes va boshqalar.',
+  alternates: {
+    canonical: '/janrlar',
+  },
 };
 
 export default async function JanrlarPage() {

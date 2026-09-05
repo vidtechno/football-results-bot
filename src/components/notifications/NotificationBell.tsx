@@ -7,10 +7,13 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 
+import { supabase } from '@/lib/supabase/client';
+
 interface NotificationItem {
   id: string;
   type: string;
   title: string;
+  body?: string;
   message?: string;
   summary?: string;
   link_url?: string;
@@ -30,7 +33,14 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
     if (!user) return;
     try {
       const endpoint = isAdmin ? '/api/admin/notifications' : '/api/notifications';
-      const res = await fetch(endpoint);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(endpoint, { headers });
       if (res.ok) {
         const data = await res.json();
         setNotifications((data.notifications || []).slice(0, 5));
@@ -167,7 +177,7 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
                       )}
                     </div>
                     <p className="text-[11px] text-[#78716C] mt-0.5 line-clamp-2">
-                      {item.message || item.summary || ''}
+                      {item.body || item.message || item.summary || ''}
                     </p>
                     <span className="text-[10px] text-[#A8A29E] block mt-1">
                       {formatUzbekDate(item.created_at)}

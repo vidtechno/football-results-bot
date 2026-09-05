@@ -142,7 +142,7 @@ export function KirishForm({ initialRedirect = '/kabinet' }: KirishFormProps) {
       <div className="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-500 font-medium">
         Hali ro‘yxatdan o‘tmaganmisiz?{' '}
         <Link
-          href="/royxatdan-otish"
+          href={rawRedirect ? `/royxatdan-otish?redirect=${encodeURIComponent(rawRedirect)}` : '/royxatdan-otish'}
           className="font-bold text-blue-600 hover:text-blue-700 hover:underline"
         >
           Hisob yaratish

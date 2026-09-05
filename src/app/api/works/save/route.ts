@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     if (id) {
       const { data: existing } = await supabase
         .from('works')
-        .select('id, author_id')
+        .select('id, author_id, status')
         .eq('id', id)
         .single();
 
@@ -67,6 +67,62 @@ export async function POST(request: Request) {
           { success: false, error: 'Siz faqat o‘zingizning asaringizni tahrirlashingiz mumkin' },
           { status: 403 },
         );
+      }
+
+      if (existing.status === 'published') {
+        const { data: existingRev } = await supabase
+          .from('work_revisions')
+          .select('id')
+          .eq('work_id', id)
+          .eq('author_id', profile.id)
+          .eq('status', 'pending_review')
+          .maybeSingle();
+
+        let revisionResult;
+        if (existingRev) {
+          const { data } = await supabase
+            .from('work_revisions')
+            .update({
+              title,
+              description,
+              cover_url: coverUrl,
+              type,
+              access_type: accessType,
+              full_work_price: accessType === 'paid_full_work' ? Math.max(0, Math.floor(fullWorkPrice)) : 0,
+              age_rating: ageRating,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingRev.id)
+            .select()
+            .single();
+          revisionResult = data;
+        } else {
+          const { data } = await supabase
+            .from('work_revisions')
+            .insert({
+              work_id: id,
+              author_id: profile.id,
+              title,
+              description,
+              cover_url: coverUrl,
+              type,
+              access_type: accessType,
+              full_work_price: accessType === 'paid_full_work' ? Math.max(0, Math.floor(fullWorkPrice)) : 0,
+              age_rating: ageRating,
+              status: 'pending_review',
+            })
+            .select()
+            .single();
+          revisionResult = data;
+        }
+
+        return NextResponse.json({
+          success: true,
+          isRevision: true,
+          message: 'Nashr qilingan asarga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
+          revision: revisionResult,
+          work: { ...existing, title, description, cover_url: coverUrl, type, access_type: accessType },
+        });
       }
 
       const { data: updatedWork, error: updateError } = await supabase

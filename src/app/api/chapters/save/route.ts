@@ -52,7 +52,67 @@ export async function POST(request: Request) {
     if (!slug) slug = `bob-${chapterNumber}`;
 
     if (id) {
-      // Update chapter metadata
+      const { data: existingChap } = await supabase
+        .from('chapters')
+        .select('*, work:works(status)')
+        .eq('id', id)
+        .eq('work_id', workId)
+        .single();
+
+      const isPublished = existingChap?.status === 'published' || (existingChap?.work as any)?.status === 'published';
+
+      if (isPublished) {
+        const { data: existingRev } = await supabase
+          .from('chapter_revisions')
+          .select('id')
+          .eq('chapter_id', id)
+          .eq('author_id', profile.id)
+          .eq('status', 'pending_review')
+          .maybeSingle();
+
+        let revisionResult;
+        if (existingRev) {
+          const { data } = await supabase
+            .from('chapter_revisions')
+            .update({
+              title,
+              content,
+              is_free: isFree,
+              price: isFree ? 0 : Math.max(0, Math.floor(price)),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingRev.id)
+            .select()
+            .single();
+          revisionResult = data;
+        } else {
+          const { data } = await supabase
+            .from('chapter_revisions')
+            .insert({
+              chapter_id: id,
+              work_id: workId,
+              author_id: profile.id,
+              title,
+              content,
+              is_free: isFree,
+              price: isFree ? 0 : Math.max(0, Math.floor(price)),
+              status: 'pending_review',
+            })
+            .select()
+            .single();
+          revisionResult = data;
+        }
+
+        return NextResponse.json({
+          success: true,
+          isRevision: true,
+          message: 'Nashr qilingan bobga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
+          revision: revisionResult,
+          chapter: { ...existingChap, title, content, is_free: isFree, price },
+        });
+      }
+
+      // Update draft chapter metadata
       const { data: updatedChapter, error: updateError } = await supabase
         .from('chapters')
         .update({

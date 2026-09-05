@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   BookOpen,
@@ -37,14 +38,21 @@ export function Navbar() {
         <div className="flex items-center justify-between h-15 sm:h-16">
           {/* Manbora Literary Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group shrink-0" aria-label="Manbora Bosh Sahifa">
-            <div className="relative w-8.5 h-8.5 sm:w-9.5 sm:h-9.5 rounded-xl bg-[#1C1917] flex items-center justify-center text-amber-500 shadow-xs group-hover:scale-102 transition-transform duration-200 shrink-0">
-              <BookOpen className="w-4.5 h-4.5 text-amber-400" />
+            <div className="relative w-8.5 h-8.5 sm:w-9.5 sm:h-9.5 rounded-xl bg-[#FAF8F5] border border-[#E7E2D9] flex items-center justify-center p-1.5 shadow-2xs group-hover:scale-102 group-hover:border-amber-400/60 transition-all duration-200 shrink-0">
+              <Image
+                src="/brand/manbora-mark.svg"
+                alt="Manbora"
+                width={24}
+                height={24}
+                className="w-6 h-6 object-contain"
+                priority
+              />
             </div>
-            <div className="flex flex-col justify-center">
-              <span className="text-xl sm:text-2xl font-serif font-black text-[#1C1917] tracking-tight leading-none">
+            <div className="flex flex-col justify-center select-none">
+              <span className="text-xl sm:text-2xl font-serif font-black text-[#1C1917] tracking-tight leading-none whitespace-nowrap">
                 Manbora
               </span>
-              <span className="text-[9px] sm:text-[10px] text-[#B45309] font-bold tracking-wider uppercase leading-tight pt-0.5">
+              <span className="hidden sm:block text-[9px] sm:text-[10px] text-[#B45309] font-bold tracking-wider uppercase leading-tight pt-0.5 whitespace-nowrap">
                 Kitob va mutolaa
               </span>
             </div>

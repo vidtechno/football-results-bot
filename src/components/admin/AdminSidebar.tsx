@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -60,13 +61,20 @@ export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: Adm
         {/* Brand Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-500 text-white flex items-center justify-center font-black shadow-md shadow-blue-600/30">
-              <Zap className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-stone-900 border border-stone-800 p-2 flex items-center justify-center shadow-xs">
+              <Image
+                src="/brand/manbora-mark.svg"
+                alt="Manbora"
+                width={24}
+                height={24}
+                className="w-6 h-6 object-contain"
+                priority
+              />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-black text-slate-900 text-base">Manbora</span>
-                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">ADMIN</span>
+                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">ADMIN</span>
               </div>
               <span className="text-[11px] text-slate-400 font-bold block">Boshqaruv Tizimi</span>
             </div>

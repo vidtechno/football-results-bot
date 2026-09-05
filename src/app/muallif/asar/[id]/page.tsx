@@ -53,6 +53,7 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [workRevisions, setWorkRevisions] = useState<WorkRevision[]>([]);
+  const [chapterRevisions, setChapterRevisions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [activeTab, setActiveTab] = useState<'chapters' | 'settings'>('chapters');
@@ -95,7 +96,7 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
       }
 
       // Concurrently fetch work with genres, active genres, chapters, and revisions
-      const [workRes, genresRes, chapRes, revisionsRes] = await Promise.all([
+      const [workRes, genresRes, chapRes, revisionsRes, chapRevisionsRes] = await Promise.all([
         supabase
           .from('works')
           .select(`
@@ -117,6 +118,12 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
           .order('chapter_number', { ascending: true }),
         supabase
           .from('work_revisions')
+          .select('*')
+          .eq('work_id', workId)
+          .order('created_at', { ascending: false })
+          .then((r: any) => r, () => ({ data: [] })),
+        supabase
+          .from('chapter_revisions')
           .select('*')
           .eq('work_id', workId)
           .order('created_at', { ascending: false })
@@ -156,6 +163,9 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
 
       if (revisionsRes.data) {
         setWorkRevisions(revisionsRes.data as WorkRevision[]);
+      }
+      if (chapRevisionsRes.data) {
+        setChapterRevisions(chapRevisionsRes.data as any[]);
       }
     } catch (err) {
       console.error(err);
@@ -553,7 +563,7 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
           <span>Asar sozlamalari & Muqova</span>
         </button>
 
-        {workRevisions.length > 0 && (
+        {(workRevisions.length > 0 || chapterRevisions.length > 0) && (
           <button
             type="button"
             onClick={() => setActiveTab('revisions' as any)}
@@ -564,7 +574,7 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Tahrirlar tarixi ({workRevisions.length})</span>
+            <span>Tahrirlar tarixi ({workRevisions.length + chapterRevisions.length})</span>
           </button>
         )}
       </div>
@@ -854,9 +864,48 @@ export default function AuthorWorkEditorPage({ params }: AuthorWorkEditorPagePro
 
           <div className="bg-white rounded-3xl border border-stone-200 divide-y divide-stone-100 overflow-hidden shadow-2xs">
             {workRevisions.map((rev) => (
-              <div key={rev.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+              <div key={`work_${rev.id}`} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-stone-100 text-stone-700">
+                      Asar tahriri
+                    </span>
+                    <span className="font-bold font-serif text-stone-900 text-sm">{rev.title}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                        rev.status === 'approved'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : rev.status === 'pending_review'
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                          : 'bg-rose-50 text-rose-800 border border-rose-200'
+                      }`}
+                    >
+                      {rev.status === 'approved'
+                        ? 'Tasdiqlangan'
+                        : rev.status === 'pending_review'
+                        ? 'Tekshiruvda'
+                        : 'Rad etilgan'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Kiritilgan sana: {new Date(rev.created_at).toLocaleDateString('uz-UZ')}
+                  </p>
+                  {rev.rejection_reason && rev.status === 'rejected' && (
+                    <p className="text-xs text-rose-700 bg-rose-50 p-2 rounded-xl border border-rose-200 mt-2 font-medium">
+                      Rad etish sababi: {rev.rejection_reason}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {chapterRevisions.map((rev) => (
+              <div key={`chap_${rev.id}`} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900">
+                      Bob tahriri
+                    </span>
                     <span className="font-bold font-serif text-stone-900 text-sm">{rev.title}</span>
                     <span
                       className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${

@@ -11,35 +11,62 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const chapterId = searchParams.get('chapterId');
+    const workId = searchParams.get('workId');
 
-    if (!chapterId) {
-      return NextResponse.json({ success: false, error: 'Bob ID ko‘rsatilmadi' }, { status: 400 });
+    if (!chapterId && !workId) {
+      return NextResponse.json({ success: false, error: 'Bob yoki asar ID ko‘rsatilmadi' }, { status: 400 });
     }
 
     const adminClient = createAdminClient();
 
-    const { data: chapter } = await adminClient
-      .from('chapters')
-      .select('id, work:works(author_id)')
-      .eq('id', chapterId)
-      .single();
+    if (chapterId) {
+      const { data: chapter } = await adminClient
+        .from('chapters')
+        .select('id, work:works(author_id)')
+        .eq('id', chapterId)
+        .single();
 
-    const workAuthorId = (chapter?.work as any)?.author_id;
-    if (!chapter || (workAuthorId !== profile.id && !profile.is_admin)) {
-      return NextResponse.json({ success: false, error: 'Ruxsat berilmadi' }, { status: 403 });
+      const workAuthorId = (chapter?.work as any)?.author_id;
+      if (!chapter || (workAuthorId !== profile.id && !profile.is_admin)) {
+        return NextResponse.json({ success: false, error: 'Ruxsat berilmadi' }, { status: 403 });
+      }
+
+      const { data: revisions, error } = await adminClient
+        .from('chapter_revisions')
+        .select('*')
+        .eq('chapter_id', chapterId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return NextResponse.json({ success: true, revisions: [] });
+      }
+
+      return NextResponse.json({ success: true, revisions: revisions || [] });
+    } else if (workId) {
+      const { data: work } = await adminClient
+        .from('works')
+        .select('id, author_id')
+        .eq('id', workId)
+        .single();
+
+      if (!work || (work.author_id !== profile.id && !profile.is_admin)) {
+        return NextResponse.json({ success: false, error: 'Ruxsat berilmadi' }, { status: 403 });
+      }
+
+      const { data: revisions, error } = await adminClient
+        .from('chapter_revisions')
+        .select('*')
+        .eq('work_id', workId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return NextResponse.json({ success: true, revisions: [] });
+      }
+
+      return NextResponse.json({ success: true, revisions: revisions || [] });
     }
 
-    const { data: revisions, error } = await adminClient
-      .from('chapter_revisions')
-      .select('*')
-      .eq('chapter_id', chapterId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return NextResponse.json({ success: true, revisions: [] });
-    }
-
-    return NextResponse.json({ success: true, revisions: revisions || [] });
+    return NextResponse.json({ success: true, revisions: [] });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || 'Server xatosi' }, { status: 500 });
   }
@@ -53,7 +80,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const chapterId = String(body.chapterId || '');
+    const chapterId = String(body.chapterId || body.id || '');
 
     if (!chapterId) {
       return NextResponse.json({ success: false, error: 'Bob ID talab qilinadi' }, { status: 400 });
@@ -63,7 +90,7 @@ export async function POST(request: Request) {
 
     const { data: chapter } = await adminClient
       .from('chapters')
-      .select('*, work:works(author_id)')
+      .select('*, work:works(author_id, status)')
       .eq('id', chapterId)
       .single();
 
@@ -82,8 +109,10 @@ export async function POST(request: Request) {
     const isFree = Boolean(body.isFree);
     const price = Number(body.price || 0);
 
-    // If chapter is draft, update directly
-    if (chapter.status === 'draft') {
+    const isPublished = chapter.status === 'published' || (chapter.work as any)?.status === 'published';
+
+    // If chapter is draft and work is not published, update directly
+    if (!isPublished) {
       await adminClient
         .from('chapters')
         .update({

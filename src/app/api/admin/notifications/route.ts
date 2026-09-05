@@ -16,11 +16,13 @@ export async function GET(request: Request) {
       { data: works },
       { data: authors },
       { data: workRevisions },
+      { data: chapterRevisions },
     ] = await Promise.all([
       supabase.from('payout_requests').select('id, requested_amount, created_at').eq('status', 'pending').limit(5),
       supabase.from('works').select('id, title, created_at').eq('status', 'pending_review').limit(5),
       supabase.from('author_profiles').select('user_id, pen_name, created_at').eq('status', 'pending').limit(5),
       supabase.from('work_revisions').select('id, title, created_at').eq('status', 'pending_review').limit(5),
+      supabase.from('chapter_revisions').select('id, title, created_at').eq('status', 'pending_review').limit(5),
     ]);
 
     const notifications: any[] = [];
@@ -63,9 +65,21 @@ export async function GET(request: Request) {
 
     (workRevisions || []).forEach((r) => {
       notifications.push({
-        id: `revision_${r.id}`,
-        title: 'Yangi tahrir moderatsiyasi',
+        id: `work_rev_${r.id}`,
+        title: 'Asar tahriri moderatsiyasi',
         summary: `"${r.title}" asariga yangi tahrir yuborildi`,
+        link_url: '/diyoration/tahrirlar',
+        created_at: r.created_at,
+        is_read: false,
+        type: 'revision',
+      });
+    });
+
+    (chapterRevisions || []).forEach((r) => {
+      notifications.push({
+        id: `chap_rev_${r.id}`,
+        title: 'Bob tahriri moderatsiyasi',
+        summary: `"${r.title}" bobiga yangi tahrir yuborildi`,
         link_url: '/diyoration/tahrirlar',
         created_at: r.created_at,
         is_read: false,

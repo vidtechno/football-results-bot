@@ -11,8 +11,15 @@ import {
   Loader2,
   AlertCircle,
   X,
+  User,
+  Layers,
+  FileText,
+  DollarSign,
+  Tag,
+  Eye,
 } from 'lucide-react';
 import { formatUzbekDate } from '@/lib/utils/formatters';
+import { formatUZS } from '@/lib/utils/currency';
 
 export default function AdminRevisionsPage() {
   const [workRevisions, setWorkRevisions] = useState<any[]>([]);
@@ -36,8 +43,8 @@ export default function AdminRevisionsPage() {
         setWorkRevisions(data.workRevisions || []);
         setChapterRevisions(data.chapterRevisions || []);
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Error fetching revisions:', err);
     } finally {
       setLoading(false);
     }
@@ -71,7 +78,7 @@ export default function AdminRevisionsPage() {
       setSelectedRevision(null);
       setShowRejectModal(false);
       setRejectReason('');
-      fetchRevisions();
+      await fetchRevisions();
     } catch (err: any) {
       setActionError(err.message || 'Xatolik yuz berdi');
     } finally {
@@ -137,58 +144,81 @@ export default function AdminRevisionsPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {(activeTab === 'works' ? workRevisions : chapterRevisions).map((rev) => (
-              <div key={rev.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <strong className="text-sm font-serif font-bold text-slate-900">
-                      {rev.title}
-                    </strong>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-900">
-                      Kutilmoqda
-                    </span>
+            {(activeTab === 'works' ? workRevisions : chapterRevisions).map((rev) => {
+              const authorName = rev.author?.full_name || rev.author?.email || 'Muallif';
+              const workTitle = activeTab === 'works' ? (rev.liveWork?.title || rev.title) : (rev.work?.title || 'Asar');
+
+              return (
+                <div key={rev.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors">
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <strong className="text-sm font-serif font-bold text-slate-900">
+                        {rev.title}
+                      </strong>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-900">
+                        Kutilmoqda
+                      </span>
+                      {activeTab === 'chapters' && rev.liveChapter && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
+                          Bob #{rev.liveChapter.chapter_number}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-medium">
+                      <span className="flex items-center gap-1 text-slate-700 font-semibold">
+                        <User className="w-3.5 h-3.5 text-slate-400" />
+                        {authorName}
+                      </span>
+                      <span>•</span>
+                      <span>Asar: <strong className="text-slate-800">{workTitle}</strong></span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        {formatUzbekDate(rev.created_at)}
+                      </span>
+                    </div>
+
+                    {rev.description && (
+                      <p className="text-xs text-slate-600 line-clamp-2 max-w-2xl pt-1">
+                        {rev.description}
+                      </p>
+                    )}
                   </div>
 
-                  <p className="text-xs text-slate-500 mt-1">
-                    {activeTab === 'works' ? 'Asar tahriri' : 'Bob tahriri'} • Yuborilgan: {formatUzbekDate(rev.created_at)}
-                  </p>
-
-                  {rev.description && (
-                    <p className="text-xs text-slate-600 mt-2 max-w-2xl line-clamp-2">
-                      {rev.description}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRevision(rev)}
+                      className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs min-h-[40px] flex items-center gap-1.5 transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Solishtirish</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAction(activeTab === 'works' ? 'work' : 'chapter', rev.id, 'approve')}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs min-h-[40px] flex items-center gap-1.5 transition-colors"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Tasdiqlash</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRevision(rev);
+                        setShowRejectModal(true);
+                        setRejectReason('');
+                      }}
+                      className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs min-h-[40px] flex items-center gap-1.5 transition-colors"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Rad etish</span>
+                    </button>
+                  </div>
                 </div>
-
-                <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRevision({ ...rev, itemType: activeTab === 'works' ? 'work' : 'chapter' })}
-                    className="px-3.5 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs min-h-[40px]"
-                  >
-                    Solishtirish
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAction(activeTab === 'works' ? 'work' : 'chapter', rev.id, 'approve')}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs min-h-[40px]"
-                  >
-                    Tasdiqlash
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedRevision({ ...rev, itemType: activeTab === 'works' ? 'work' : 'chapter' });
-                      setShowRejectModal(true);
-                      setRejectReason('');
-                    }}
-                    className="px-3 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs min-h-[40px]"
-                  >
-                    Rad etish
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -198,63 +228,161 @@ export default function AdminRevisionsPage() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto"
         >
-          <div className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl p-6 border border-slate-200 shadow-2xl flex flex-col overflow-hidden space-y-4">
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl p-6 border border-slate-200 shadow-2xl flex flex-col overflow-hidden space-y-4 my-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-serif font-bold text-slate-900 text-base">
-                Tahrirni ko‘rib chiqish: {selectedRevision.title}
-              </h3>
+              <div>
+                <h3 className="font-serif font-bold text-slate-900 text-base">
+                  {selectedRevision.itemType === 'work' ? 'Asar tahririni solishtirish' : 'Bob tahririni solishtirish'}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Muallif: {selectedRevision.author?.full_name || selectedRevision.author?.email} • Yuborilgan: {formatUzbekDate(selectedRevision.created_at)}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setSelectedRevision(null)}
-                className="text-slate-400 hover:text-slate-700"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 text-xs">
-              {selectedRevision.description && (
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">
-                    Tavsif tahriri:
-                  </span>
-                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 whitespace-pre-line text-slate-800">
-                    {selectedRevision.description}
+            <div className="flex-1 overflow-y-auto space-y-4 text-xs pr-1">
+              {/* Work Comparison View */}
+              {selectedRevision.itemType === 'work' && (
+                <div className="space-y-4">
+                  {/* Title Diff */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                        Hozirgi Asar Nomi (Jonli)
+                      </span>
+                      <p className="text-xs font-bold text-slate-800">
+                        {selectedRevision.liveWork?.title || '—'}
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
+                      <span className="text-[10px] font-black uppercase text-amber-800 block mb-1">
+                        Taklif etilgan Yangi Nom
+                      </span>
+                      <p className="text-xs font-bold text-amber-950">
+                        {selectedRevision.title}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Description Diff */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                        Hozirgi Tavsif (Jonli)
+                      </span>
+                      <p className="text-xs text-slate-700 whitespace-pre-line">
+                        {selectedRevision.liveWork?.description || '—'}
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
+                      <span className="text-[10px] font-black uppercase text-amber-800 block mb-1">
+                        Taklif etilgan Yangi Tavsif
+                      </span>
+                      <p className="text-xs text-amber-950 whitespace-pre-line">
+                        {selectedRevision.description || '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Metadata Diff */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-400 font-bold block">Kirish turi:</span>
+                      <span className="font-bold text-slate-800 capitalize">{selectedRevision.access_type}</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-400 font-bold block">Asar narxi:</span>
+                      <span className="font-bold text-slate-800">{formatUZS(selectedRevision.full_work_price || 0)}</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-400 font-bold block">Turi:</span>
+                      <span className="font-bold text-slate-800">{selectedRevision.type}</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-400 font-bold block">Yosh chegarasi:</span>
+                      <span className="font-bold text-slate-800">{selectedRevision.age_rating || '0+'}</span>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {selectedRevision.content && (
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">
-                    Bob matni tahriri:
-                  </span>
-                  <div
-                    className="p-4 rounded-xl bg-slate-50 border border-slate-200 max-h-72 overflow-y-auto reader-article text-slate-800"
-                    dangerouslySetInnerHTML={{ __html: selectedRevision.content }}
-                  />
+              {/* Chapter Comparison View */}
+              {selectedRevision.itemType === 'chapter' && (
+                <div className="space-y-4">
+                  {/* Chapter Header Comparison */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                        Hozirgi Bob Nomi va Narxi
+                      </span>
+                      <p className="text-xs font-bold text-slate-800">
+                        {selectedRevision.liveChapter?.title || '—'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        {selectedRevision.liveChapter?.is_free ? 'Bepul bob' : `Pulli: ${formatUZS(selectedRevision.liveChapter?.price || 0)}`}
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
+                      <span className="text-[10px] font-black uppercase text-amber-800 block mb-1">
+                        Taklif etilgan Bob Nomi va Narxi
+                      </span>
+                      <p className="text-xs font-bold text-amber-950">
+                        {selectedRevision.title}
+                      </p>
+                      <p className="text-[11px] text-amber-900 mt-1 font-semibold">
+                        {selectedRevision.is_free ? 'Bepul bob' : `Pulli: ${formatUZS(selectedRevision.price || 0)}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Chapter Content Comparison */}
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-black uppercase block mb-1.5">
+                      Taklif etilgan yangi bob matni:
+                    </span>
+                    <div
+                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200 max-h-80 overflow-y-auto reader-article text-slate-800 text-xs leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: selectedRevision.content }}
+                    />
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+            {actionError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => handleAction(selectedRevision.itemType, selectedRevision.id, 'approve')}
                 disabled={actionLoading}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs min-h-[44px]"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs min-h-[44px] flex items-center gap-1.5 disabled:opacity-50"
               >
-                Tasdiqlash va faollashtirish
+                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                <span>Tasdiqlash va jonli nashrga kiritish</span>
               </button>
               <button
                 type="button"
                 onClick={() => setShowRejectModal(true)}
                 disabled={actionLoading}
-                className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs min-h-[44px]"
+                className="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs min-h-[44px] flex items-center gap-1.5 disabled:opacity-50"
               >
-                Rad etish
+                <XCircle className="w-4 h-4" />
+                <span>Rad etish</span>
               </button>
             </div>
           </div>
@@ -273,7 +401,7 @@ export default function AdminRevisionsPage() {
               Tahrirni rad etish
             </h3>
             <p className="text-xs text-slate-600">
-              Muallifga tahrir nima uchun rad etilganini bildiring:
+              Muallifga tahrir nima uchun rad etilganini bildiring (ushbu sabab muallif kabinetida ko‘rinadi):
             </p>
 
             <textarea
@@ -295,7 +423,7 @@ export default function AdminRevisionsPage() {
                 type="button"
                 onClick={() => handleAction(selectedRevision.itemType, selectedRevision.id, 'reject')}
                 disabled={actionLoading || !rejectReason.trim()}
-                className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs disabled:opacity-50 min-h-[44px]"
+                className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs disabled:opacity-50 min-h-[44px] flex items-center justify-center gap-1.5"
               >
                 {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Rad etishni tasdiqlash'}
               </button>

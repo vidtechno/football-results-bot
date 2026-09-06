@@ -115,11 +115,33 @@ export function CabinetGenrePreferences() {
 
   if (loading) {
     return (
-      <div className="rounded-3xl border border-[#EAE5DD] bg-white p-6 sm:p-8 shadow-xs max-w-2xl flex flex-col items-center justify-center py-12 gap-3">
-        <Loader2 className="h-6 w-6 animate-spin text-amber-600" />
-        <span className="text-xs font-semibold text-stone-500">
-          Janrlar yuklanmoqda...
-        </span>
+      <div className="rounded-3xl border border-[#EAE5DD] bg-white p-6 sm:p-8 shadow-xs max-w-2xl space-y-5 animate-pulse">
+        <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
+          <div className="h-10 w-10 rounded-2xl bg-stone-200 shrink-0" />
+          <div className="space-y-2 flex-1">
+            <div className="h-5 w-48 bg-stone-200 rounded-md" />
+            <div className="h-3 w-80 max-w-full bg-stone-200 rounded-md" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="h-4 w-28 bg-stone-200 rounded-md" />
+          <div className="h-5 w-36 bg-stone-200 rounded-full" />
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-9 rounded-2xl bg-stone-200"
+              style={{ width: `${60 + ((i * 17) % 45)}px` }}
+            />
+          ))}
+        </div>
+
+        <div className="flex items-center justify-end pt-2 border-t border-stone-100">
+          <div className="h-10 w-32 bg-stone-200 rounded-2xl" />
+        </div>
       </div>
     );
   }

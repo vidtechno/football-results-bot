@@ -45,8 +45,46 @@ export async function executePurchase(
   workId: string,
   chapterId: string | null = null,
   customIdempotencyKey?: string,
+  customClient?: any,
 ): Promise<PurchaseResult> {
-  const supabase = createAdminClient();
+  const supabase = customClient || createAdminClient();
+
+  // Pre-validate work access model to strictly enforce canonical rules
+  const { data: work } = await supabase
+    .from('works')
+    .select('id, access_type, author_id, status, full_work_price')
+    .eq('id', workId)
+    .maybeSingle();
+
+  if (work) {
+    if (work.access_type === 'free') {
+      return {
+        success: true,
+        already_owned: true,
+        message: 'Ushbu asar to‘liq bepul, xarid qilish talab etilmaydi',
+      };
+    }
+    if ((work.access_type === 'paid_full_work' || work.access_type === 'paid_book') && chapterId) {
+      return {
+        success: false,
+        error: 'Ushbu asar faqat to‘liq sotiladi, alohida bob xarid qilinmaydi',
+      };
+    }
+    if (work.access_type === 'paid_by_chapter' && !chapterId) {
+      return {
+        success: false,
+        error: 'Ushbu asar bobma-bob sotiladi, alohida bobni tanlang',
+      };
+    }
+    if (work.author_id === userId) {
+      return {
+        success: true,
+        already_owned: true,
+        message: 'Siz ushbu asarning muallifisiz',
+      };
+    }
+  }
+
   const idempotencyKey =
     customIdempotencyKey ||
     generateIdempotencyKey(`buy_${userId.slice(0, 8)}_${chapterId || workId}`);

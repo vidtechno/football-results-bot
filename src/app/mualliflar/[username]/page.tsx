@@ -15,12 +15,14 @@ import {
   Send,
   Instagram,
   Youtube,
+  PenTool,
 } from 'lucide-react';
 import { getPublicAuthor } from '@/lib/db/queries';
 import { WorkCard } from '@/components/work/WorkCard';
 import { FollowButton } from '@/components/social/FollowButton';
 import { AuthorProfileFeed } from '@/components/author/AuthorProfileFeed';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { getCurrentProfile } from '@/lib/supabase/server';
 
 import {
   sanitizeTelegram,
@@ -76,6 +78,8 @@ export default async function AuthorPublicProfilePage({
 
   const { author, works, totalWorks, totalReads, followerCount } = result;
   const profile = author.profile;
+  const currentViewer = await getCurrentProfile();
+  const isOwnProfile = currentViewer?.id === author.user_id;
 
   const admin = getSupabaseAdmin();
   const { data: authorPosts } = await admin
@@ -236,11 +240,21 @@ export default async function AuthorPublicProfilePage({
 
             {/* Follow Action */}
             <div className="pt-2 flex items-center justify-center sm:justify-start">
-              <FollowButton
-                type="author"
-                targetId={author.user_id}
-                initialFollowerCount={followerCount}
-              />
+              {isOwnProfile ? (
+                <Link
+                  href="/muallif"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-colors shadow-2xs min-h-[44px]"
+                >
+                  <PenTool className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Muallif studiyasi</span>
+                </Link>
+              ) : (
+                <FollowButton
+                  type="author"
+                  targetId={author.user_id}
+                  initialFollowerCount={followerCount}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -265,7 +279,7 @@ export default async function AuthorPublicProfilePage({
             {recentChapters.map((chap) => (
               <Link
                 key={chap.id}
-                href={`/mutolaa/${chap.work?.slug || chap.work_id}/${chap.id}`}
+                href={`/asarlar/${chap.work?.slug || chap.work_id}/${chap.slug || chap.id}`}
                 className="group block p-3.5 rounded-2xl bg-stone-50 hover:bg-amber-50/60 border border-stone-200/80 hover:border-amber-300/80 transition-all shadow-2xs"
               >
                 <div className="flex items-center justify-between text-[11px] text-stone-500 font-medium mb-1">

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   FileDiff,
   CheckCircle2,
@@ -24,12 +25,17 @@ import { formatUZS } from '@/lib/utils/currency';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function AdminRevisionsPage() {
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get('tab') as 'works' | 'chapters' | null;
+
   const [workRevisions, setWorkRevisions] = useState<any[]>([]);
   const [chapterRevisions, setChapterRevisions] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'works' | 'chapters'>('works');
+  const [activeTab, setActiveTab] = useState<'works' | 'chapters'>(
+    urlTab === 'chapters' || urlTab === 'works' ? urlTab : 'works'
+  );
   const [selectedRevision, setSelectedRevision] = useState<any | null>(null);
 
   const [actionLoading, setActionLoading] = useState<boolean>(false);
@@ -44,8 +50,17 @@ export default function AdminRevisionsPage() {
       const res = await fetch('/api/admin/revisions-action');
       const data = await res.json();
       if (data.success) {
-        setWorkRevisions(data.workRevisions || []);
-        setChapterRevisions(data.chapterRevisions || []);
+        const works = data.workRevisions || [];
+        const chapters = data.chapterRevisions || [];
+        setWorkRevisions(works);
+        setChapterRevisions(chapters);
+
+        // Auto-switch to chapters tab if works empty but chapters exist, unless URL specified tab
+        if (!urlTab) {
+          if (works.length === 0 && chapters.length > 0) {
+            setActiveTab('chapters');
+          }
+        }
       } else {
         setError(data.error || 'Tahrirlarni yuklab bo‘lmadi');
       }
@@ -54,7 +69,7 @@ export default function AdminRevisionsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [urlTab]);
 
   useEffect(() => {
     fetchRevisions();
@@ -136,7 +151,12 @@ export default function AdminRevisionsPage() {
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
           type="button"
-          onClick={() => setActiveTab('works')}
+          onClick={() => {
+            setActiveTab('works');
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', 'works');
+            window.history.replaceState({}, '', url.toString());
+          }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px] inline-flex items-center gap-1.5 ${
             activeTab === 'works' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
@@ -146,7 +166,12 @@ export default function AdminRevisionsPage() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('chapters')}
+          onClick={() => {
+            setActiveTab('chapters');
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', 'chapters');
+            window.history.replaceState({}, '', url.toString());
+          }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px] inline-flex items-center gap-1.5 ${
             activeTab === 'chapters' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
@@ -164,8 +189,24 @@ export default function AdminRevisionsPage() {
             <span>Tahrirlar yuklanmoqda...</span>
           </div>
         ) : (activeTab === 'works' ? workRevisions : chapterRevisions).length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-xs font-semibold">
-            Kutilayotgan tahrirlar mavjud emas.
+          <div className="p-12 text-center text-slate-500 text-xs font-semibold space-y-2">
+            {activeTab === 'works' ? (
+              <>
+                <Layers className="w-8 h-8 text-slate-300 mx-auto mb-1" />
+                <p className="text-slate-800 text-sm font-bold">Kutilayotgan asar tahrirlari mavjud emas</p>
+                <p className="text-slate-500 max-w-sm mx-auto font-normal">
+                  Mualliflar asar ma’lumotlarini (nom, tavsif, muqova) o‘zgartirganda moderatsiya uchun shu yerda paydo bo‘ladi.
+                </p>
+              </>
+            ) : (
+              <>
+                <FileText className="w-8 h-8 text-slate-300 mx-auto mb-1" />
+                <p className="text-slate-800 text-sm font-bold">Kutilayotgan bob tahrirlari mavjud emas</p>
+                <p className="text-slate-500 max-w-sm mx-auto font-normal">
+                  Nashr qilingan boblar matni yoki narxi tahrirlanganda yangi versiya tasdiqlash uchun shu yerda ko‘rinadi.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">

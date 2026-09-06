@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   PenTool,
   Plus,
@@ -33,8 +33,10 @@ import type {
   Genre,
 } from '@/lib/types/platform';
 
-export default function MuallifStudioPage() {
+function MuallifStudioContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const createParam = searchParams.get('create');
   const { user, profile, isLoading: authLoading, refreshAuth } = useAuth();
   const [author, setAuthor] = useState<AuthorProfile | null>(null);
   const [works, setWorks] = useState<Work[]>([]);
@@ -55,7 +57,13 @@ export default function MuallifStudioPage() {
   const [isPayoutOpen, setIsPayoutOpen] = useState(false);
 
   // New Work modal state
-  const [isNewWorkOpen, setIsNewWorkOpen] = useState(false);
+  const [isNewWorkOpen, setIsNewWorkOpen] = useState(createParam === 'work');
+
+  useEffect(() => {
+    if (createParam === 'work') {
+      setIsNewWorkOpen(true);
+    }
+  }, [createParam]);
   const [newWorkTitle, setNewWorkTitle] = useState('');
   const [newWorkDesc, setNewWorkDesc] = useState('');
   const [newWorkCover, setNewWorkCover] = useState('');
@@ -793,5 +801,20 @@ export default function MuallifStudioPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MuallifStudioPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+          <span className="text-xs font-semibold text-stone-500">Muallif studiyasi yuklanmoqda...</span>
+        </div>
+      }
+    >
+      <MuallifStudioContent />
+    </React.Suspense>
   );
 }

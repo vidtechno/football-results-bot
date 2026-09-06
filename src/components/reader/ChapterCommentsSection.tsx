@@ -49,6 +49,7 @@ interface ChapterCommentsSectionProps {
   workId: string;
   chapterTitle: string;
   authorUserId?: string;
+  canonicalUrl?: string;
 }
 
 export function ChapterCommentsSection({
@@ -56,6 +57,7 @@ export function ChapterCommentsSection({
   workId,
   chapterTitle,
   authorUserId,
+  canonicalUrl,
 }: ChapterCommentsSectionProps) {
   const { user, profile } = useAuth();
   const [comments, setComments] = useState<CommentItem[]>([]);
@@ -63,6 +65,13 @@ export function ChapterCommentsSection({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [content, setContent] = useState('');
+  const [clientReturnUrl, setClientReturnUrl] = useState<string>(canonicalUrl || '');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setClientReturnUrl(window.location.pathname + window.location.search);
+    }
+  }, []);
   const [isSpoiler, setIsSpoiler] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
@@ -357,7 +366,7 @@ export function ChapterCommentsSection({
             Fikr bildirish va boshqa kitobxonlar bilan munozara qilish uchun tizimga kiring.
           </p>
           <Link
-            href={`/kirish?returnUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}`}
+            href={`/kirish?returnUrl=${encodeURIComponent(clientReturnUrl || canonicalUrl || '/asarlar')}`}
             className="inline-block px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs transition-colors shadow-2xs"
           >
             Kirish yoki ro‘yxatdan o‘tish

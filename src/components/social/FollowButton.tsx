@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
-import { Bell, BellRing, UserPlus, UserCheck, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, BellRing, UserPlus, UserCheck, Loader2, PenTool } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 
@@ -26,7 +27,21 @@ export function FollowButton({
   const router = useRouter();
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [followerCount, setFollowerCount] = useState(initialFollowerCount);
+  const [isHovered, setIsHovered] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // Prevent self-follow: show Author Studio link instead
+  if (type === 'author' && user && user.id === targetId) {
+    return (
+      <Link
+        href="/muallif"
+        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-colors shadow-2xs min-h-[44px]"
+      >
+        <PenTool className="w-3.5 h-3.5 text-amber-700" />
+        <span>Muallif studiyasi</span>
+      </Link>
+    );
+  }
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -65,8 +80,6 @@ export function FollowButton({
       }
     });
   };
-
-  const [isHovered, setIsHovered] = useState(false);
 
   if (variant === 'compact') {
     return (

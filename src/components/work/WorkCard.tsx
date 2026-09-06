@@ -14,6 +14,8 @@ interface WorkCardProps {
   lastReadChapterNumber?: number;
   priority?: boolean;
   context?: 'catalogue' | 'library' | 'carousel';
+  showReadingTime?: boolean;
+  readingTimeMinutes?: number;
 }
 
 export function WorkCard({
@@ -22,6 +24,8 @@ export function WorkCard({
   lastReadChapterNumber,
   priority = false,
   context = 'catalogue',
+  showReadingTime = false,
+  readingTimeMinutes,
 }: WorkCardProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -177,6 +181,14 @@ export function WorkCard({
             {typeof lastReadChapterNumber === 'number' && (
               <span className="text-[9.5px] text-emerald-800 font-bold">
                 {lastReadChapterNumber}-bobda
+              </span>
+            )}
+            {(showReadingTime || typeof readingTimeMinutes === 'number') && (
+              <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <Clock className="w-2.5 h-2.5 text-emerald-700" />
+                <span>
+                  ~{readingTimeMinutes ?? Math.max(1, Math.ceil((work.total_words || 600) / 200))} daqiqa
+                </span>
               </span>
             )}
           </div>

@@ -175,6 +175,18 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
     }
   }, [profile]);
 
+  // Clean up cached user data when signed out to prevent data leakage between accounts
+  useEffect(() => {
+    if (!user) {
+      setProgressList([]);
+      setProgressMap({});
+      setBookmarks([]);
+      setPurchases([]);
+      setLibrary([]);
+      setTopups([]);
+    }
+  }, [user]);
+
   // Parallel data loading function
   const loadTabUserData = useCallback(async (userId: string) => {
     setLoadingData(true);
@@ -247,12 +259,14 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
         setBookmarks(bmRes.bookmarks);
       }
       if (Array.isArray(progressRes?.items)) {
-        setProgressList(progressRes.items);
-        const pMap: Record<string, any> = {};
-        progressRes.items.forEach((p: any) => {
-          pMap[p.work_id || p.id] = p;
-        });
-        setProgressMap(pMap);
+        if (progressRes.items.length > 0 || initialProgress.length === 0) {
+          setProgressList(progressRes.items);
+          const pMap: Record<string, any> = {};
+          progressRes.items.forEach((p: any) => {
+            pMap[p.work_id || p.id] = p;
+          });
+          setProgressMap(pMap);
+        }
       }
 
       // Fetch transactions if wallet exists
@@ -272,7 +286,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
     } finally {
       setLoadingData(false);
     }
-  }, []);
+  }, [initialProgress]);
 
   useEffect(() => {
     if (!authLoading && !user) {

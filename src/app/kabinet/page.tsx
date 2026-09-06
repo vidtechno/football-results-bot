@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
+import { getRecentReadingProgress } from '@/lib/services/progress';
 import KabinetClient from './KabinetClient';
 
 export const dynamic = 'force-dynamic';
@@ -25,20 +26,8 @@ export default async function KabinetPage() {
 
   const admin = createAdminClient();
 
-  const [progressRes, bookmarksRes] = await Promise.all([
-    admin
-      .from('reading_progress')
-      .select(`
-        work_id, chapter_id, page_index, percentage, is_completed, last_read_at,
-        work:works (
-          id, title, slug, cover_url, access_type, type, status,
-          author:author_profiles (pen_name)
-        ),
-        chapter:chapters (id, chapter_number, title, slug)
-      `)
-      .eq('user_id', profile.id)
-      .order('last_read_at', { ascending: false })
-      .limit(6),
+  const [recentProgress, bookmarksRes] = await Promise.all([
+    getRecentReadingProgress(profile.id, 6),
     admin
       .from('reading_bookmarks')
       .select(`
@@ -54,10 +43,21 @@ export default async function KabinetPage() {
       .limit(6),
   ]);
 
+  const initialProgress = recentProgress.map((item) => ({
+    ...item,
+    work_id: item.workId,
+    last_chapter: item.chapter,
+    chapter: item.chapter,
+    page_index: item.pageIndex,
+    percentage: item.percentage,
+    reading_progress: item.percentage,
+    read_url: item.resumeUrl,
+  }));
+
   return (
     <Suspense fallback={<div className="p-8 text-center text-xs text-stone-400">Yuklanmoqda...</div>}>
       <KabinetClient
-        initialProgress={progressRes.data || []}
+        initialProgress={initialProgress}
         initialBookmarks={bookmarksRes.data || []}
       />
     </Suspense>

@@ -386,7 +386,76 @@ export default function AuthorAnalyticsDashboard() {
                 <BarChart3 className="h-5 w-5 text-[#8A847C]" />
               </div>
 
-              {funnel.length === 0 ? (
+              {/* Work Funnels Rendering */}
+              {Array.isArray((data as any)?.workFunnels) && (data as any).workFunnels.length > 0 ? (
+                <div className="space-y-6">
+                  {(data as any).workFunnels.map((wf: any) => {
+                    const chaps = wf.chapters || [];
+                    if (chaps.length === 0) return null;
+                    const maxReads = Math.max(...chaps.map((c: any) => c.reads), 1);
+
+                    return (
+                      <div key={wf.workId} className="space-y-3 pt-3 border-t first:border-t-0 border-[#F0EBE1]">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-serif font-bold text-sm text-[#1A1A1A] flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-amber-600" />
+                            <span>{wf.workTitle}</span>
+                          </h4>
+                          <span className="text-[11px] text-[#8A847C] font-semibold">
+                            {chaps.length} ta bob
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {chaps.map((ch: any, cIdx: number) => {
+                            const chNum = ch.chapterNumber || ch.chapter_number || cIdx + 1;
+                            const percentage = Math.round((ch.reads / maxReads) * 100);
+                            const dropPercent = typeof ch.dropOffRatePercent === 'number' ? ch.dropOffRatePercent : null;
+                            const isFirst = cIdx === 0;
+                            const isHighDrop = dropPercent !== null && dropPercent > 35;
+
+                            return (
+                              <div key={ch.id || `${wf.workId}_${chNum}`} className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="font-semibold text-[#1A1A1A]">
+                                    {chNum}-bob: {ch.title}
+                                  </span>
+                                  <div className="flex items-center gap-3">
+                                    {!isFirst && dropPercent !== null && (
+                                      <span
+                                        className={`font-semibold ${
+                                          dropPercent > 0
+                                            ? isHighDrop
+                                              ? "text-red-600 font-bold"
+                                              : "text-[#8A847C]"
+                                            : "text-emerald-600"
+                                        }`}
+                                      >
+                                        {dropPercent}% chiqish
+                                      </span>
+                                    )}
+                                    <span className="font-bold text-[#1A1A1A]">
+                                      {ch.reads.toLocaleString()} o‘qish
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#F2EFE9]">
+                                  <div
+                                    className={`h-full transition-all duration-500 ${
+                                      isHighDrop ? "bg-amber-500" : "bg-[#4B6BFB]"
+                                    }`}
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : funnel.length === 0 ? (
                 <div className="py-8 text-center text-xs text-[#8A847C]">
                   Hozircha boblar bo‘yicha mutolaa ma’lumotlari mavjud emas.
                 </div>
@@ -394,12 +463,12 @@ export default function AuthorAnalyticsDashboard() {
                 <div className="space-y-3">
                   {(() => {
                     const maxReads = Math.max(...funnel.map((c) => c.reads), 1);
-                    return funnel.map((ch) => {
+                    return funnel.map((ch, idx) => {
                       const chNum = ch.chapterNumber || ch.chapter_number || 1;
                       const chId = ch.chapterId || ch.id || `${chNum}`;
                       const percentage = Math.round((ch.reads / maxReads) * 100);
                       const dropPercent = typeof ch.dropOffRatePercent === 'number' ? ch.dropOffRatePercent : null;
-                      const isFirst = chNum === 1 || ch === funnel[0];
+                      const isFirst = idx === 0 || chNum === 1;
                       const isHighDrop = dropPercent !== null && dropPercent > 35;
                       return (
                         <div key={chId} className="space-y-1">
@@ -413,7 +482,7 @@ export default function AuthorAnalyticsDashboard() {
                                   className={`font-semibold ${
                                     dropPercent > 0
                                       ? isHighDrop
-                                        ? "text-red-600"
+                                        ? "text-red-600 font-bold"
                                         : "text-[#8A847C]"
                                       : "text-emerald-600"
                                   }`}

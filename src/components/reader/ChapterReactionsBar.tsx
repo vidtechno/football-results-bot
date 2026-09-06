@@ -10,6 +10,7 @@ import type { ChapterReactionType } from '@/lib/types/platform';
 interface ChapterReactionsBarProps {
   chapterId: string;
   workId: string;
+  canonicalUrl?: string;
 }
 
 const REACTION_CONFIG: Array<{
@@ -49,7 +50,7 @@ const REACTION_CONFIG: Array<{
   },
 ];
 
-export function ChapterReactionsBar({ chapterId, workId }: ChapterReactionsBarProps) {
+export function ChapterReactionsBar({ chapterId, workId, canonicalUrl }: ChapterReactionsBarProps) {
   const { user } = useAuth();
   const router = useRouter();
 
@@ -97,7 +98,11 @@ export function ChapterReactionsBar({ chapterId, workId }: ChapterReactionsBarPr
 
   const handleToggleReaction = async (type: ChapterReactionType) => {
     if (!user) {
-      router.push(`/kirish?returnUrl=${encodeURIComponent(window.location.pathname)}`);
+      const returnDestination =
+        typeof window !== 'undefined'
+          ? window.location.pathname + window.location.search
+          : canonicalUrl || '/';
+      router.push(`/kirish?returnUrl=${encodeURIComponent(returnDestination)}`);
       return;
     }
 

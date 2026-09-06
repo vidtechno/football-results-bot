@@ -275,19 +275,95 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
 
       {/* Collection Content */}
       {items.length === 0 ? (
-        <div className="p-12 text-center bg-white rounded-3xl border border-[#EAE5DD] shadow-xs space-y-3">
-          <BookOpen className="w-10 h-10 text-stone-300 mx-auto" />
-          <h3 className="font-serif font-bold text-stone-800 text-base">Bu bo‘limda hozircha asarlar yo‘q</h3>
-          <p className="text-xs text-stone-500 max-w-sm mx-auto">
-            Katalogdan yangi kitob va hikoyalarni topib, ularni mutolaa qiling yoki kutubxonangizga saqlang.
-          </p>
-          <Link
-            href="/asarlar"
-            className="inline-block px-4 py-2 rounded-xl bg-stone-900 text-white font-bold text-xs hover:bg-stone-800 transition-colors"
-          >
-            Asarlar katalogiga o‘tish
-          </Link>
-        </div>
+        (() => {
+          const emptyStates: Record<
+            LibraryTab,
+            { icon: any; title: string; description: string; ctaText: string; ctaLink: string }
+          > = {
+            reading: {
+              icon: Clock,
+              title: "Hozircha hech qanday asar o‘qilmayapti",
+              description: "Katalogdan qiziqarli asarni tanlab, mutolaani boshlang. O‘qish jarayoni shu yerda saqlanib boradi.",
+              ctaText: "Asarlar katalogi",
+              ctaLink: "/asarlar",
+            },
+            bookmarks: {
+              icon: Bookmark,
+              title: "Xatcho‘plar mavjud emas",
+              description: "Mutolaa paytida muhim sahifa va jumlalarga xatcho‘p qo‘ying, ular shu yerda jamlanadi.",
+              ctaText: "Mutolaani boshlash",
+              ctaLink: "/asarlar",
+            },
+            purchased: {
+              icon: Lock,
+              title: "Sotib olingan asarlar yo‘q",
+              description: "Pullik asar yoki boblarni sotib olganingizda, ular cheksiz mutolaa uchun bu yerda saqlanadi.",
+              ctaText: "Pullik asarlar",
+              ctaLink: "/asarlar?access=paid",
+            },
+            read_later: {
+              icon: BookOpen,
+              title: "Keyinroq o‘qish ro‘yxati bo‘sh",
+              description: "Vaqtingiz bo‘lmaganda asarlarni 'Keyinroq o‘qish' ro‘yxatiga saqlab qo‘yishingiz mumkin.",
+              ctaText: "Asarlarni ko‘rish",
+              ctaLink: "/asarlar",
+            },
+            favorite: {
+              icon: Heart,
+              title: "Sevimli asarlar belgilanmagan",
+              description: "Sizga yoqqan asarlarni yurakcha belgisi orqali sevimlilar qatoriga qo‘shing.",
+              ctaText: "Eng sara asarlar",
+              ctaLink: "/asarlar?sort=rating",
+            },
+            completed: {
+              icon: CheckCircle2,
+              title: "Tugallangan mutolaalar yo‘q",
+              description: "Boshidan oxirigacha to‘liq o‘qib chiqqan asarlaringiz ushbu bo‘limda ko‘rinadi.",
+              ctaText: "Katalogga o‘tish",
+              ctaLink: "/asarlar",
+            },
+            followed_works: {
+              icon: Sparkles,
+              title: "Kuzatilayotgan asarlar mavjud emas",
+              description: "Davom etayotgan asarlarni kuzating — yangi bob chiqqanda sizga darhol bildirishnoma yuboriladi.",
+              ctaText: "Yangi asarlar",
+              ctaLink: "/asarlar?sort=newest",
+            },
+            followed_authors: {
+              icon: Users,
+              title: "Siz hali birorta muallifni kuzatmagansiz",
+              description: "Yangi boblar haqida xabar olish uchun sevimli mualliflaringizni kuzating.",
+              ctaText: "Mualliflarni ko‘rish",
+              ctaLink: "/mualliflar",
+            },
+          };
+
+          const state = emptyStates[activeTab] || emptyStates.reading;
+          const EmptyIcon = state.icon;
+
+          return (
+            <div className="p-10 sm:p-14 text-center bg-white rounded-3xl border border-[#EAE5DD] shadow-xs space-y-4 max-w-lg mx-auto my-6">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-800 flex items-center justify-center mx-auto border border-amber-200/60 shadow-2xs">
+                <EmptyIcon className="w-7 h-7" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="font-serif font-bold text-stone-900 text-base sm:text-lg">{state.title}</h3>
+                <p className="text-xs sm:text-sm text-stone-600 max-w-sm mx-auto leading-relaxed">
+                  {state.description}
+                </p>
+              </div>
+              <div className="pt-2">
+                <Link
+                  href={state.ctaLink}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs sm:text-sm transition-colors shadow-2xs"
+                >
+                  <span>{state.ctaText}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          );
+        })()
       ) : activeTab === 'reading' ? (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

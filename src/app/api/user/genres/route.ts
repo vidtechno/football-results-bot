@@ -5,21 +5,23 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const profile = await getCurrentProfile(request.headers.get('Authorization'));
     const admin = createAdminClient();
 
-    // 1. Fetch active genres
-    const { data: genresData, error: gErr } = await admin
-      .from('genres')
-      .select('id, name, slug, description, sort_order')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
+    // 1. Fetch profile and active genres concurrently
+    const [profile, genresRes] = await Promise.all([
+      getCurrentProfile(request.headers.get('Authorization')),
+      admin
+        .from('genres')
+        .select('id, name, slug, description, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true }),
+    ]);
 
-    if (gErr) {
-      console.error('Error querying genres:', gErr);
+    if (genresRes.error) {
+      console.error('Error querying genres:', genresRes.error);
     }
 
-    const genres = genresData || [];
+    const genres = genresRes.data || [];
 
     if (!profile) {
       return NextResponse.json({

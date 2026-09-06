@@ -806,7 +806,7 @@ export function ReaderView({
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Sotib olingan</span>
                           </span>
-                        ) : chap.is_free ? (
+                        ) : work.access_type === 'free' || access?.isFree || chap.is_free ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
                             <Unlock className="w-3 h-3" />
                             <span>Bepul</span>
@@ -997,6 +997,7 @@ export function ReaderView({
             <ChapterReactionsBar
               chapterId={currentChapter.id}
               workId={work.id}
+              canonicalUrl={`/asarlar/${work.slug}/${currentChapter.slug}`}
             />
 
             <ChapterCommentsSection
@@ -1004,6 +1005,7 @@ export function ReaderView({
               workId={work.id}
               chapterTitle={currentChapter.title}
               authorUserId={work.author_id}
+              canonicalUrl={`/asarlar/${work.slug}/${currentChapter.slug}`}
             />
           </div>
         )}

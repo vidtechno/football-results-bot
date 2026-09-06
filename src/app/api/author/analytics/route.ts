@@ -137,7 +137,7 @@ export async function GET(request: Request) {
     const uniqueReaderIds = new Set(progressRows.map((r) => r.user_id));
     const totalReads = progressRows.length;
 
-    // Chapter funnel & drop-off analysis
+    // Chapter funnel & drop-off analysis: Partition strictly by work
     const chapterReadCounts = new Map<string, number>();
     progressRows.forEach((r) => {
       if (r.chapter_id) {
@@ -145,51 +145,82 @@ export async function GET(request: Request) {
       }
     });
 
-    const chapterFunnel = chapters.map((chap, idx) => {
-      const readCount = chapterReadCounts.get(chap.id) || 0;
-      const prevReads = idx > 0 ? (chapterReadCounts.get(chapters[idx - 1].id) || 0) : 0;
-      const dropOffRatePercent = calculateDropOffRate(prevReads, readCount, idx === 0);
-
-      return {
-        id: chap.id,
-        chapterId: chap.id,
-        work_id: chap.work_id,
-        chapter_number: chap.chapter_number,
-        chapterNumber: chap.chapter_number,
-        title: chap.title,
-        reads: readCount,
-        dropOffRatePercent,
-      };
+    const chaptersByWork = new Map<string, typeof chapters>();
+    chapters.forEach((ch) => {
+      const list = chaptersByWork.get(ch.work_id) || [];
+      list.push(ch);
+      chaptersByWork.set(ch.work_id, list);
     });
 
-    // Find highest drop-off chapter (greatest drop in readers from previous chapter)
+    const workFunnels: Array<{
+      workId: string;
+      workTitle: string;
+      chapters: any[];
+    }> = [];
+
+    const chapterFunnel: any[] = [];
     let dropOffChapter: any = null;
     let dropOffAlert: any = null;
     let maxDrop = -1;
 
-    for (let i = 1; i < chapterFunnel.length; i++) {
-      const prev = chapterFunnel[i - 1];
-      const curr = chapterFunnel[i];
-      if (prev.reads > 0) {
-        const drop = prev.reads - curr.reads;
-        if (drop > maxDrop && drop > 0) {
-          maxDrop = drop;
-          dropOffChapter = {
-            fromChapterNumber: prev.chapterNumber,
-            toChapterNumber: curr.chapterNumber,
-            fromTitle: prev.title,
-            toTitle: curr.title,
-            dropCount: drop,
-            retentionPercent: Math.round((curr.reads / prev.reads) * 100),
-          };
-          dropOffAlert = {
-            chapterNumber: curr.chapterNumber,
-            title: curr.title,
-            dropOffCount: drop,
-          };
+    works.forEach((w) => {
+      const workChaps = (chaptersByWork.get(w.id) || []).sort(
+        (a, b) => a.chapter_number - b.chapter_number
+      );
+
+      const funnelItems = workChaps.map((chap, idx) => {
+        const readCount = chapterReadCounts.get(chap.id) || 0;
+        const prevReads = idx > 0 ? (chapterReadCounts.get(workChaps[idx - 1].id) || 0) : 0;
+        const dropOffRatePercent = calculateDropOffRate(prevReads, readCount, idx === 0);
+
+        // Reader drop-off risk alert: Only valid same-work funnel and statistically significant evidence
+        // (At least 3 previous reads, at least 2 dropped readers, and >= 30% drop-off)
+        if (idx > 0 && prevReads >= 3) {
+          const drop = prevReads - readCount;
+          const dropRatio = drop / prevReads;
+          if (drop >= 2 && dropRatio >= 0.3 && drop > maxDrop) {
+            maxDrop = drop;
+            dropOffChapter = {
+              workId: w.id,
+              workTitle: w.title,
+              fromChapterNumber: workChaps[idx - 1].chapter_number,
+              toChapterNumber: chap.chapter_number,
+              fromTitle: workChaps[idx - 1].title,
+              toTitle: chap.title,
+              dropCount: drop,
+              retentionPercent: Math.max(0, Math.round((readCount / prevReads) * 100)),
+            };
+            dropOffAlert = {
+              workId: w.id,
+              workTitle: w.title,
+              chapterNumber: chap.chapter_number,
+              title: chap.title,
+              dropOffCount: drop,
+            };
+          }
         }
-      }
-    }
+
+        return {
+          id: chap.id,
+          chapterId: chap.id,
+          work_id: chap.work_id,
+          workTitle: w.title,
+          chapter_number: chap.chapter_number,
+          chapterNumber: chap.chapter_number,
+          title: chap.title,
+          reads: readCount,
+          dropOffRatePercent,
+        };
+      });
+
+      workFunnels.push({
+        workId: w.id,
+        workTitle: w.title,
+        chapters: funnelItems,
+      });
+
+      chapterFunnel.push(...funnelItems);
+    });
 
     const earningsBalance = earningsRes.data?.balance || 0;
     const followersTotal = followersRes.count || 0;
@@ -222,6 +253,7 @@ export async function GET(request: Request) {
       metrics: unifiedMetrics,
       summary: unifiedMetrics,
       chapterFunnel,
+      workFunnels,
       dropOffChapter,
       dropOffAlert,
       works,

@@ -78,10 +78,7 @@ export default async function HomePage() {
       selected.forEach((w) => shownWorkIds.add(w.id));
       return selected;
     }
-    // If all works were already shown, only allow fallback if candidate list is non-empty and total works < 3
-    if (candidateWorks.length > 0 && shownWorkIds.size < 3) {
-      return candidateWorks.slice(0, maxCount);
-    }
+    // Strict deduplication: never repeat works across sections; return empty so empty sections are hidden
     return [];
   };
 
@@ -92,8 +89,21 @@ export default async function HomePage() {
   const editorCandidates = featuredWorks.length > 0 ? featuredWorks : popularWorks;
   const section3Works = getDeduplicatedSlice(editorCandidates, 5);
 
-  // 4. 15 daqiqada o‘qiladigan hikoyalar
-  const section4Works = getDeduplicatedSlice(storyWorks, 5);
+  // 4. 15 daqiqada o‘qiladigan hikoyalar:
+  // Rule: total published word count / 200 wpm <= 15 mins (<= 3000 words)
+  // Prefer completed short stories, then serialized stories
+  const shortStoriesCandidates = (storyWorks || []).filter((w) => {
+    const words = w.total_words || 0;
+    if (words > 0) {
+      return Math.ceil(words / 200) <= 15;
+    }
+    return w.type === 'serialized_story';
+  }).sort((a, b) => {
+    if (a.completion_status === 'completed' && b.completion_status !== 'completed') return -1;
+    if (b.completion_status === 'completed' && a.completion_status !== 'completed') return 1;
+    return (a.total_words || 0) - (b.total_words || 0);
+  });
+  const section4Works = getDeduplicatedSlice(shortStoriesCandidates, 5);
 
   // 5. Eng ko‘p muhokama qilinayotgan
   const section5Works = getDeduplicatedSlice(popularWorks, 5);
@@ -111,7 +121,10 @@ export default async function HomePage() {
       />
 
       {/* 2. Horizontal Discovery Tabs (Yangi, Siz uchun, Ommabop, Kuzatayotganlarim) */}
-      <HomeDiscoveryTabs />
+      <HomeDiscoveryTabs
+        initialWorks={recentUpdatedWorks}
+        popularWorks={popularWorks}
+      />
 
       {/* SECTION 1: Yaqinda yangilangan (Recently Updated Works) */}
       {section1Works.length > 0 && (
@@ -214,7 +227,13 @@ export default async function HomePage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
             {section4Works.map((work) => (
-              <WorkCard key={work.id} work={work} context="catalogue" />
+              <WorkCard
+                key={work.id}
+                work={work}
+                context="catalogue"
+                showReadingTime={true}
+                readingTimeMinutes={Math.max(1, Math.ceil((work.total_words || 800) / 200))}
+              />
             ))}
           </div>
         </section>

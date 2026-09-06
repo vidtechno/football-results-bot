@@ -159,11 +159,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax';
     document.cookie = 'sb-auth-token=; path=/; max-age=0; SameSite=Lax';
     document.cookie = 'supabase-auth-token=; path=/; max-age=0; SameSite=Lax';
+
+    // Clear user-specific storage to prevent any leakage to subsequent guests
+    try {
+      if (typeof window !== 'undefined') {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (
+            k &&
+            (k.startsWith('manbora:draft:') ||
+              k.startsWith('manbora:progress:') ||
+              k.startsWith('manbora:user:') ||
+              k.startsWith('manbora:auth:'))
+          ) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+        sessionStorage.clear();
+      }
+    } catch {
+      // ignore
+    }
+
     setUser(null);
     setProfile(null);
     setAuthor(null);
     setBalance(null);
     setIsAdmin(false);
+
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   }, []);
 
   const value = useMemo(

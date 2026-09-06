@@ -18,6 +18,7 @@ import {
   Unlock,
   CheckCircle2,
   PenTool,
+  Bookmark,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Work, Chapter } from '@/lib/types/platform';
@@ -178,6 +179,90 @@ export function ReaderView({
     },
     [theme, fontFamily, fontSize, lineHeight, contentWidth],
   );
+
+  // Bookmark state (strictly 1 bookmark per work per reader)
+  const [bookmark, setBookmark] = useState<{ id: string; chapterId: string; pageNumber: number } | null>(null);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let isMounted = true;
+    fetch(`/api/bookmarks?workId=${work.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success && data.bookmark) {
+          setBookmark({
+            id: data.bookmark.id,
+            chapterId: data.bookmark.chapter_id,
+            pageNumber: data.bookmark.page_number,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoggedIn, work.id]);
+
+  const isCurrentPageBookmarked =
+    bookmark !== null &&
+    bookmark.chapterId === currentChapter.id &&
+    bookmark.pageNumber === currentPage;
+
+  const handleToggleBookmark = async () => {
+    if (!isLoggedIn) {
+      const currentUrl =
+        typeof window !== 'undefined'
+          ? window.location.pathname + window.location.search
+          : `/asarlar/${work.slug}`;
+      router.push(`/kirish?returnUrl=${encodeURIComponent(currentUrl)}`);
+      return;
+    }
+    if (bookmarkLoading) return;
+
+    setBookmarkLoading(true);
+    try {
+      if (isCurrentPageBookmarked) {
+        // Remove bookmark
+        const res = await fetch(`/api/bookmarks?workId=${work.id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.success) {
+          setBookmark(null);
+        }
+      } else {
+        // Save / update bookmark to current page
+        const totalWorkChapters = Math.max(1, allChapters.length);
+        const chapterFraction = paginated.totalPages > 0 ? currentPage / paginated.totalPages : 0;
+        const percentage = Math.min(
+          100,
+          Math.max(0, Math.round(((currentIndex + chapterFraction) / totalWorkChapters) * 100)),
+        );
+
+        const res = await fetch('/api/bookmarks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workId: work.id,
+            chapterId: currentChapter.id,
+            pageNumber: currentPage,
+            progressPercent: percentage,
+          }),
+        });
+        const json = await res.json();
+        if (json.success && json.bookmark) {
+          setBookmark({
+            id: json.bookmark.id,
+            chapterId: json.bookmark.chapter_id,
+            pageNumber: json.bookmark.page_number,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Bookmark toggle error:', err);
+    } finally {
+      setBookmarkLoading(false);
+    }
+  };
 
   // Authoritative progress persistence to PostgreSQL server
   const saveProgressToServer = useCallback(
@@ -373,6 +458,35 @@ export function ReaderView({
 
           {/* Reader Controls */}
           <div className="flex items-center gap-1 sm:gap-2">
+            {/* Bookmark Button */}
+            <button
+              type="button"
+              onClick={handleToggleBookmark}
+              disabled={bookmarkLoading}
+              className={clsx(
+                'p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all',
+                isCurrentPageBookmarked
+                  ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 ring-1 ring-amber-500/50'
+                  : 'opacity-85 hover:opacity-100 hover:text-amber-600',
+              )}
+              title={
+                isCurrentPageBookmarked
+                  ? 'Xatcho‘p saqlangan (bosilsa o‘chiriladi)'
+                  : 'Ushbu sahifaga xatcho‘p qo‘yish'
+              }
+              aria-label="Xatcho‘p"
+            >
+              <Bookmark
+                className={clsx(
+                  'w-4 h-4 transition-transform',
+                  isCurrentPageBookmarked && 'fill-amber-600 text-amber-600 dark:fill-amber-400 dark:text-amber-400 scale-110',
+                )}
+              />
+              <span className="hidden sm:inline">
+                {isCurrentPageBookmarked ? 'Xatcho‘p saqlangan' : 'Xatcho‘p'}
+              </span>
+            </button>
+
             {/* Table of Contents Button */}
             <button
               type="button"
@@ -641,15 +755,25 @@ export function ReaderView({
                         <span className="truncate">{chap.title}</span>
                       </div>
                       <div className="flex-shrink-0 ml-2">
-                        {chap.is_free ? (
+                        {access?.accessReason === 'author' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md">
+                            <PenTool className="w-3 h-3" />
+                            <span>Muallif</span>
+                          </span>
+                        ) : access?.accessReason === 'admin' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-md">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Admin</span>
+                          </span>
+                        ) : isChapPurchased || access?.accessReason === 'purchased' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-md">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Sotib olingan</span>
+                          </span>
+                        ) : chap.is_free ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
                             <Unlock className="w-3 h-3" />
                             <span>Bepul</span>
-                          </span>
-                        ) : isChapPurchased ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-md">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Ochiq</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md">

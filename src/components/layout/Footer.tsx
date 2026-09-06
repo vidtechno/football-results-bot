@@ -22,10 +22,11 @@ export function Footer() {
 
           {/* Nav Links */}
           <div className="flex flex-wrap items-center gap-5 sm:gap-7 font-semibold text-slate-600">
-            <Link href="/" className="hover:text-blue-600 transition-colors">Bosh sahifa</Link>
-            <Link href="/asarlar" className="hover:text-blue-600 transition-colors">Barcha asarlar</Link>
-            <Link href="/muallif" className="hover:text-blue-600 transition-colors">Mualliflar uchun</Link>
-            <Link href="/kabinet" className="hover:text-blue-600 transition-colors">Shaxsiy kabinet</Link>
+            <Link href="/" className="hover:text-amber-700 transition-colors">Bosh sahifa</Link>
+            <Link href="/asarlar" className="hover:text-amber-700 transition-colors">Barcha asarlar</Link>
+            <Link href="/kutubxona" className="hover:text-amber-700 transition-colors">Kutubxonam</Link>
+            <Link href="/muallif-boling" className="hover:text-amber-700 transition-colors">Muallif bo‘ling</Link>
+            <Link href="/kabinet" className="hover:text-amber-700 transition-colors">Shaxsiy kabinet</Link>
             <a
               href="https://t.me/diyorbek_anorboyev"
               target="_blank"

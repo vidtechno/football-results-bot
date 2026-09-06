@@ -2,6 +2,14 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
+  const host = request.headers.get('host') || '';
+  if (host.startsWith('www.manbora.uz')) {
+    const url = request.nextUrl.clone();
+    url.host = 'manbora.uz';
+    url.protocol = 'https:';
+    return NextResponse.redirect(url, { status: 308 });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });

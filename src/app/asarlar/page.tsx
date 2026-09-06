@@ -1,7 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { Search, Filter, Compass, BookOpen, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { Search, Compass, BookOpen, Sparkles } from 'lucide-react';
+import { clsx } from 'clsx';
 import { getPaginatedCatalogue, getActiveGenres } from '@/lib/db/queries';
 import { WorkCard } from '@/components/work/WorkCard';
 import { CataloguePagination } from '@/components/catalogue/CataloguePagination';
@@ -9,10 +10,10 @@ import { CataloguePagination } from '@/components/catalogue/CataloguePagination'
 export const revalidate = 30;
 
 export const metadata: Metadata = {
-  title: 'Barcha asarlar katalogi',
+  title: 'Barcha asarlar katalogi | Manbora',
   description: 'O‘zbek adabiyotining sara kitoblari, davomli hikoyalari va qissalari katalogi. Bepul va pullik elektron asarlar mutolaasi.',
   alternates: {
-    canonical: '/asarlar',
+    canonical: 'https://manbora.uz/asarlar',
   },
 };
 
@@ -53,6 +54,25 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
 
   const { works, totalCount, totalPages } = catalogue;
 
+  const buildUrl = (overrides: Record<string, string | undefined>) => {
+    const params = new URLSearchParams();
+    const state: Record<string, string | undefined> = {
+      type: typeFilter,
+      genre: genreSlug,
+      access: accessFilter,
+      sort: sortBy !== 'newest' ? sortBy : undefined,
+      q: query || undefined,
+      ...overrides,
+    };
+    for (const [key, val] of Object.entries(state)) {
+      if (val !== undefined && val !== '') {
+        params.set(key, val);
+      }
+    }
+    const str = params.toString();
+    return str ? `/asarlar?${str}` : '/asarlar';
+  };
+
   return (
     <div className="space-y-6 sm:space-y-8 pb-16">
       {/* Anchor for pagination top scroll */}
@@ -67,6 +87,48 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
         <p className="text-xs sm:text-sm text-[#78716C] font-medium">
           O‘zbek adabiyotining sara kitoblari, qissalari va serialized hikoyalari
         </p>
+      </div>
+
+      {/* Primary Catalog Type Tabs */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#F5F2EC] rounded-2xl w-fit border border-[#EAE5DD]">
+        <Link
+          href={buildUrl({ type: undefined, page: undefined })}
+          className={clsx(
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all',
+            !typeFilter
+              ? 'bg-white text-stone-900 shadow-xs ring-1 ring-stone-200'
+              : 'text-stone-600 hover:text-stone-900',
+          )}
+        >
+          <Compass className="w-4 h-4 text-amber-600" />
+          <span>Barchasi</span>
+        </Link>
+
+        <Link
+          href={buildUrl({ type: 'book', page: undefined })}
+          className={clsx(
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all',
+            typeFilter === 'book'
+              ? 'bg-white text-stone-900 shadow-xs ring-1 ring-stone-200'
+              : 'text-stone-600 hover:text-stone-900',
+          )}
+        >
+          <BookOpen className="w-4 h-4 text-amber-600" />
+          <span>Kitoblar</span>
+        </Link>
+
+        <Link
+          href={buildUrl({ type: 'serialized_story', page: undefined })}
+          className={clsx(
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all',
+            typeFilter === 'serialized_story'
+              ? 'bg-white text-stone-900 shadow-xs ring-1 ring-stone-200'
+              : 'text-stone-600 hover:text-stone-900',
+          )}
+        >
+          <Sparkles className="w-4 h-4 text-amber-600" />
+          <span>Davomli hikoyalar</span>
+        </Link>
       </div>
 
       {/* Search & Filter Toolbar */}
@@ -101,34 +163,37 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
           {/* Quick Filter Badges */}
           <div className="flex flex-wrap items-center gap-1.5">
             <Link
-              href={`/asarlar${query ? `?q=${query}` : ''}`}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-colors ${
-                !typeFilter && !accessFilter && !genreSlug
+              href={buildUrl({ access: undefined, page: undefined })}
+              className={clsx(
+                'px-3 py-1.5 rounded-xl font-bold transition-colors',
+                !accessFilter
                   ? 'bg-[#B45309] text-white shadow-xs'
-                  : 'bg-[#F5F2EC] hover:bg-[#EAE5DD] text-[#57534E]'
-              }`}
+                  : 'bg-[#F5F2EC] hover:bg-[#EAE5DD] text-[#57534E]',
+              )}
             >
-              Barchasi
+              Hammasi
             </Link>
 
             <Link
-              href={`/asarlar?access=free${typeFilter ? `&type=${typeFilter}` : ''}${genreSlug ? `&genre=${genreSlug}` : ''}${query ? `&q=${query}` : ''}`}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-colors ${
+              href={buildUrl({ access: accessFilter === 'free' ? undefined : 'free', page: undefined })}
+              className={clsx(
+                'px-3 py-1.5 rounded-xl font-bold transition-colors',
                 accessFilter === 'free'
                   ? 'bg-[#B45309] text-white shadow-xs'
-                  : 'bg-[#F5F2EC] hover:bg-[#EAE5DD] text-[#57534E]'
-              }`}
+                  : 'bg-[#F5F2EC] hover:bg-[#EAE5DD] text-[#57534E]',
+              )}
             >
               Bepul
             </Link>
 
             <Link
-              href={`/asarlar?access=paid_full_work${typeFilter ? `&type=${typeFilter}` : ''}${genreSlug ? `&genre=${genreSlug}` : ''}${query ? `&q=${query}` : ''}`}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-colors ${
+              href={buildUrl({ access: accessFilter === 'paid_full_work' ? undefined : 'paid_full_work', page: undefined })}
+              className={clsx(
+                'px-3 py-1.5 rounded-xl font-bold transition-colors',
                 accessFilter === 'paid_full_work'
                   ? 'bg-[#B45309] text-white shadow-xs'
-                  : 'bg-[#F5F2EC] hover:bg-[#EAE5DD] text-[#57534E]'
-              }`}
+                  : 'bg-[#F5F2EC] hover:bg-[#EAE5DD] text-[#57534E]',
+              )}
             >
               Pullik
             </Link>
@@ -145,12 +210,13 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
               ].map((s) => (
                 <Link
                   key={s.value}
-                  href={`/asarlar?sort=${s.value}${typeFilter ? `&type=${typeFilter}` : ''}${genreSlug ? `&genre=${genreSlug}` : ''}${accessFilter ? `&access=${accessFilter}` : ''}${query ? `&q=${query}` : ''}`}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                  href={buildUrl({ sort: s.value, page: undefined })}
+                  className={clsx(
+                    'px-2.5 py-1 rounded-lg text-xs font-bold transition-colors',
                     sortBy === s.value
                       ? 'bg-stone-900 text-white'
-                      : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
-                  }`}
+                      : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100',
+                  )}
                 >
                   {s.label}
                 </Link>
@@ -162,12 +228,13 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
         {/* Genres Pill Bar */}
         <div className="pt-2 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
           <Link
-            href={`/asarlar${typeFilter ? `?type=${typeFilter}` : ''}${query ? `&q=${query}` : ''}`}
-            className={`px-3 py-1 rounded-full font-bold whitespace-nowrap shrink-0 transition-colors ${
+            href={buildUrl({ genre: undefined, page: undefined })}
+            className={clsx(
+              'px-3 py-1 rounded-full font-bold whitespace-nowrap shrink-0 transition-colors',
               !genreSlug
                 ? 'bg-amber-100 text-amber-900 border border-amber-300 font-black'
-                : 'bg-[#FAF8F5] border border-[#EAE5DD] text-stone-600 hover:bg-stone-100'
-            }`}
+                : 'bg-[#FAF8F5] border border-[#EAE5DD] text-stone-600 hover:bg-stone-100',
+            )}
           >
             Barcha janrlar
           </Link>
@@ -176,12 +243,13 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
             return (
               <Link
                 key={g.id}
-                href={`/asarlar?genre=${g.slug}${typeFilter ? `&type=${typeFilter}` : ''}${accessFilter ? `&access=${accessFilter}` : ''}${query ? `&q=${query}` : ''}`}
-                className={`px-3 py-1 rounded-full font-bold whitespace-nowrap shrink-0 transition-colors ${
+                href={buildUrl({ genre: isSelected ? undefined : g.slug, page: undefined })}
+                className={clsx(
+                  'px-3 py-1 rounded-full font-bold whitespace-nowrap shrink-0 transition-colors',
                   isSelected
                     ? 'bg-amber-100 text-amber-900 border border-amber-300 font-black'
-                    : 'bg-[#FAF8F5] border border-[#EAE5DD] text-stone-600 hover:bg-stone-100'
-                }`}
+                    : 'bg-[#FAF8F5] border border-[#EAE5DD] text-stone-600 hover:bg-stone-100',
+                )}
               >
                 {g.name}
               </Link>

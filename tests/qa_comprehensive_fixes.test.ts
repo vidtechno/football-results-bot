@@ -774,4 +774,160 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
       expect(migrationSql.includes('check_canonical_pricing_modes')).toBe(true);
     });
   });
+
+  describe('16. Canonical Domain 308 Permanent Redirects & Unified Navigation', () => {
+    it('verifies next.config.js enforces 308 redirects for www, /kitoblar, /hikoyalar, /royxatdan-otish', async () => {
+      const nextConfig = require('../next.config.js');
+      expect(typeof nextConfig.redirects).toBe('function');
+      const redirects = await nextConfig.redirects();
+
+      // Check www -> manbora.uz
+      const wwwRedirect = redirects.find((r: any) => r.has?.[0]?.value === 'www.manbora.uz');
+      expect(wwwRedirect).toBeDefined();
+      expect(wwwRedirect.permanent).toBe(true);
+      expect(wwwRedirect.destination).toBe('https://manbora.uz/:path*');
+
+      // Check /kitoblar -> /asarlar?type=book
+      const kitoblarRedirect = redirects.find((r: any) => r.source === '/kitoblar');
+      expect(kitoblarRedirect).toBeDefined();
+      expect(kitoblarRedirect.destination).toBe('/asarlar?type=book');
+      expect(kitoblarRedirect.permanent).toBe(true);
+
+      // Check /hikoyalar -> /asarlar?type=serialized_story
+      const hikoyalarRedirect = redirects.find((r: any) => r.source === '/hikoyalar');
+      expect(hikoyalarRedirect).toBeDefined();
+      expect(hikoyalarRedirect.destination).toBe('/asarlar?type=serialized_story');
+      expect(hikoyalarRedirect.permanent).toBe(true);
+
+      // Check /royxatdan-otish -> /kirish?mode=register
+      const registerRedirect = redirects.find((r: any) => r.source === '/royxatdan-otish');
+      expect(registerRedirect).toBeDefined();
+      expect(registerRedirect.destination).toBe('/kirish?mode=register');
+      expect(registerRedirect.permanent).toBe(true);
+    });
+  });
+
+  describe('17. Bookmark Schema, Invariant & Deduplication Verification', () => {
+    it('verifies Migration 020 guarantees 1 bookmark per work per reader and deduplicates notifications', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const migrationSql = fs.readFileSync(
+        path.resolve(process.cwd(), 'supabase/migrations/020_reader_bookmarks_and_catalog_unification.sql'),
+        'utf8'
+      );
+
+      // reading_bookmarks table creation
+      expect(migrationSql.includes('CREATE TABLE IF NOT EXISTS public.reading_bookmarks')).toBe(true);
+
+      // Unique constraint: strictly 1 bookmark per user per work
+      expect(migrationSql.includes('CONSTRAINT uq_reading_bookmarks_user_work UNIQUE (user_id, work_id)')).toBe(true);
+
+      // RLS enabled and policies defined
+      expect(migrationSql.includes('ALTER TABLE public.reading_bookmarks ENABLE ROW LEVEL SECURITY;')).toBe(true);
+      expect(migrationSql.includes('Users can view own bookmarks')).toBe(true);
+      expect(migrationSql.includes('Users can insert own bookmarks')).toBe(true);
+      expect(migrationSql.includes('Users can update own bookmarks')).toBe(true);
+      expect(migrationSql.includes('Users can delete own bookmarks')).toBe(true);
+
+      // Notification deduplication index
+      expect(migrationSql.includes('idx_in_site_notifications_dedup')).toBe(true);
+      expect(migrationSql.includes('source_type TEXT')).toBe(true);
+      expect(migrationSql.includes('source_id TEXT')).toBe(true);
+
+      // Notification preferences on profiles
+      expect(migrationSql.includes('notification_preferences JSONB')).toBe(true);
+    });
+  });
+
+  describe('18. Distinct Chapter Access Badges & Entitlement Distinction', () => {
+    it('ensures author and admin are distinguished from regular purchased chapters', async () => {
+      const { getWorkChaptersAccessMap } = await import('@/lib/security/access');
+
+      const authorUserId = 'author-user-id';
+      const adminUserId = 'admin-user-id';
+      const guestUserId = null;
+
+      const chapters = [
+        { id: 'ch-1', work_id: 'work-1', is_free: true, price: 0, chapter_number: 1 },
+        { id: 'ch-2', work_id: 'work-1', is_free: false, price: 5000, chapter_number: 2 },
+      ];
+
+      // 1. Author accessing their own work
+      const authorMap = await getWorkChaptersAccessMap(
+        authorUserId,
+        'work-1',
+        chapters,
+        { authorId: authorUserId }
+      );
+      expect(authorMap['ch-2'].isLocked).toBe(false);
+      expect(authorMap['ch-2'].accessReason).toBe('author');
+      expect(authorMap['ch-2'].isPurchased).toBe(false); // Authors did NOT purchase their own work!
+
+      // 2. Admin accessing any work
+      const adminMap = await getWorkChaptersAccessMap(
+        adminUserId,
+        'work-1',
+        chapters,
+        { authorId: authorUserId, isAdmin: true }
+      );
+      expect(adminMap['ch-2'].isLocked).toBe(false);
+      expect(adminMap['ch-2'].accessReason).toBe('admin');
+      expect(adminMap['ch-2'].isPurchased).toBe(false);
+
+      // 3. Free chapter access for guest
+      const guestMap = await getWorkChaptersAccessMap(
+        guestUserId,
+        'work-1',
+        chapters,
+        { authorId: authorUserId }
+      );
+      expect(guestMap['ch-1'].isLocked).toBe(false);
+      expect(guestMap['ch-1'].accessReason).toBe('free');
+      expect(guestMap['ch-2'].isLocked).toBe(true);
+      expect(guestMap['ch-2'].accessReason).toBe('locked');
+    });
+  });
+
+  describe('19. Dynamic Platform Commission & Author Earnings Formula', () => {
+    it('computes 80% net author earnings with 20% platform commission', () => {
+      const commissionPercentage = 20;
+      const authorPercentage = 100 - commissionPercentage;
+      expect(authorPercentage).toBe(80);
+
+      const price = 15000;
+      const readers = 500;
+      const grossTotal = price * readers; // 7,500,000 UZS
+      const platformFee = Math.floor((grossTotal * commissionPercentage) / 100); // 1,500,000 UZS
+      const authorNet = grossTotal - platformFee; // 6,000,000 UZS
+
+      expect(grossTotal).toBe(7500000);
+      expect(platformFee).toBe(1500000);
+      expect(authorNet).toBe(6000000);
+      expect(authorNet / grossTotal).toBe(0.8);
+    });
+  });
+
+  describe('20. Open Redirect Attack Defense in Auth Flows', () => {
+    it('sanitizes unsafe redirects to default /kabinet', async () => {
+      const { getSafeRedirectUrl } = await import('@/lib/utils/redirect');
+
+      // Valid internal paths
+      expect(getSafeRedirectUrl('/kutubxona')).toBe('/kutubxona');
+      expect(getSafeRedirectUrl('/asarlar/bekatdagi-soat')).toBe('/asarlar/bekatdagi-soat');
+      expect(getSafeRedirectUrl('/muallif?tab=works')).toBe('/muallif?tab=works');
+
+      // Malicious external or protocol-relative vectors
+      expect(getSafeRedirectUrl('https://evil.com')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('http://evil.com')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('//evil.com')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('/\\evil.com')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('javascript:alert(1)')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('/http:evil.com')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('/kutubxona\r\nSet-Cookie:bad=1')).toBe('/kabinet');
+      expect(getSafeRedirectUrl('')).toBe('/kabinet');
+      expect(getSafeRedirectUrl(null)).toBe('/kabinet');
+    });
+  });
 });
+

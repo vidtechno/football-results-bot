@@ -95,7 +95,9 @@ export async function POST(request: Request) {
         type: 'wallet_adjustment',
         title: action === 'credit' ? 'Balansingiz to‘ldirildi' : 'Balansdan mablag‘ yechildi',
         body: `Hisobingiz ${formatUZS(amount)} ga ${action === 'credit' ? 'to‘ldirildi' : 'kamaytirildi'}. Sabab: ${reason}`,
-        linkUrl: '/kabinet',
+        linkUrl: '/kabinet?tab=transactions',
+        sourceType: 'wallet_transaction',
+        sourceId: String(data?.transaction_id || idempotencyKey),
         data: { amount, action, reason },
       });
     } catch {}

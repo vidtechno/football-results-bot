@@ -17,6 +17,7 @@ import {
 import { getPublishedWorks, getActiveGenres } from '@/lib/db/queries';
 import { getCurrentProfile, createServerClient } from '@/lib/supabase/server';
 import { WorkCard } from '@/components/work/WorkCard';
+import { ContinueReadingSection } from '@/components/home/ContinueReadingSection';
 import type { Work, Genre } from '@/lib/types/platform';
 
 export const revalidate = 60; // Revalidate every minute
@@ -41,35 +42,6 @@ export default async function HomePage() {
       .eq('status', 'approved')
       .limit(6),
   ]);
-
-  // If user signed in, load active reading items
-  let continueReadingItems: any[] = [];
-  if (profile) {
-    try {
-      const { data: libData } = await supabase
-        .from('library_items')
-        .select(`
-          work_id,
-          saved_state,
-          reading_progress,
-          updated_at,
-          work:works (
-            id, title, slug, cover_url, access_type, type,
-            author:author_profiles (pen_name)
-          ),
-          last_chapter:chapters!last_read_chapter_id (
-            id, chapter_number, title, slug
-          )
-        `)
-        .eq('user_id', profile.id)
-        .order('updated_at', { ascending: false })
-        .limit(3);
-
-      continueReadingItems = (libData || []).filter((item: any) => item.work);
-    } catch {
-      // ignore
-    }
-  }
 
   const popularWorks = allWorks.slice(0, 6);
   const newArrivals = allWorks.slice(2, 8);
@@ -148,79 +120,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. Mutolaani davom ettirish (Shown ONLY when relevant) */}
-      {continueReadingItems.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#B45309]" />
-              <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
-                Mutolaani davom ettirish
-              </h2>
-            </div>
-            <Link
-              href="/kutubxona"
-              className="text-xs font-bold text-[#B45309] hover:underline flex items-center gap-1"
-            >
-              Barcha saqlanganlar
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {continueReadingItems.map((item) => {
-              const w = item.work;
-              const lastCh = item.last_chapter;
-              const readUrl = lastCh ? `/asarlar/${w.slug}/${lastCh.slug}` : `/asarlar/${w.slug}`;
-              const progress = item.reading_progress || 0;
-
-              return (
-                <Link
-                  key={item.work_id}
-                  href={readUrl}
-                  className="group bg-white p-4 rounded-2xl border border-[#EAE5DD] hover:border-[#B45309] transition-all flex items-center gap-3.5 shadow-2xs hover:shadow-xs"
-                >
-                  <div className="relative w-14 h-20 rounded-xl bg-[#FAF8F5] border border-[#EAE5DD] overflow-hidden shrink-0 shadow-2xs">
-                    {w.cover_url ? (
-                      <Image
-                        src={w.cover_url}
-                        alt={w.title}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform"
-                        sizes="56px"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[#B45309]">
-                        <BookOpen className="w-6 h-6" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <h4 className="font-bold text-[#1C1917] text-xs sm:text-sm truncate group-hover:text-[#B45309] transition-colors">
-                      {w.title}
-                    </h4>
-                    <p className="text-[11px] text-[#78716C] truncate">
-                      {w.author?.pen_name || 'Muallif'}
-                    </p>
-                    {lastCh && (
-                      <p className="text-[10px] text-[#A8A29E] truncate">
-                        {lastCh.chapter_number}-bob: {lastCh.title}
-                      </p>
-                    )}
-                    <div className="w-full bg-[#F5F2EC] h-1.5 rounded-full overflow-hidden mt-1.5">
-                      <div
-                        className="bg-[#B45309] h-full rounded-full transition-all"
-                        style={{ width: `${Math.max(5, progress)}%` }}
-                      />
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* 2. Mutolaani davom ettirish (Shown ONLY to authenticated users on client) */}
+      <ContinueReadingSection />
 
       {/* 3. Ommabop asarlar (Popular Works) */}
       <section className="space-y-4">

@@ -32,7 +32,7 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
     try {
-      const endpoint = isAdmin ? '/api/admin/notifications' : '/api/notifications';
+      const endpoint = '/api/notifications';
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -49,7 +49,7 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
     } catch {
       // Ignore background network failure
     }
-  }, [user, isAdmin]);
+  }, [user]);
 
   useEffect(() => {
     fetchNotifications();

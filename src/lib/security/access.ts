@@ -27,6 +27,7 @@ export interface ChapterAccessStatus {
   isPurchased: boolean;
   isLocked: boolean;
   price: number;
+  accessReason?: 'free' | 'author' | 'locked' | 'purchased' | 'admin' | 'entitled';
 }
 
 /**
@@ -250,6 +251,14 @@ export async function canReadChapter(
   return buildResult(false, 'locked', '');
 }
 
+export type ChapterAccessDetail = {
+  isFree: boolean;
+  isPurchased: boolean;
+  isLocked: boolean;
+  price: number;
+  accessReason: 'free' | 'purchased' | 'entitled' | 'author' | 'admin' | 'locked';
+};
+
 /**
  * Batch resolves access state for all chapters of a work for a given user.
  */
@@ -262,9 +271,10 @@ export async function getWorkChaptersAccessMap(
     authorId?: string;
     workAccessType?: string;
     fullWorkPrice?: number;
+    isAdmin?: boolean;
   },
-): Promise<Record<string, { isFree: boolean; isPurchased: boolean; isLocked: boolean; price: number }>> {
-  const map: Record<string, { isFree: boolean; isPurchased: boolean; isLocked: boolean; price: number }> = {};
+): Promise<Record<string, ChapterAccessDetail>> {
+  const map: Record<string, ChapterAccessDetail> = {};
   const isAuthor = Boolean(userId && options?.authorId && userId === options.authorId);
   const isPaidFullWork = options?.workAccessType === 'paid_full_work' || options?.workAccessType === 'paid_book';
 
@@ -275,13 +285,15 @@ export async function getWorkChaptersAccessMap(
       isPurchased: false,
       isLocked: !isFree,
       price: isPaidFullWork ? Number(options?.fullWorkPrice || 0) : (isFree ? 0 : Number(ch.price || 0)),
+      accessReason: isFree ? 'free' : 'locked',
     };
   });
 
   if (isAuthor) {
     chapters.forEach((ch) => {
       map[ch.id].isLocked = false;
-      map[ch.id].isPurchased = true;
+      map[ch.id].isPurchased = false;
+      map[ch.id].accessReason = 'author';
     });
     return map;
   }
@@ -291,6 +303,32 @@ export async function getWorkChaptersAccessMap(
   }
 
   const supabase = options?.customClient || createAdminClient();
+
+  // Check admin status
+  let isAdmin = Boolean(options?.isAdmin);
+  if (!isAdmin) {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
+        .maybeSingle();
+      if (profile?.is_admin) {
+        isAdmin = true;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (isAdmin) {
+    chapters.forEach((ch) => {
+      map[ch.id].isLocked = false;
+      map[ch.id].isPurchased = false;
+      map[ch.id].accessReason = 'admin';
+    });
+    return map;
+  }
 
   let entitlements: any[] = [];
   try {
@@ -340,6 +378,7 @@ export async function getWorkChaptersAccessMap(
     if (hasFullWork || purchasedChapterIds.has(ch.id)) {
       map[ch.id].isPurchased = true;
       map[ch.id].isLocked = false;
+      map[ch.id].accessReason = 'purchased';
     }
   });
 

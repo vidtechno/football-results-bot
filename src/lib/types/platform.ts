@@ -51,6 +51,11 @@ export interface Profile {
   telegram_username: string | null;
   is_admin: boolean;
   reading_preferences?: ReadingPreferences | null;
+  notification_preferences?: {
+    email_marketing?: boolean;
+    in_site_news?: boolean;
+    promotions?: boolean;
+  } | null;
   created_at: string;
   updated_at: string;
 }

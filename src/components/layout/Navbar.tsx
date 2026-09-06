@@ -46,14 +46,14 @@ export function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showUserMenu]);
 
-  // Distinct desktop destinations (Phase 3 & 4)
+  // Distinct desktop destinations
   const navLinks = [
     { href: '/', label: 'Bosh sahifa', exact: true },
     { href: '/asarlar', label: 'Asarlar', exact: false },
-    { href: '/kitoblar', label: 'Kitoblar', exact: false },
-    { href: '/hikoyalar', label: 'Davomli hikoyalar', exact: false },
-    { href: '/janrlar', label: 'Janrlar', exact: false },
+    { href: '/kutubxona', label: 'Kutubxonam', exact: false },
     { href: '/mualliflar', label: 'Mualliflar', exact: false },
+    { href: '/janrlar', label: 'Janrlar', exact: false },
+    { href: '/muallif-boling', label: 'Muallif bo‘ling', exact: false },
   ];
 
   return (

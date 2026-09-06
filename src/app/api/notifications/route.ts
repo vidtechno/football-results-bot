@@ -24,8 +24,45 @@ export async function GET(req: NextRequest) {
         .eq('is_read', false),
     ]);
 
-    const notifications = notificationsRes.data || [];
-    const unread_count = unreadRes.count || 0;
+    let notifications = notificationsRes.data || [];
+    let unread_count = unreadRes.count || 0;
+
+    // If profile is admin, include pending moderation queue alerts
+    if (profile.is_admin) {
+      try {
+        const [
+          { count: pendingPayouts },
+          { count: pendingWorks },
+          { count: pendingAuthors },
+          { count: pendingRevisions },
+        ] = await Promise.all([
+          admin.from('payout_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+          admin.from('works').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'),
+          admin.from('author_profiles').select('user_id', { count: 'exact', head: true }).eq('status', 'pending'),
+          admin.from('chapter_revisions').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'),
+        ]);
+
+        const totalPending = (pendingPayouts || 0) + (pendingWorks || 0) + (pendingAuthors || 0) + (pendingRevisions || 0);
+        if (totalPending > 0) {
+          notifications = [
+            {
+              id: 'admin_moderation_queue_item',
+              user_id: profile.id,
+              type: 'admin_queue',
+              title: 'Moderatsiya navbati',
+              body: `${totalPending} ta yangi arizalar va moderatsiya so‘rovlari kutilmoqda.`,
+              link_url: '/diyoration/dashboard',
+              is_read: false,
+              created_at: new Date().toISOString(),
+            },
+            ...notifications,
+          ];
+          unread_count += 1;
+        }
+      } catch {
+        // Moderation queue fetch fallback
+      }
+    }
 
     return NextResponse.json({ notifications, unread_count });
   } catch (err: any) {

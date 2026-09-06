@@ -19,6 +19,7 @@ import { getCurrentProfile, createServerClient, createAdminClient } from '@/lib/
 import { WorkCard } from '@/components/work/WorkCard';
 import { FollowButton } from '@/components/social/FollowButton';
 import { CataloguePagination } from '@/components/catalogue/CataloguePagination';
+import { BookmarkItemCard } from '@/components/library/BookmarkItemCard';
 import type { Work } from '@/lib/types/platform';
 
 export const revalidate = 0; // Dynamic personal data
@@ -34,6 +35,7 @@ export const metadata: Metadata = {
 
 type LibraryTab =
   | 'reading'
+  | 'bookmarks'
   | 'purchased'
   | 'read_later'
   | 'favorite'
@@ -50,8 +52,9 @@ interface KutubxonaPageProps {
 
 const TABS: Array<{ id: LibraryTab; label: string; icon: any }> = [
   { id: 'reading', label: 'Mutolaada', icon: Clock },
+  { id: 'bookmarks', label: 'Xatcho‘plar', icon: Bookmark },
   { id: 'purchased', label: 'Sotib olingan', icon: Lock },
-  { id: 'read_later', label: 'Keyinroq o‘qish', icon: Bookmark },
+  { id: 'read_later', label: 'Keyinroq o‘qish', icon: BookOpen },
   { id: 'favorite', label: 'Sevimlilar', icon: Heart },
   { id: 'completed', label: 'Tugallangan', icon: CheckCircle2 },
   { id: 'followed_works', label: 'Kuzatuvdagi asarlar', icon: Sparkles },
@@ -116,6 +119,30 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
     ]);
     totalCount = countRes.count || 0;
     items = (dataRes.data || []).filter((i: any) => i.work);
+  } else if (activeTab === 'bookmarks') {
+    try {
+      const [countRes, dataRes] = await Promise.all([
+        admin.from('reading_bookmarks').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
+        admin
+          .from('reading_bookmarks')
+          .select(`
+            id, page_number, progress_percent, text_anchor, updated_at,
+            work:works (
+              *,
+              author:author_profiles (pen_name)
+            ),
+            chapter:chapters (id, chapter_number, title, slug)
+          `)
+          .eq('user_id', profile.id)
+          .order('updated_at', { ascending: false })
+          .range(offset, offset + pageSize - 1),
+      ]);
+      totalCount = countRes.count || 0;
+      items = (dataRes.data || []).filter((i: any) => i.work);
+    } catch {
+      items = [];
+      totalCount = 0;
+    }
   } else if (activeTab === 'purchased') {
     const [countRes, dataRes] = await Promise.all([
       admin.from('purchases').select('id', { count: 'exact', head: true }).eq('buyer_id', profile.id).eq('status', 'completed'),
@@ -314,6 +341,22 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
                 </div>
               );
             })}
+          </div>
+
+          <CataloguePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalCount}
+            pageSize={pageSize}
+            scrollTargetId="library-results-top"
+          />
+        </div>
+      ) : activeTab === 'bookmarks' ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {items.map((item: any) => (
+              <BookmarkItemCard key={item.id} bookmark={item} />
+            ))}
           </div>
 
           <CataloguePagination

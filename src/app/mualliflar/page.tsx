@@ -1,10 +1,32 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PenTool, ChevronRight, BookOpen, Users } from 'lucide-react';
 import { getApprovedAuthors } from '@/lib/db/queries';
 
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: 'Mualliflar',
+  description: 'Manbora platformasidagi o‘zbek mualliflari, ularning kitoblari va davomli asarlarini kashf eting.',
+  alternates: {
+    canonical: 'https://manbora.uz/mualliflar',
+  },
+  openGraph: {
+    title: 'Mualliflar | Manbora',
+    description: 'Manbora platformasidagi o‘zbek mualliflari, ularning kitoblari va davomli asarlarini kashf eting.',
+    url: 'https://manbora.uz/mualliflar',
+    siteName: 'Manbora',
+    locale: 'uz_UZ',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Mualliflar | Manbora',
+    description: 'Manbora platformasidagi o‘zbek mualliflari, ularning kitoblari va davomli asarlarini kashf eting.',
+  },
+};
 
 export default async function AuthorsDirectoryPage() {
   const authors = await getApprovedAuthors(40);

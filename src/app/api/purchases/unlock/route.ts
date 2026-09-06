@@ -54,6 +54,8 @@ export async function POST(request: Request) {
         ? `/asarlar/${work?.slug || workId}`
         : `/asarlar/${work?.slug || workId}/${chapter?.slug || chapterId}`;
 
+      const purchaseSourceId = String(result.purchase_id || idempotencyKey);
+
       // Notify reader
       await createInSiteNotification({
         userId: profile.id,
@@ -63,6 +65,8 @@ export async function POST(request: Request) {
           ? `«${workTitle}» kitobini to‘liq xarid qildingiz. Barcha boblar mutolaaga tayyor!`
           : `«${workTitle}» asarining ${chapter?.chapter_number || ''}-bobi muvaffaqiyatli xarid qilindi.`,
         linkUrl: readingLink,
+        sourceType: 'purchase',
+        sourceId: purchaseSourceId,
         data: { workId, chapterId, grossAmount: result.gross_amount },
       });
 
@@ -74,6 +78,8 @@ export async function POST(request: Request) {
           title: 'Asaringizdan yangi xarid!',
           body: `«${workTitle}» asaringiz ${isFullWork ? 'to‘liq' : 'bobi'} sotib olindi. Daromad hisobingizga tushdi.`,
           linkUrl: '/muallif',
+          sourceType: 'sale',
+          sourceId: purchaseSourceId,
           data: { workId, buyerId: profile.id },
         });
       }

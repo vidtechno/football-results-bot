@@ -6,17 +6,40 @@ export interface InSiteNotificationPayload {
   title: string;
   body: string;
   linkUrl?: string;
+  sourceType?: string;
+  sourceId?: string;
   data?: Record<string, any>;
 }
 
 /**
  * Creates an in-site notification for a user.
  * Guaranteed never to throw or crash the calling financial transaction or caller action.
+ * Supports source-level deduplication to prevent duplicate alerts.
  */
 export async function createInSiteNotification(payload: InSiteNotificationPayload): Promise<boolean> {
   try {
     const admin = createAdminClient();
-    const { error } = await admin.from('in_site_notifications').insert({
+
+    // Prevent duplicate event alerts if source information is provided
+    if (payload.sourceType && payload.sourceId) {
+      try {
+        const { data: existing } = await admin
+          .from('in_site_notifications')
+          .select('id')
+          .eq('user_id', payload.userId)
+          .eq('source_type', payload.sourceType)
+          .eq('source_id', payload.sourceId)
+          .maybeSingle();
+
+        if (existing) {
+          return true; // Already processed
+        }
+      } catch {
+        // In case columns not yet added to DB, proceed with insert
+      }
+    }
+
+    const insertData: Record<string, any> = {
       user_id: payload.userId,
       type: payload.type,
       title: payload.title,
@@ -24,7 +47,12 @@ export async function createInSiteNotification(payload: InSiteNotificationPayloa
       link_url: payload.linkUrl || null,
       data: payload.data || {},
       is_read: false,
-    });
+    };
+
+    if (payload.sourceType) insertData.source_type = payload.sourceType;
+    if (payload.sourceId) insertData.source_id = payload.sourceId;
+
+    const { error } = await admin.from('in_site_notifications').insert(insertData);
 
     if (error) {
       console.warn('Failed to insert in_site_notification:', error.message);

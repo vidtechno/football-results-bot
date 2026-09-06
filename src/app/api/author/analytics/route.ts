@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
+import { calculateDropOffRate } from '@/lib/utils/analytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,13 +147,9 @@ export async function GET(request: Request) {
 
     const chapterFunnel = chapters.map((chap, idx) => {
       const readCount = chapterReadCounts.get(chap.id) || 0;
-      let dropOffRatePercent = 0;
-      if (idx > 0) {
-        const prevReads = chapterReadCounts.get(chapters[idx - 1].id) || 0;
-        if (prevReads > 0 && prevReads > readCount) {
-          dropOffRatePercent = Math.round(((prevReads - readCount) / prevReads) * 100);
-        }
-      }
+      const prevReads = idx > 0 ? (chapterReadCounts.get(chapters[idx - 1].id) || 0) : 0;
+      const dropOffRatePercent = calculateDropOffRate(prevReads, readCount, idx === 0);
+
       return {
         id: chap.id,
         chapterId: chap.id,

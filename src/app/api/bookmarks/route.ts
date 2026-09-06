@@ -32,12 +32,12 @@ export async function GET(request: Request) {
           id,
           title,
           slug,
-          cover_image,
+          cover_url,
           type,
-          author:profiles!works_author_id_fkey (
-            id,
-            full_name,
-            username
+          access_type,
+          status,
+          author:author_profiles (
+            pen_name
           )
         ),
         chapter:chapters (

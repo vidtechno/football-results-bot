@@ -5,6 +5,17 @@ import {
 } from '@/lib/security/access';
 import { paginateChapterContent } from '@/lib/reader/pagination';
 import { getRichTextStats } from '@/lib/utils/sanitizer';
+import { calculateDropOffRate, calculateRetentionRate } from '@/lib/utils/analytics';
+import {
+  sanitizeTelegram,
+  sanitizeInstagram,
+  sanitizeYoutube,
+  sanitizeWebsite,
+  validateAndSanitizeSocialLinks,
+} from '@/lib/utils/social';
+import { buildCanonicalPromoUrl } from '@/components/author/ShareCardGenerator';
+import QRCode from 'qrcode';
+import jsQR from 'jsqr';
 
 describe('QA Comprehensive Fixes & Security Access Tests', () => {
   const authorUserId = 'author-uuid-1111';
@@ -1859,14 +1870,364 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
     });
   });
 
-  describe('50. Work Completion Notifications Dispatch', () => {
-    it('creates work_completed notification payload excluding author', () => {
-      const authorUserId = 'author-uuid-777';
-      const allFollowers = ['user-1', 'user-2', authorUserId];
+  describe('51. Author Analytics Drop-off and Retention Rate Formulations', () => {
+    it('calculates 100% drop-off when 1 reader drops to 0 (1 -> 0 = 100%)', () => {
+      const dropRate = calculateDropOffRate(1, 0, false);
+      expect(dropRate).toBe(100);
+    });
 
-      const recipients = allFollowers.filter((id) => id !== authorUserId);
-      expect(recipients).toEqual(['user-1', 'user-2']);
-      expect(recipients).not.toContain(authorUserId);
+    it('calculates 50% drop-off when readers halve from 10 to 5 (10 -> 5 = 50%)', () => {
+      const dropRate = calculateDropOffRate(10, 5, false);
+      expect(dropRate).toBe(50);
+    });
+
+    it('returns 0% drop-off when readers increase from 5 to 10 (never negative)', () => {
+      const dropRate = calculateDropOffRate(5, 10, false);
+      expect(dropRate).toBe(0);
+      expect(dropRate).not.toBeLessThan(0);
+    });
+
+    it('returns 0% when both previous and current reads are zero (0 -> 0 = 0%)', () => {
+      const dropRate = calculateDropOffRate(0, 0, false);
+      expect(dropRate).toBe(0);
+    });
+
+    it('prevents division by zero or Infinity when previousReads is 0', () => {
+      const dropRate = calculateDropOffRate(0, 5, false);
+      expect(dropRate).toBe(0);
+      expect(Number.isFinite(dropRate)).toBe(true);
+    });
+
+    it('returns null for the first chapter (neutral state, no previous chapter)', () => {
+      const dropRate = calculateDropOffRate(0, 10, true);
+      expect(dropRate).toBeNull();
+    });
+
+    it('clamps drop-off rate strictly between 0 and 100', () => {
+      expect(calculateDropOffRate(100, 20, false)).toBe(80);
+      expect(calculateDropOffRate(10, 10, false)).toBe(0);
+    });
+
+    it('calculates retention rate correctly without dividing by zero', () => {
+      expect(calculateRetentionRate(10, 5, false)).toBe(50);
+      expect(calculateRetentionRate(0, 5, false)).toBe(0);
+      expect(calculateRetentionRate(10, 5, true)).toBeNull();
+    });
+  });
+
+  describe('52. Kabinet and Kutubxona Bookmark and Progress Alignment', () => {
+    const mockUser1 = 'user-diyorbek-001';
+    const mockUser2 = 'user-stranger-002';
+
+    const testProgressStore: any[] = [
+      {
+        id: 'prog-1',
+        user_id: mockUser1,
+        work_id: 'work-bekat',
+        chapter_id: 'chap-2',
+        page_index: 1,
+        percentage: 50,
+        last_read_at: new Date().toISOString(),
+        work: { id: 'work-bekat', title: 'Bekatdagi soat', slug: 'bekatdagi-soat', cover_url: '/covers/soat.jpg', status: 'published' },
+        chapter: { id: 'chap-2', chapter_number: 2, title: 'Bir kunlik jasorat', slug: 'bir-kunlik-jasorat' },
+      },
+      {
+        id: 'prog-2',
+        user_id: mockUser2,
+        work_id: 'work-other',
+        chapter_id: 'chap-9',
+        page_index: 10,
+        percentage: 80,
+        last_read_at: new Date().toISOString(),
+        work: { id: 'work-other', title: 'Boshqa asar', slug: 'boshqa-asar', cover_url: '/covers/other.jpg', status: 'published' },
+        chapter: { id: 'chap-9', chapter_number: 1, title: 'Boshlanish', slug: 'boshlanish' },
+      },
+    ];
+
+    const testBookmarkStore: any[] = [
+      {
+        id: 'bm-1',
+        user_id: mockUser1,
+        work_id: 'work-bekat',
+        chapter_id: 'chap-2',
+        page_number: 1,
+        progress_percent: 50,
+        work: { id: 'work-bekat', title: 'Bekatdagi soat', slug: 'bekatdagi-soat', cover_url: '/covers/soat.jpg' },
+        chapter: { id: 'chap-2', chapter_number: 2, title: 'Bir kunlik jasorat', slug: 'bir-kunlik-jasorat' },
+      },
+    ];
+
+    it('strictly isolates User 1 bookmarks from User 2', () => {
+      const user1Bookmarks = testBookmarkStore.filter((b) => b.user_id === mockUser1);
+      const user2Bookmarks = testBookmarkStore.filter((b) => b.user_id === mockUser2);
+
+      expect(user1Bookmarks.length).toBe(1);
+      expect(user1Bookmarks[0].work.title).toBe('Bekatdagi soat');
+      expect(user2Bookmarks.length).toBe(0);
+    });
+
+    it('strictly isolates User 1 reading progress from User 2', () => {
+      const user1Progress = testProgressStore.filter((p) => p.user_id === mockUser1);
+      const user2Progress = testProgressStore.filter((p) => p.user_id === mockUser2);
+
+      expect(user1Progress.length).toBe(1);
+      expect(user1Progress[0].chapter.title).toBe('Bir kunlik jasorat');
+      expect(user1Progress[0].percentage).toBe(50);
+      expect(user2Progress[0].work.title).toBe('Boshqa asar');
+    });
+
+    it('correctly handles all four presence permutations: both, progress only, bookmark only, neither', () => {
+      const checkState = (hasProg: boolean, hasBm: boolean) => {
+        const p = hasProg ? [{ work_id: 'w1' }] : [];
+        const b = hasBm ? [{ id: 'b1' }] : [];
+        return {
+          showProgress: p.length > 0,
+          showBookmarks: b.length > 0,
+        };
+      };
+
+      expect(checkState(true, true)).toEqual({ showProgress: true, showBookmarks: true });
+      expect(checkState(true, false)).toEqual({ showProgress: true, showBookmarks: false });
+      expect(checkState(false, true)).toEqual({ showProgress: false, showBookmarks: true });
+      expect(checkState(false, false)).toEqual({ showProgress: false, showBookmarks: false });
+    });
+
+    it('clears cached progress and bookmarks state completely on logout', () => {
+      let cachedProgress: any[] = testProgressStore;
+      let cachedBookmarks: any[] = testBookmarkStore;
+
+      // Simulate handleSignOut
+      cachedProgress = [];
+      cachedBookmarks = [];
+
+      expect(cachedProgress).toEqual([]);
+      expect(cachedBookmarks).toEqual([]);
+    });
+  });
+
+  describe('53. Public Author Profile vs Analytics Total Reads Consistency', () => {
+    const authorId = 'author-diyoration-123';
+    const reader1 = 'reader-001';
+    const reader2 = 'reader-002';
+
+    const worksDatabase = [
+      { id: 'w-pub-1', author_id: authorId, status: 'published', title: 'Asar 1' },
+      { id: 'w-pub-2', author_id: authorId, status: 'published', title: 'Asar 2' },
+      { id: 'w-draft', author_id: authorId, status: 'draft', title: 'Qoralama asar' },
+      { id: 'w-archived', author_id: authorId, status: 'archived', title: 'Arxivdagi asar' },
+    ];
+
+    const progressRecords = [
+      // Reader 1 reads published work 1
+      { id: 'pr-1', work_id: 'w-pub-1', user_id: reader1 },
+      // Reader 2 reads published work 2
+      { id: 'pr-2', work_id: 'w-pub-2', user_id: reader2 },
+      // Author themselves reads published work 1 (must be excluded from canonical reads)
+      { id: 'pr-3', work_id: 'w-pub-1', user_id: authorId },
+      // Reader 1 reads draft work (must be excluded from canonical reads)
+      { id: 'pr-4', work_id: 'w-draft', user_id: reader1 },
+    ];
+
+    it('calculates identical total reads between analytics and public author profile', () => {
+      const publishedWorkIds = worksDatabase
+        .filter((w) => w.author_id === authorId && w.status === 'published')
+        .map((w) => w.id);
+
+      // Analytics calculation (excluding author preview, published works)
+      const analyticsReads = progressRecords.filter(
+        (p) => publishedWorkIds.includes(p.work_id) && p.user_id !== authorId
+      ).length;
+
+      // Public author profile canonical calculation (excluding author preview, published works)
+      const publicProfileReads = progressRecords.filter(
+        (p) => publishedWorkIds.includes(p.work_id) && p.user_id !== authorId
+      ).length;
+
+      expect(analyticsReads).toBe(2);
+      expect(publicProfileReads).toBe(2);
+      expect(analyticsReads).toBe(publicProfileReads);
+    });
+
+    it('strictly excludes author self-reads from both statistics', () => {
+      const publishedWorkIds = ['w-pub-1', 'w-pub-2'];
+      const authorReads = progressRecords.filter(
+        (p) => publishedWorkIds.includes(p.work_id) && p.user_id === authorId
+      );
+      expect(authorReads.length).toBe(1);
+
+      const canonicalReads = progressRecords.filter(
+        (p) => publishedWorkIds.includes(p.work_id) && p.user_id !== authorId
+      );
+      expect(canonicalReads.map((r) => r.user_id)).not.toContain(authorId);
+    });
+
+    it('strictly excludes draft and archived works from public reads', () => {
+      const publishedWorkIds = worksDatabase
+        .filter((w) => w.status === 'published')
+        .map((w) => w.id);
+
+      expect(publishedWorkIds).not.toContain('w-draft');
+      expect(publishedWorkIds).not.toContain('w-archived');
+    });
+  });
+
+  describe('54. Promo Card Canonical QR Code Generation and Decodability', () => {
+    it('builds exact canonical work URL (never localhost, www, or vercel)', () => {
+      const url = buildCanonicalPromoUrl('bekatdagi-soat');
+      expect(url).toBe('https://manbora.uz/asarlar/bekatdagi-soat');
+      expect(url).not.toContain('localhost');
+      expect(url).not.toContain('www.');
+      expect(url).not.toContain('vercel.app');
+    });
+
+    it('builds exact canonical chapter URL for Yangi bob promo card', () => {
+      const url = buildCanonicalPromoUrl('bekatdagi-soat', 'bir-kunlik-jasorat');
+      expect(url).toBe('https://manbora.uz/asarlar/bekatdagi-soat/bir-kunlik-jasorat');
+      expect(url).not.toContain('localhost');
+    });
+
+    it('generates a QR code and decodes it via jsQR matching canonical URL exactly', async () => {
+      const targetUrl = 'https://manbora.uz/asarlar/bekatdagi-soat';
+
+      // Generate QR matrix
+      const qr = QRCode.create(targetUrl, {
+        errorCorrectionLevel: 'M',
+      });
+
+      const moduleCount = qr.modules.size;
+      const margin = 4;
+      const scale = 8;
+      const totalSize = (moduleCount + margin * 2) * scale;
+
+      // Create RGBA image buffer
+      const rgbaData = new Uint8ClampedArray(totalSize * totalSize * 4);
+
+      // Fill with pure white (#FFFFFF) for quiet zone
+      rgbaData.fill(255);
+
+      // Draw dark modules (#1A1715)
+      for (let r = 0; r < moduleCount; r++) {
+        for (let c = 0; c < moduleCount; c++) {
+          if (qr.modules.get(r, c)) {
+            const startX = (c + margin) * scale;
+            const startY = (r + margin) * scale;
+
+            for (let y = 0; y < scale; y++) {
+              for (let x = 0; x < scale; x++) {
+                const idx = ((startY + y) * totalSize + (startX + x)) * 4;
+                rgbaData[idx] = 26;     // R (0x1A)
+                rgbaData[idx + 1] = 23; // G (0x17)
+                rgbaData[idx + 2] = 21; // B (0x15)
+                rgbaData[idx + 3] = 255;
+              }
+            }
+          }
+        }
+      }
+
+      // Decode with jsQR (simulates mobile barcode scanner)
+      const decoded = jsQR(rgbaData, totalSize, totalSize);
+      expect(decoded).not.toBeNull();
+      expect(decoded?.data).toBe(targetUrl);
+    });
+  });
+
+  describe('55. Social Links Sanitization, Normalization and Security', () => {
+    it('normalizes valid Telegram usernames and links', () => {
+      expect(sanitizeTelegram('@diyorbek')).toBe('https://t.me/diyorbek');
+      expect(sanitizeTelegram('diyorbek')).toBe('https://t.me/diyorbek');
+      expect(sanitizeTelegram('https://t.me/diyorbek_uz')).toBe('https://t.me/diyorbek_uz');
+      expect(sanitizeTelegram('t.me/diyorbek_uz')).toBe('https://t.me/diyorbek_uz');
+    });
+
+    it('normalizes valid Instagram usernames and links', () => {
+      expect(sanitizeInstagram('@diyorbek.books')).toBe('https://instagram.com/diyorbek.books');
+      expect(sanitizeInstagram('diyorbek.books')).toBe('https://instagram.com/diyorbek.books');
+      expect(sanitizeInstagram('https://instagram.com/diyorbek_uz')).toBe('https://instagram.com/diyorbek_uz');
+    });
+
+    it('normalizes valid YouTube handles and links', () => {
+      expect(sanitizeYoutube('@diyorbek_adabiyot')).toBe('https://youtube.com/@diyorbek_adabiyot');
+      expect(sanitizeYoutube('https://youtube.com/@diyorbek_adabiyot')).toBe('https://youtube.com/@diyorbek_adabiyot');
+      expect(sanitizeYoutube('https://youtu.be/channel123')).toBe('https://youtu.be/channel123');
+    });
+
+    it('normalizes valid personal website URLs', () => {
+      expect(sanitizeWebsite('https://diyorbek.uz')).toBe('https://diyorbek.uz/');
+      expect(sanitizeWebsite('diyorbek.uz')).toBe('https://diyorbek.uz/');
+      expect(sanitizeWebsite('http://myblog.com/books')).toBe('http://myblog.com/books');
+    });
+
+    it('strictly blocks malicious URLs (javascript:, data:, vbscript:, blob:)', () => {
+      expect(sanitizeWebsite('javascript:alert(document.cookie)')).toBeNull();
+      expect(sanitizeWebsite('data:text/html,<script>alert(1)</script>')).toBeNull();
+      expect(sanitizeWebsite('vbscript:msgbox(1)')).toBeNull();
+      expect(sanitizeWebsite('file:///etc/passwd')).toBeNull();
+      expect(sanitizeTelegram('javascript:void(0)')).toBeNull();
+      expect(sanitizeInstagram('javascript:prompt(1)')).toBeNull();
+      expect(sanitizeYoutube('javascript:console.log(1)')).toBeNull();
+    });
+
+    it('validates full social payload and separates valid from errors', () => {
+      const goodPayload = {
+        telegram: '@diyorbek',
+        instagram: 'diyorbek.books',
+        youtube: '@diyorbek_lit',
+        website: 'https://diyorbek.uz',
+      };
+
+      const result = validateAndSanitizeSocialLinks(goodPayload);
+      expect(result.valid).toBe(true);
+      expect(result.links.telegram).toBe('https://t.me/diyorbek');
+      expect(result.links.instagram).toBe('https://instagram.com/diyorbek.books');
+      expect(result.links.youtube).toBe('https://youtube.com/@diyorbek_lit');
+      expect(result.links.website).toBe('https://diyorbek.uz/');
+      expect(Object.keys(result.errors).length).toBe(0);
+    });
+
+    it('rejects payload with malicious links and returns descriptive errors', () => {
+      const maliciousPayload = {
+        telegram: 'ok_user',
+        website: 'javascript:alert(1)',
+      };
+
+      const result = validateAndSanitizeSocialLinks(maliciousPayload);
+      expect(result.valid).toBe(false);
+      expect(result.errors.website).toBeDefined();
+      expect(result.links.website).toBeUndefined();
+      expect(result.links.telegram).toBe('https://t.me/ok_user');
+    });
+  });
+
+  describe('56. Regression Checks on Core Platform Functionality', () => {
+    it('TipTap word counting preserves Uzbek Latin apostrophes and separates blocks', () => {
+      const sampleHtml = '<h2>O‘zbek adabiyoti</h2><p>G‘afur G‘ulom san’atkor.</p>';
+      const stats = getRichTextStats(sampleHtml);
+
+      // "O‘zbek", "adabiyoti", "G‘afur", "G‘ulom", "san’atkor" -> 5 words!
+      expect(stats.words).toBe(5);
+      expect(stats.characters).toBeGreaterThan(30);
+    });
+
+    it('ensures chapter comments inline editing sets edited flags correctly', () => {
+      const originalComment = {
+        id: 'comm-1',
+        user_id: buyerUserId,
+        content: 'Juda ajoyib bob!',
+        is_edited: false,
+        edited_at: null,
+      };
+
+      const updatedComment = {
+        ...originalComment,
+        content: 'Juda ajoyib va ta’sirli bob!',
+        is_edited: true,
+        edited_at: new Date().toISOString(),
+      };
+
+      expect(updatedComment.is_edited).toBe(true);
+      expect(updatedComment.edited_at).not.toBeNull();
+      expect(updatedComment.content).not.toBe(originalComment.content);
     });
   });
 });

@@ -33,6 +33,10 @@ import {
   Compass,
   ArrowRight,
   AlertCircle,
+  Send,
+  Instagram,
+  Youtube,
+  Globe,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { supabase } from '@/lib/supabase/client';
@@ -59,7 +63,12 @@ type KabinetTab =
   | 'security'
   | 'quick_links';
 
-function KabinetContent() {
+interface KabinetClientProps {
+  initialProgress?: any[];
+  initialBookmarks?: any[];
+}
+
+function KabinetContent({ initialProgress = [], initialBookmarks = [] }: KabinetClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -72,9 +81,17 @@ function KabinetContent() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [library, setLibrary] = useState<LibraryItem[]>([]);
-  const [progressMap, setProgressMap] = useState<Record<string, any>>({});
-  const [bookmarks, setBookmarks] = useState<any[]>([]);
-  const [loadingData, setLoadingData] = useState<boolean>(true);
+  const [progressList, setProgressList] = useState<any[]>(initialProgress);
+  const [progressMap, setProgressMap] = useState<Record<string, any>>(() => {
+    const pMap: Record<string, any> = {};
+    initialProgress.forEach((p: any) => {
+      pMap[p.work_id || p.id] = p;
+    });
+    return pMap;
+  });
+  const [bookmarks, setBookmarks] = useState<any[]>(initialBookmarks);
+  const [loadingData, setLoadingData] = useState<boolean>(initialProgress.length === 0 && initialBookmarks.length === 0);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [isTopupOpen, setIsTopupOpen] = useState(topupParam === 'true');
   const [idCopied, setIdCopied] = useState(false);
 
@@ -83,6 +100,9 @@ function KabinetContent() {
   const [editUsername, setEditUsername] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editTelegram, setEditTelegram] = useState('');
+  const [editInstagram, setEditInstagram] = useState('');
+  const [editYoutube, setEditYoutube] = useState('');
+  const [editWebsite, setEditWebsite] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
@@ -139,7 +159,11 @@ function KabinetContent() {
       setEditName(profile.display_name || '');
       setEditUsername(profile.username || '');
       setEditBio(profile.bio || '');
-      setEditTelegram(profile.telegram_username || '');
+      const social = (profile as any).social_links || {};
+      setEditTelegram(social.telegram || (profile.telegram_username ? `@${profile.telegram_username.replace(/^@/, '')}` : ''));
+      setEditInstagram(social.instagram || '');
+      setEditYoutube(social.youtube || '');
+      setEditWebsite(social.website || '');
       setAvatarUrl(profile.avatar_url || '');
       if (profile.notification_preferences) {
         setNotifPrefs({
@@ -154,7 +178,12 @@ function KabinetContent() {
   // Parallel data loading function
   const loadTabUserData = useCallback(async (userId: string) => {
     setLoadingData(true);
+    setDataError(null);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
       const walletPromise = supabase
         .from('wallet_accounts')
         .select('id')
@@ -190,20 +219,17 @@ function KabinetContent() {
         .eq('user_id', userId)
         .order('updated_at', { ascending: false });
 
-      const progressPromise = supabase
-        .from('reading_progress')
-        .select(`
-          work_id, chapter_id, page_index, percentage, last_read_at,
-          chapter:chapters(id, chapter_number, title, slug),
-          work:works(id, title, slug, cover_url, author:author_profiles(pen_name))
-        `)
-        .eq('user_id', userId)
-        .order('last_read_at', { ascending: false })
-        .limit(6);
+      const progressPromise = fetch('/api/library/continue-reading', { headers })
+        .then(async (res) => {
+          if (!res.ok) throw new Error('Mutolaa ma‘lumotlarini yuklashda xatolik yuz berdi');
+          return res.json();
+        });
 
-      const bookmarksPromise = fetch('/api/bookmarks')
-        .then((res) => res.json())
-        .catch(() => ({ success: false, bookmarks: [] }));
+      const bookmarksPromise = fetch('/api/bookmarks', { headers })
+        .then(async (res) => {
+          if (!res.ok) throw new Error('Xatcho‘plarni yuklashda xatolik yuz berdi');
+          return res.json();
+        });
 
       const [walletRes, topupRes, purchaseRes, libraryRes, progressRes, bmRes] = await Promise.all([
         walletPromise,
@@ -217,12 +243,14 @@ function KabinetContent() {
       if (topupRes.data) setTopups(topupRes.data as TopupRequest[]);
       if (purchaseRes.data) setPurchases(purchaseRes.data as Purchase[]);
       if (libraryRes.data) setLibrary(libraryRes.data as LibraryItem[]);
-      if (bmRes.success && Array.isArray(bmRes.bookmarks)) setBookmarks(bmRes.bookmarks);
-
-      if (progressRes.data) {
+      if (bmRes?.success && Array.isArray(bmRes.bookmarks)) {
+        setBookmarks(bmRes.bookmarks);
+      }
+      if (Array.isArray(progressRes?.items)) {
+        setProgressList(progressRes.items);
         const pMap: Record<string, any> = {};
-        progressRes.data.forEach((p: any) => {
-          pMap[p.work_id] = p;
+        progressRes.items.forEach((p: any) => {
+          pMap[p.work_id || p.id] = p;
         });
         setProgressMap(pMap);
       }
@@ -238,8 +266,9 @@ function KabinetContent() {
 
         if (txData) setTransactions(txData as WalletTransaction[]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Kabinet ma‘lumotlarini yuklashda xatolik:', err);
+      setDataError(err?.message || 'Ma’lumotlarni yuklashda xatolik yuz berdi');
     } finally {
       setLoadingData(false);
     }
@@ -247,6 +276,13 @@ function KabinetContent() {
 
   useEffect(() => {
     if (!authLoading && !user) {
+      setBookmarks([]);
+      setProgressList([]);
+      setProgressMap({});
+      setPurchases([]);
+      setTopups([]);
+      setLibrary([]);
+      setTransactions([]);
       router.push('/kirish?returnUrl=/kabinet');
     } else if (user?.id) {
       loadTabUserData(user.id);
@@ -254,6 +290,13 @@ function KabinetContent() {
   }, [user, authLoading, router, loadTabUserData]);
 
   async function handleSignOut() {
+    setBookmarks([]);
+    setProgressList([]);
+    setProgressMap({});
+    setPurchases([]);
+    setTopups([]);
+    setLibrary([]);
+    setTransactions([]);
     await signOut();
     router.push('/');
     router.refresh();
@@ -267,14 +310,29 @@ function KabinetContent() {
     setProfileSuccess(null);
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/user/profile', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           display_name: editName,
           username: editUsername,
           bio: editBio,
           telegram_username: editTelegram,
+          social_links: {
+            telegram: editTelegram,
+            instagram: editInstagram,
+            youtube: editYoutube,
+            website: editWebsite,
+          },
         }),
       });
 
@@ -586,18 +644,47 @@ function KabinetContent() {
               </Link>
             </div>
 
-            {Object.keys(progressMap).length === 0 ? (
+            {loadingData ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/70 flex items-center gap-3 animate-pulse">
+                    <div className="w-12 h-16 rounded-xl bg-stone-200 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3.5 bg-stone-200 rounded w-3/4" />
+                      <div className="h-2.5 bg-stone-200 rounded w-1/2" />
+                      <div className="h-2 bg-stone-200 rounded w-1/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : dataError ? (
+              <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 text-xs text-stone-700 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span className="truncate">{dataError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => user?.id && loadTabUserData(user.id)}
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shrink-0 transition-colors"
+                >
+                  Qayta urinish
+                </button>
+              </div>
+            ) : (progressList.length > 0 ? progressList : Object.values(progressMap)).length === 0 ? (
               <p className="text-xs text-stone-500 py-4 text-center">Hozircha mutolaa qilinayotgan asarlar yo‘q.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.values(progressMap).slice(0, 3).map((item: any) => {
+                {(progressList.length > 0 ? progressList : Object.values(progressMap)).slice(0, 3).map((item: any) => {
                   const w = item.work;
-                  const ch = item.chapter;
-                  const readUrl = ch && w ? `/asarlar/${w.slug}/${ch.slug}` : w ? `/asarlar/${w.slug}` : '/asarlar';
+                  const ch = item.chapter || item.last_chapter;
+                  const pageNum = item.page_index || item.page_number || 1;
+                  const percent = item.percentage ?? item.reading_progress ?? 0;
+                  const readUrl = item.read_url || (ch && w ? `/asarlar/${w.slug}/${ch.slug}${pageNum > 1 ? `?page=${pageNum}` : ''}` : w ? `/asarlar/${w.slug}` : '/asarlar');
 
                   return (
                     <div
-                      key={item.work_id}
+                      key={item.work_id || item.id}
                       className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/70 flex items-center gap-3"
                     >
                       <div className="relative w-12 h-16 rounded-xl bg-stone-200 overflow-hidden shrink-0">
@@ -612,13 +699,15 @@ function KabinetContent() {
                       <div className="flex-1 min-w-0 space-y-1">
                         <h4 className="font-serif font-bold text-xs text-stone-900 truncate">{w?.title || 'Asar'}</h4>
                         {ch && (
-                          <p className="text-[11px] text-stone-500 truncate">
+                          <p className="text-[11px] text-stone-600 truncate">
                             {ch.chapter_number}-bob: {ch.title}
                           </p>
                         )}
                         <div className="flex items-center justify-between text-[10px] text-amber-800 font-bold">
-                          <span>{item.percentage || 0}% o‘qildi</span>
-                          <Link href={readUrl} className="underline hover:text-amber-950">
+                          <span>
+                            {pageNum ? `${pageNum}-sahifa • ` : ''}{percent}% progress
+                          </span>
+                          <Link href={readUrl} className="px-2.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] transition-colors">
                             O‘qish
                           </Link>
                         </div>
@@ -646,7 +735,19 @@ function KabinetContent() {
               </Link>
             </div>
 
-            {bookmarks.length === 0 ? (
+            {loadingData ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-3.5 rounded-2xl bg-amber-50/40 border border-amber-200/60 flex items-center justify-between gap-3 animate-pulse">
+                    <div className="space-y-2 flex-1">
+                      <div className="h-3.5 bg-amber-200/60 rounded w-2/3" />
+                      <div className="h-2.5 bg-amber-200/40 rounded w-1/2" />
+                    </div>
+                    <div className="w-14 h-7 rounded-xl bg-amber-200/60 shrink-0" />
+                  </div>
+                ))}
+              </div>
+            ) : bookmarks.length === 0 ? (
               <p className="text-xs text-stone-500 py-4 text-center">
                 Xatcho‘plar mavjud emas. Mutolaa vaqtida yuqoridagi xatcho‘p tugmasi orqali sahifalarni saqlang.
               </p>
@@ -655,7 +756,8 @@ function KabinetContent() {
                 {bookmarks.slice(0, 3).map((b: any) => {
                   const w = b.work;
                   const ch = b.chapter;
-                  const readUrl = ch && w ? `/asarlar/${w.slug}/${ch.slug}?page=${b.page_number}` : `/asarlar`;
+                  const pageNum = b.page_number || 1;
+                  const readUrl = ch && w ? `/asarlar/${w.slug}/${ch.slug}?page=${pageNum}` : w ? `/asarlar/${w.slug}` : `/asarlar`;
 
                   return (
                     <div
@@ -664,8 +766,8 @@ function KabinetContent() {
                     >
                       <div className="min-w-0 space-y-0.5">
                         <h4 className="font-serif font-bold text-xs text-stone-900 truncate">{w?.title || 'Asar'}</h4>
-                        <p className="text-[11px] text-amber-800 font-semibold">
-                          {ch ? `${ch.chapter_number}-bob, ` : ''}{b.page_number}-sahifa
+                        <p className="text-[11px] text-amber-800 font-semibold truncate">
+                          {ch ? `${ch.chapter_number}-bob, ` : ''}{pageNum}-sahifa{b.progress_percent ? ` • ${b.progress_percent}%` : ''}
                         </p>
                       </div>
                       <Link
@@ -830,16 +932,71 @@ function KabinetContent() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">Telegram username</label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">@</span>
+            <div className="space-y-3 pt-2 border-t border-stone-100">
+              <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider">Ijtimoiy tarmoqlar va havolalar</h4>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                  <Send className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Telegram</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">@</span>
+                  <input
+                    type="text"
+                    value={editTelegram}
+                    onChange={(e) => setEditTelegram(e.target.value)}
+                    placeholder="username yoki https://t.me/username"
+                    className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                  <Instagram className="w-3.5 h-3.5 text-pink-500" />
+                  <span>Instagram</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">@</span>
+                  <input
+                    type="text"
+                    value={editInstagram}
+                    onChange={(e) => setEditInstagram(e.target.value)}
+                    placeholder="username yoki https://instagram.com/username"
+                    className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                  <Youtube className="w-3.5 h-3.5 text-red-500" />
+                  <span>YouTube</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">@</span>
+                  <input
+                    type="text"
+                    value={editYoutube}
+                    onChange={(e) => setEditYoutube(e.target.value)}
+                    placeholder="@kanal yoki https://youtube.com/@kanal"
+                    className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Shaxsiy veb-sayt</span>
+                </label>
                 <input
-                  type="text"
-                  value={editTelegram}
-                  onChange={(e) => setEditTelegram(e.target.value.replace(/^@/, ''))}
-                  placeholder="username"
-                  className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                  type="url"
+                  value={editWebsite}
+                  onChange={(e) => setEditWebsite(e.target.value)}
+                  placeholder="https://example.uz"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
                 />
               </div>
             </div>
@@ -1195,10 +1352,10 @@ function KabinetContent() {
   );
 }
 
-export default function KabinetClient() {
+export default function KabinetClient(props: KabinetClientProps) {
   return (
     <Suspense fallback={<div className="p-8 text-center text-xs text-stone-400">Yuklanmoqda...</div>}>
-      <KabinetContent />
+      <KabinetContent {...props} />
     </Suspense>
   );
 }

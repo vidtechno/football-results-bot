@@ -1472,6 +1472,13 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           coverUrl: work.cover_url,
           authorPenName: (work as any).author?.pen_name || 'Muallif',
         }}
+        chapters={chapters.map((c) => ({
+          id: c.id,
+          slug: c.slug || `${c.chapter_number}`,
+          chapterNumber: c.chapter_number,
+          title: c.title,
+        }))}
+        initialChapterId={editingChapterId}
       />
     </div>
   );

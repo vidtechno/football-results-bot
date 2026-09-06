@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
+import { validateAndSanitizeSocialLinks } from '@/lib/utils/social';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,6 +89,31 @@ export async function PATCH(request: Request) {
 
     if (body.notification_preferences !== undefined) {
       updates.notification_preferences = body.notification_preferences;
+    }
+
+    if (body.social_links !== undefined) {
+      if (typeof body.social_links !== 'object' || body.social_links === null) {
+        return NextResponse.json(
+          { success: false, error: 'Ijtimoiy tarmoqlar formati noto‘g‘ri' },
+          { status: 400 }
+        );
+      }
+
+      const validation = validateAndSanitizeSocialLinks(body.social_links);
+      if (!validation.valid) {
+        const firstError = Object.values(validation.errors)[0] || 'Ijtimoiy tarmoq havolalarida xatolik bor';
+        return NextResponse.json(
+          { success: false, error: firstError, errors: validation.errors },
+          { status: 400 }
+        );
+      }
+
+      updates.social_links = validation.links;
+
+      if (validation.links.telegram) {
+        const tgHandle = validation.links.telegram.replace('https://t.me/', '');
+        updates.telegram_username = tgHandle;
+      }
     }
 
     if (Object.keys(updates).length === 0) {

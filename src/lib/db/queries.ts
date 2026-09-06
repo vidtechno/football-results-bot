@@ -710,8 +710,17 @@ export async function getPublicAuthor(identifier: string) {
   })) as Work[];
   const followerCount = followersRes.count || 0;
 
-  // Calculate total public reads across all author's works
-  const totalReads = works.reduce((sum, w) => sum + Number(w.view_count || 0), 0);
+  // Calculate total public reads canonically from reading_progress across published works (excluding author self-reads)
+  const workIds = works.map((w) => w.id);
+  let totalReads = 0;
+  if (workIds.length > 0) {
+    const { count } = await supabase
+      .from('reading_progress')
+      .select('id', { count: 'exact', head: true })
+      .in('work_id', workIds)
+      .neq('user_id', author.user_id);
+    totalReads = count || 0;
+  }
 
   return {
     author,

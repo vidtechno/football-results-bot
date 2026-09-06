@@ -22,7 +22,15 @@ import { FollowButton } from '@/components/social/FollowButton';
 import { AuthorProfileFeed } from '@/components/author/AuthorProfileFeed';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
-export const revalidate = 60;
+import {
+  sanitizeTelegram,
+  sanitizeInstagram,
+  sanitizeYoutube,
+  sanitizeWebsite,
+} from '@/lib/utils/social';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface AuthorPublicProfilePageProps {
   params: {
@@ -34,33 +42,10 @@ function sanitizeSocialUrl(
   network: 'telegram' | 'instagram' | 'youtube' | 'website',
   value?: string | null
 ): string | null {
-  if (!value || typeof value !== 'string') return null;
-  const raw = value.trim();
-  if (!raw) return null;
-
-  if (network === 'telegram') {
-    if (raw.startsWith('https://t.me/') || raw.startsWith('http://t.me/')) return raw;
-    const cleanUser = raw.replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '');
-    return cleanUser ? `https://t.me/${cleanUser}` : null;
-  }
-
-  if (network === 'instagram') {
-    if (raw.startsWith('https://instagram.com/') || raw.startsWith('https://www.instagram.com/')) return raw;
-    const cleanUser = raw.replace(/^@/, '').replace(/[^a-zA-Z0-9_.]/g, '');
-    return cleanUser ? `https://instagram.com/${cleanUser}` : null;
-  }
-
-  if (network === 'youtube') {
-    if (/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+/i.test(raw)) return raw;
-    return null;
-  }
-
-  if (network === 'website') {
-    if (/^https?:\/\/.+\..+/i.test(raw)) return raw;
-    if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(raw)) return `https://${raw}`;
-    return null;
-  }
-
+  if (network === 'telegram') return sanitizeTelegram(value);
+  if (network === 'instagram') return sanitizeInstagram(value);
+  if (network === 'youtube') return sanitizeYoutube(value);
+  if (network === 'website') return sanitizeWebsite(value);
   return null;
 }
 

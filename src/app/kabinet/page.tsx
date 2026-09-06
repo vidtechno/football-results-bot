@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getCurrentProfile } from '@/lib/supabase/server';
+import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import KabinetClient from './KabinetClient';
 
 export const dynamic = 'force-dynamic';
@@ -23,9 +23,43 @@ export default async function KabinetPage() {
     redirect('/kirish?returnUrl=%2Fkabinet');
   }
 
+  const admin = createAdminClient();
+
+  const [progressRes, bookmarksRes] = await Promise.all([
+    admin
+      .from('reading_progress')
+      .select(`
+        work_id, chapter_id, page_index, percentage, is_completed, last_read_at,
+        work:works (
+          id, title, slug, cover_url, access_type, type, status,
+          author:author_profiles (pen_name)
+        ),
+        chapter:chapters (id, chapter_number, title, slug)
+      `)
+      .eq('user_id', profile.id)
+      .order('last_read_at', { ascending: false })
+      .limit(6),
+    admin
+      .from('reading_bookmarks')
+      .select(`
+        id, user_id, work_id, chapter_id, page_number, progress_percent, text_anchor, created_at, updated_at,
+        work:works (
+          id, title, slug, cover_url, type, access_type, status,
+          author:author_profiles (pen_name)
+        ),
+        chapter:chapters (id, chapter_number, title, slug)
+      `)
+      .eq('user_id', profile.id)
+      .order('updated_at', { ascending: false })
+      .limit(6),
+  ]);
+
   return (
     <Suspense fallback={<div className="p-8 text-center text-xs text-stone-400">Yuklanmoqda...</div>}>
-      <KabinetClient />
+      <KabinetClient
+        initialProgress={progressRes.data || []}
+        initialBookmarks={bookmarksRes.data || []}
+      />
     </Suspense>
   );
 }

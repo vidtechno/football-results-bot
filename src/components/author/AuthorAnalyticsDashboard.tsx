@@ -398,8 +398,9 @@ export default function AuthorAnalyticsDashboard() {
                       const chNum = ch.chapterNumber || ch.chapter_number || 1;
                       const chId = ch.chapterId || ch.id || `${chNum}`;
                       const percentage = Math.round((ch.reads / maxReads) * 100);
-                      const dropPercent = ch.dropOffRatePercent || 0;
-                      const isHighDrop = dropPercent > 35;
+                      const dropPercent = typeof ch.dropOffRatePercent === 'number' ? ch.dropOffRatePercent : null;
+                      const isFirst = chNum === 1 || ch === funnel[0];
+                      const isHighDrop = dropPercent !== null && dropPercent > 35;
                       return (
                         <div key={chId} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
@@ -407,13 +408,17 @@ export default function AuthorAnalyticsDashboard() {
                               {chNum}-bob: {ch.title}
                             </span>
                             <div className="flex items-center gap-3">
-                              {dropPercent > 0 && (
+                              {!isFirst && dropPercent !== null && (
                                 <span
                                   className={`font-semibold ${
-                                    isHighDrop ? "text-red-600" : "text-[#8A847C]"
+                                    dropPercent > 0
+                                      ? isHighDrop
+                                        ? "text-red-600"
+                                        : "text-[#8A847C]"
+                                      : "text-emerald-600"
                                   }`}
                                 >
-                                  -{dropPercent}% chiqish
+                                  {dropPercent}% chiqish
                                 </span>
                               )}
                               <span className="font-bold text-[#1A1A1A]">

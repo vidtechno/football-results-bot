@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
 
@@ -13,6 +13,7 @@ export interface NotificationItem {
   summary?: string;
   link_url?: string;
   is_read: boolean;
+  read_at?: string | null;
   created_at: string;
 }
 
@@ -20,16 +21,20 @@ interface NotificationContextValue {
   notifications: NotificationItem[];
   unreadCount: number;
   loading: boolean;
+  error: string | null;
   refreshNotifications: () => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  markItemAsRead: (id: string) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextValue>({
   notifications: [],
   unreadCount: 0,
   loading: false,
+  error: null,
   refreshNotifications: async () => {},
   markAllAsRead: async () => {},
+  markItemAsRead: async () => {},
 });
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
@@ -37,11 +42,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const activeUserIdRef = useRef<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) {
       setNotifications([]);
       setUnreadCount(0);
+      setError(null);
       return;
     }
 
@@ -61,30 +69,70 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       if (res.ok) {
         const data = await res.json();
-        setNotifications((data.notifications || []).slice(0, 10));
-        setUnreadCount(Number(data.unread_count || 0));
+        // Guard against race conditions if user logged out while request was in-flight
+        if (activeUserIdRef.current === user.id) {
+          setNotifications(data.notifications || []);
+          setUnreadCount(Number(data.unread_count || 0));
+          setError(null);
+        }
+      } else {
+        if (activeUserIdRef.current === user.id) {
+          setError('Bildirishnomalarni yuklab bo‘lmadi');
+        }
       }
     } catch {
-      // background network error
+      if (activeUserIdRef.current === user.id) {
+        setError('Tarmoq xatosi');
+      }
     }
   }, [user]);
 
-  // Sync on user change or mount
+  // Sync on user change or logout
   useEffect(() => {
+    activeUserIdRef.current = user?.id || null;
+
     if (!user) {
       setNotifications([]);
       setUnreadCount(0);
+      setError(null);
+      setLoading(false);
     } else {
       fetchNotifications();
     }
   }, [user, fetchNotifications]);
 
-  // Periodic polling every 30 seconds if user is logged in
+  // Periodic fallback polling every 45 seconds if user is logged in
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(fetchNotifications, 30000);
+    const interval = setInterval(fetchNotifications, 45000);
     return () => clearInterval(interval);
   }, [user, fetchNotifications]);
+
+  // Realtime Supabase postgres_changes subscription (zero memory leak, safe cleanup)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channelName = `realtime_notifications_${user.id}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'in_site_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchNotifications]);
 
   // Global event listener for immediate sync across components
   useEffect(() => {
@@ -123,15 +171,48 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         body: JSON.stringify({ action: 'mark_all_read' }),
       });
 
-      // Notify any other listening components
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('manbora:notifications_changed'));
       }
     } catch {
-      // If error, rollback by re-fetching
+      // Rollback on network failure
       fetchNotifications();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const markItemAsRead = async (id: string) => {
+    if (!user) return;
+
+    // Optimistic update
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'mark_read', id }),
+      });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('manbora:notifications_changed'));
+      }
+    } catch {
+      fetchNotifications();
     }
   };
 
@@ -141,8 +222,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         notifications,
         unreadCount,
         loading,
+        error,
         refreshNotifications: fetchNotifications,
         markAllAsRead,
+        markItemAsRead,
       }}
     >
       {children}

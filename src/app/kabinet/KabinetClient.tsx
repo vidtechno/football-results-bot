@@ -42,6 +42,7 @@ import { TopupModal } from '@/components/wallet/TopupModal';
 import { TransactionHistoryTable } from '@/components/wallet/TransactionHistoryTable';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { useNotifications } from '@/components/providers/NotificationProvider';
 import type {
   TopupRequest,
   WalletTransaction,
@@ -64,6 +65,7 @@ function KabinetContent() {
   const topupParam = searchParams.get('topup');
 
   const { user, profile, author, balance, isAdmin, signOut, refreshAuth, isLoading: authLoading } = useAuth();
+  const { unreadCount } = useNotifications();
 
   const [topups, setTopups] = useState<TopupRequest[]>([]);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -554,6 +556,11 @@ function KabinetContent() {
             >
               <Icon className="w-4 h-4" />
               <span>{t.label}</span>
+              {t.id === 'notifications' && unreadCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-600 text-white text-[10px] font-black leading-none animate-in zoom-in">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
           );
         })}

@@ -40,6 +40,16 @@ const nextConfig = {
         destination: '/kirish?mode=register',
         permanent: true,
       },
+      {
+        source: '/admin',
+        destination: '/diyoration/dashboard',
+        permanent: true,
+      },
+      {
+        source: '/admin/:path*',
+        destination: '/diyoration/:path*',
+        permanent: true,
+      },
     ];
   },
 };

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { clsx } from 'clsx';
+import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
 
 interface AdminSidebarProps {
   username?: string;
@@ -79,6 +80,7 @@ export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: Adm
               <span className="text-[11px] text-slate-400 font-bold block">Boshqaruv Tizimi</span>
             </div>
           </div>
+          <AdminNotificationBell />
         </div>
 
         {/* Admin Profile Badge */}

@@ -10,6 +10,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, { status: 308 });
   }
 
+  const pathname = request.nextUrl.pathname;
+
+  // Canonical admin route is /diyoration; redirect /admin and /admin/* with 308
+  if (pathname === '/admin') {
+    const dest = new URL('/diyoration/dashboard', request.url);
+    dest.search = request.nextUrl.search;
+    return NextResponse.redirect(dest, { status: 308 });
+  }
+  if (pathname.startsWith('/admin/')) {
+    const dest = new URL(pathname.replace(/^\/admin/, '/diyoration'), request.url);
+    dest.search = request.nextUrl.search;
+    return NextResponse.redirect(dest, { status: 308 });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -22,8 +36,6 @@ export async function middleware(request: NextRequest) {
       c.name === 'sb-access-token' ||
       c.name === 'supabase-auth-token'
   );
-
-  const pathname = request.nextUrl.pathname;
 
   // Intercept protected paths for guests without auth cookie immediately
   if (pathname === '/kabinet' || pathname.startsWith('/kabinet/') || pathname === '/diyoration' || pathname.startsWith('/diyoration/')) {

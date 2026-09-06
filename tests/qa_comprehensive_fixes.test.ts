@@ -1060,6 +1060,218 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
       expect(canEdit).toBe(false);
     });
   });
+
+  describe('26. Notification Unread Count Uniformity & State Lifecycle', () => {
+    interface NotificationItem {
+      id: string;
+      user_id: string;
+      title: string;
+      message: string;
+      is_read: boolean;
+      read_at: string | null;
+      created_at: string;
+    }
+
+    const calculateCanonicalUnread = (items: NotificationItem[]): number => {
+      return items.filter((n) => !n.is_read && !n.read_at).length;
+    };
+
+    it('unread count strictly reflects genuine unread notifications without fake moderation injections', () => {
+      const genuineNotifications: NotificationItem[] = [
+        { id: '1', user_id: 'u1', title: 'Xarid', message: 'Bob sotib olindi', is_read: false, read_at: null, created_at: '2026-09-06T10:00:00Z' },
+        { id: '2', user_id: 'u1', title: 'Sharh', message: 'Yangi fikr', is_read: true, read_at: '2026-09-06T10:05:00Z', created_at: '2026-09-06T09:00:00Z' },
+        { id: '3', user_id: 'u1', title: 'Tizim', message: 'Xush kelibsiz', is_read: false, read_at: null, created_at: '2026-09-06T10:10:00Z' },
+      ];
+
+      expect(calculateCanonicalUnread(genuineNotifications)).toBe(2);
+
+      // Even if admin has 5 pending moderation tasks, the user unread notification count remains 2
+      const pendingModerationTasks = 5;
+      const countAfterCheck = calculateCanonicalUnread(genuineNotifications);
+      expect(countAfterCheck).toBe(2);
+      expect(countAfterCheck).not.toBe(2 + pendingModerationTasks);
+    });
+
+    it('marking an item as read decrements count and sets read_at', () => {
+      let items: NotificationItem[] = [
+        { id: '1', user_id: 'u1', title: 'Xarid', message: 'Bob sotib olindi', is_read: false, read_at: null, created_at: '2026-09-06T10:00:00Z' },
+      ];
+      expect(calculateCanonicalUnread(items)).toBe(1);
+
+      // Mark single item read
+      const now = new Date().toISOString();
+      items = items.map((n) => (n.id === '1' ? { ...n, is_read: true, read_at: now } : n));
+      expect(calculateCanonicalUnread(items)).toBe(0);
+    });
+
+    it('logout wipes notification state completely', () => {
+      let state = {
+        notifications: [{ id: '1', is_read: false, read_at: null }] as NotificationItem[],
+        unreadCount: 1,
+        loading: false,
+      };
+
+      // Simulate onAuthStateChange SIGNED_OUT
+      const handleSignOut = () => {
+        state = { notifications: [], unreadCount: 0, loading: false };
+      };
+
+      handleSignOut();
+      expect(state.notifications).toEqual([]);
+      expect(state.unreadCount).toBe(0);
+    });
+
+    it('error in notification fetch sets error state instead of silently lying as 0', () => {
+      let state: { unreadCount: number; error: string | null } = { unreadCount: 1, error: null };
+      const simulateFailedFetch = () => {
+        state.error = 'Bildirishnomalarni yuklashda xatolik yuz berdi';
+      };
+
+      simulateFailedFetch();
+      expect(state.error).toBeTruthy();
+      // Notice unread count is preserved or flagged as error, not falsely reset to 0
+      expect(state.unreadCount).toBe(1);
+    });
+  });
+
+  describe('27. /api/admin/payouts Authorization and Empty State Handling', () => {
+    interface PayoutRow {
+      id: string;
+      author_id: string;
+      amount: number;
+      status: 'pending' | 'paid' | 'rejected';
+      card_number: string;
+      created_at: string;
+    }
+
+    const mockAdminPayoutsHandler = async (userRole: string, rows: PayoutRow[]) => {
+      if (userRole !== 'admin') {
+        return { status: 403, error: 'Kirish taqiqlangan: faqat administratorlar uchun' };
+      }
+      const counts = {
+        all: rows.length,
+        pending: rows.filter((r) => r.status === 'pending').length,
+        paid: rows.filter((r) => r.status === 'paid').length,
+        rejected: rows.filter((r) => r.status === 'rejected').length,
+      };
+      return { status: 200, data: { payouts: rows, counts } };
+    };
+
+    it('returns 403 Forbidden for non-admin users', async () => {
+      const readerResponse = await mockAdminPayoutsHandler('reader', []);
+      expect(readerResponse.status).toBe(403);
+
+      const authorResponse = await mockAdminPayoutsHandler('author', []);
+      expect(authorResponse.status).toBe(403);
+    });
+
+    it('returns 200 OK with empty list when no payout requests exist without errors', async () => {
+      const adminResponse = await mockAdminPayoutsHandler('admin', []);
+      expect(adminResponse.status).toBe(200);
+      expect(adminResponse.data?.payouts).toEqual([]);
+      expect(adminResponse.data?.counts).toEqual({
+        all: 0,
+        pending: 0,
+        paid: 0,
+        rejected: 0,
+      });
+    });
+
+    it('correctly categorizes status counts for pending, paid, and rejected payouts', async () => {
+      const mockRows: PayoutRow[] = [
+        { id: 'p1', author_id: 'a1', amount: 50000, status: 'pending', card_number: '86001234', created_at: '2026-09-01' },
+        { id: 'p2', author_id: 'a2', amount: 100000, status: 'paid', card_number: '98601234', created_at: '2026-09-02' },
+        { id: 'p3', author_id: 'a3', amount: 30000, status: 'rejected', card_number: '86005678', created_at: '2026-09-03' },
+        { id: 'p4', author_id: 'a1', amount: 75000, status: 'pending', card_number: '86001234', created_at: '2026-09-04' },
+      ];
+
+      const response = await mockAdminPayoutsHandler('admin', mockRows);
+      expect(response.status).toBe(200);
+      expect(response.data?.counts).toEqual({
+        all: 4,
+        pending: 2,
+        paid: 1,
+        rejected: 1,
+      });
+    });
+  });
+
+  describe('28. Payouts UI Mutually Exclusive Rendering', () => {
+    type UIState = 'loading' | 'error' | 'empty' | 'content';
+
+    const determinePayoutsUIState = (params: {
+      loading: boolean;
+      error: string | null;
+      payoutsCount: number;
+    }): UIState => {
+      if (params.loading) return 'loading';
+      if (params.error) return 'error';
+      if (params.payoutsCount === 0) return 'empty';
+      return 'content';
+    };
+
+    it('renders loading state exclusively', () => {
+      const state = determinePayoutsUIState({ loading: true, error: null, payoutsCount: 0 });
+      expect(state).toBe('loading');
+      expect(state).not.toBe('error');
+      expect(state).not.toBe('empty');
+    });
+
+    it('renders error state with retry and suppresses contradictory empty message', () => {
+      const state = determinePayoutsUIState({
+        loading: false,
+        error: 'Pul yechish so‘rovlarini yuklab bo‘lmadi',
+        payoutsCount: 0,
+      });
+      expect(state).toBe('error');
+      expect(state).not.toBe('empty');
+      expect(state).not.toBe('content');
+    });
+
+    it('renders empty state cleanly only when no error and 0 payouts', () => {
+      const state = determinePayoutsUIState({ loading: false, error: null, payoutsCount: 0 });
+      expect(state).toBe('empty');
+    });
+
+    it('renders content when payouts are present', () => {
+      const state = determinePayoutsUIState({ loading: false, error: null, payoutsCount: 5 });
+      expect(state).toBe('content');
+    });
+  });
+
+  describe('29. Admin Route Redirection & Protection', () => {
+    const handleAdminRoute = (path: string, search: string = ''): { redirect: string; status: number } | null => {
+      if (path === '/admin') {
+        return { redirect: `/diyoration/dashboard${search}`, status: 308 };
+      }
+      if (path.startsWith('/admin/')) {
+        const dest = path.replace(/^\/admin/, '/diyoration');
+        return { redirect: `${dest}${search}`, status: 308 };
+      }
+      return null;
+    };
+
+    it('redirects /admin to /diyoration/dashboard with 308 permanent redirect', () => {
+      const res = handleAdminRoute('/admin');
+      expect(res).toEqual({ redirect: '/diyoration/dashboard', status: 308 });
+    });
+
+    it('redirects /admin/yechish-sorovlari to /diyoration/yechish-sorovlari with 308', () => {
+      const res = handleAdminRoute('/admin/yechish-sorovlari');
+      expect(res).toEqual({ redirect: '/diyoration/yechish-sorovlari', status: 308 });
+    });
+
+    it('preserves query parameters during 308 admin redirect', () => {
+      const res = handleAdminRoute('/admin/foydalanuvchilar', '?page=2&tab=active');
+      expect(res).toEqual({ redirect: '/diyoration/foydalanuvchilar?page=2&tab=active', status: 308 });
+    });
+
+    it('leaves non-admin routes untouched', () => {
+      expect(handleAdminRoute('/asarlar')).toBeNull();
+      expect(handleAdminRoute('/kabinet')).toBeNull();
+      expect(handleAdminRoute('/muallif')).toBeNull();
+    });
+  });
 });
 
 

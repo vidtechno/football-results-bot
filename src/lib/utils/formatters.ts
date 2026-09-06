@@ -95,3 +95,29 @@ export function formatUzbekDate(dateInput: string | Date): string {
     return String(dateInput);
   }
 }
+
+/**
+ * Format timestamp into human-readable relative Uzbek time
+ * e.g., "Hozirgina", "15 daqiqa oldin", "2 soat oldin", "Kecha", "3 kun oldin"
+ */
+export function getRelativeTimeString(dateInput: string | Date): string {
+  try {
+    const past = typeof dateInput === 'string' ? new Date(dateInput).getTime() : dateInput.getTime();
+    if (isNaN(past)) return 'Yaqinda';
+    const now = Date.now();
+    const diffMs = Math.max(0, now - past);
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) return 'Hozirgina';
+    if (diffMins < 60) return `${diffMins} daqiqa oldin`;
+    if (diffHours < 24) return `${diffHours} soat oldin`;
+    if (diffDays === 1) return 'Kecha';
+    if (diffDays < 30) return `${diffDays} kun oldin`;
+    return `${Math.floor(diffDays / 30)} oy oldin`;
+  } catch {
+    return 'Yaqinda';
+  }
+}

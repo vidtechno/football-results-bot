@@ -1,12 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter, Source_Serif_4 } from 'next/font/google';
 import './globals.css';
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
-import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
+import { PublicAppShell } from '@/components/layout/PublicAppShell';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { NotificationProvider } from '@/components/providers/NotificationProvider';
-import { GenreOnboardingModal } from '@/components/onboarding/GenreOnboardingModal';
 
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
@@ -88,14 +85,7 @@ export default function RootLayout({
       <body className="bg-background text-stone-900 min-h-screen flex flex-col antialiased selection:bg-amber-100 selection:text-amber-950">
         <AuthProvider>
           <NotificationProvider>
-            <Navbar />
-            {/* pb-24 ensures bottom navigation on mobile/tablet never covers content with env(safe-area-inset-bottom) */}
-            <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-12">
-              {children}
-            </main>
-            <Footer />
-            <MobileBottomNav />
-            <GenreOnboardingModal />
+            <PublicAppShell>{children}</PublicAppShell>
           </NotificationProvider>
         </AuthProvider>
       </body>

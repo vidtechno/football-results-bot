@@ -18,6 +18,8 @@ import type {
   Purchase,
 } from '@/lib/types/platform';
 
+import { getRelativeTimeString } from '@/lib/utils/formatters';
+
 /**
  * Fetch active genres sorted by order.
  */
@@ -46,7 +48,8 @@ export async function getPublishedWorks(options?: {
   type?: 'book' | 'serialized_story';
   accessType?: 'free' | 'paid_full_work' | 'paid_by_chapter';
   completionStatus?: 'ongoing' | 'completed';
-  sortBy?: 'popular' | 'newest' | 'price_asc' | 'price_desc';
+  sortBy?: 'popular' | 'newest' | 'rating' | 'updated' | 'price_asc' | 'price_desc';
+  isFeatured?: boolean;
   limit?: number;
 }): Promise<Work[]> {
   const supabase = createServerClient();
@@ -76,8 +79,18 @@ export async function getPublishedWorks(options?: {
     q = q.order('full_work_price', { ascending: true });
   } else if (options?.sortBy === 'price_desc') {
     q = q.order('full_work_price', { ascending: false });
+  } else if (options?.sortBy === 'popular') {
+    q = q.order('view_count', { ascending: false }).order('published_at', { ascending: false });
+  } else if (options?.sortBy === 'rating') {
+    q = q.order('average_rating', { ascending: false }).order('rating_count', { ascending: false });
+  } else if (options?.sortBy === 'updated') {
+    q = q.order('updated_at', { ascending: false });
   } else {
     q = q.order('published_at', { ascending: false });
+  }
+
+  if (options?.isFeatured !== undefined) {
+    q = q.eq('is_featured', options.isFeatured);
   }
 
   if (options?.query) {
@@ -729,5 +742,132 @@ export async function getPublicAuthor(identifier: string) {
     totalReads,
     followerCount,
   };
+}
+
+export interface RecentChapterItem {
+  id: string;
+  title: string;
+  slug: string;
+  chapter_number: number;
+  published_at: string | null;
+  created_at: string;
+  is_free: boolean;
+  price: number;
+  work: {
+    id: string;
+    title: string;
+    slug: string;
+    cover_url: string | null;
+    access_type: string;
+    type: string;
+    author?: {
+      pen_name: string;
+    };
+  };
+  relative_time: string;
+}
+
+/**
+ * Fetch recently published chapters for the "Shu hafta yangi boblar" section.
+ * Only returns chapters belonging to active published works.
+ */
+export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from('chapters')
+    .select(`
+      id,
+      title,
+      slug,
+      chapter_number,
+      published_at,
+      created_at,
+      is_free,
+      price,
+      status,
+      work:works!inner (
+        id,
+        title,
+        slug,
+        cover_url,
+        access_type,
+        type,
+        status,
+        author:author_profiles (
+          pen_name
+        )
+      )
+    `)
+    .eq('status', 'published')
+    .eq('work.status', 'published')
+    .order('published_at', { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    // Fallback if join has any syntax nuance on older client
+    const fallback = await supabase
+      .from('chapters')
+      .select(`
+        id,
+        title,
+        slug,
+        chapter_number,
+        published_at,
+        created_at,
+        is_free,
+        price,
+        status,
+        work:works (
+          id,
+          title,
+          slug,
+          cover_url,
+          access_type,
+          type,
+          status,
+          author:author_profiles (
+            pen_name
+          )
+        )
+      `)
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(limit);
+
+    if (fallback.error || !fallback.data) {
+      console.error('Error fetching recent chapters:', error || fallback.error);
+      return [];
+    }
+
+    return (fallback.data as any[])
+      .filter((row) => row.work && row.work.status === 'published')
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        slug: row.slug,
+        chapter_number: row.chapter_number,
+        published_at: row.published_at,
+        created_at: row.created_at,
+        is_free: row.is_free,
+        price: row.price,
+        work: row.work,
+        relative_time: getRelativeTimeString(row.published_at || row.created_at),
+      }));
+  }
+
+  return (data as any[])
+    .filter((row) => row.work && row.work.status === 'published')
+    .map((row) => ({
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+      chapter_number: row.chapter_number,
+      published_at: row.published_at,
+      created_at: row.created_at,
+      is_free: row.is_free,
+      price: row.price,
+      work: row.work,
+      relative_time: getRelativeTimeString(row.published_at || row.created_at),
+    }));
 }
 

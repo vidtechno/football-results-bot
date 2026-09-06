@@ -13,24 +13,9 @@ export async function GET(request: Request) {
 
     const progressItems = await getRecentReadingProgress(profile.id, 5);
 
-    // Map to backward-compatible format for existing consumers
-    const items = progressItems.map((item) => ({
-      ...item,
-      work_id: item.workId,
-      last_chapter: item.chapter,
-      chapter: item.chapter,
-      page_index: item.pageIndex,
-      reading_progress: item.percentage,
-      is_completed: item.isCompleted,
-      last_read_at: item.lastReadAt,
-      relative_time: item.relativeTime,
-      read_url: item.resumeUrl,
-      resume_url: item.resumeUrl,
-    }));
-
     return NextResponse.json({
-      items,
-      primaryItem: items[0] || null,
+      items: progressItems,
+      primaryItem: progressItems[0] || null,
     });
   } catch (err: any) {
     console.error('Error in continue-reading API:', err);

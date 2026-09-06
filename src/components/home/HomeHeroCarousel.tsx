@@ -19,29 +19,12 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import type { Work } from '@/lib/types/platform';
 import { getRelativeTimeString } from '@/lib/utils/formatters';
+import type { RecentReadingProgressDTO } from '@/lib/services/progress';
 
 interface HomeHeroCarouselProps {
   recentlyUpdatedWork?: Work | null;
   editorChoiceWork?: Work | null;
   popularWork?: Work | null;
-}
-
-interface ContinueReadingData {
-  work: {
-    title: string;
-    slug: string;
-    cover_url: string | null;
-    author?: { pen_name: string };
-  };
-  last_chapter?: {
-    chapter_number: number;
-    title: string;
-    slug: string;
-  } | null;
-  page_index: number;
-  reading_progress: number;
-  relative_time: string;
-  read_url: string;
 }
 
 export function HomeHeroCarousel({
@@ -52,7 +35,7 @@ export function HomeHeroCarousel({
   const { user, author } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [continueReading, setContinueReading] = useState<ContinueReadingData | null>(null);
+  const [continueReading, setContinueReading] = useState<RecentReadingProgressDTO | null>(null);
   const [hasLoadedProgress, setHasLoadedProgress] = useState(false);
 
   const touchStartX = useRef<number | null>(null);
@@ -69,6 +52,7 @@ export function HomeHeroCarousel({
       return;
     }
 
+    setHasLoadedProgress(false);
     fetch('/api/library/continue-reading')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -99,8 +83,8 @@ export function HomeHeroCarousel({
 
   // Slide 1: Continue Reading OR Discovery Fallback
   if (continueReading) {
-    const chapterLabel = continueReading.last_chapter
-      ? `${continueReading.last_chapter.chapter_number}-bob: ${continueReading.last_chapter.title}`
+    const chapterLabel = continueReading.chapterTitle
+      ? `${continueReading.chapterNumber}-bob: ${continueReading.chapterTitle}`
       : 'Mutolaa sahifasi';
 
     slides.push({
@@ -109,14 +93,14 @@ export function HomeHeroCarousel({
       badge: 'Mutolaani davom ettirish',
       badgeIcon: Clock,
       badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30',
-      title: continueReading.work.title,
-      subtitle: continueReading.work.author?.pen_name || 'Muallif',
-      extraInfo: `${chapterLabel} • ${continueReading.page_index}-sahifa (${continueReading.reading_progress}%)`,
-      timeLabel: `${continueReading.relative_time} o‘qilgandi`,
+      title: continueReading.workTitle,
+      subtitle: continueReading.authorName,
+      extraInfo: `${chapterLabel} • ${continueReading.pageNumber}-sahifa (${continueReading.progressPercent}%)`,
+      timeLabel: continueReading.lastReadLabel,
       ctaText: 'Mutolaani davom ettirish',
-      ctaHref: continueReading.read_url,
-      coverUrl: continueReading.work.cover_url,
-      progressPercent: continueReading.reading_progress,
+      ctaHref: continueReading.resumeUrl,
+      coverUrl: continueReading.coverUrl,
+      progressPercent: continueReading.progressPercent,
     });
   } else {
     // Guest or no active reading progress -> Discovery Slide

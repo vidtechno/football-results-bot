@@ -43,21 +43,10 @@ export default async function KabinetPage() {
       .limit(6),
   ]);
 
-  const initialProgress = recentProgress.map((item) => ({
-    ...item,
-    work_id: item.workId,
-    last_chapter: item.chapter,
-    chapter: item.chapter,
-    page_index: item.pageIndex,
-    percentage: item.percentage,
-    reading_progress: item.percentage,
-    read_url: item.resumeUrl,
-  }));
-
   return (
     <Suspense fallback={<div className="p-8 text-center text-xs text-stone-400">Yuklanmoqda...</div>}>
       <KabinetClient
-        initialProgress={initialProgress}
+        initialProgress={recentProgress}
         initialBookmarks={bookmarksRes.data || []}
       />
     </Suspense>

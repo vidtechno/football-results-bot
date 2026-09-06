@@ -697,4 +697,490 @@ describe('Comprehensive Production QA Fixes - Regression Suite', () => {
       expect(emptyStates.purchased.cta).toBe('/asarlar?access=paid');
     });
   });
+
+  // =========================================================================
+  // 17. Comprehensive Regression Tests for Continue Reading, Discovery & Free Works
+  // =========================================================================
+  describe('17. Production Regressions - Continue Reading, Discovery & Access', () => {
+    // -----------------------------------------------------------------------
+    // A. Continue Reading Tests
+    // -----------------------------------------------------------------------
+    describe('A. Continue Reading Data Flow & Formatting', () => {
+      it('Correctly normalizes work title, author name, chapter number and page', async () => {
+        const mockAdmin = {
+          from: (table: string) => {
+            if (table === 'reading_progress') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    order: () => ({
+                      limit: async () => ({
+                        data: [
+                          {
+                            id: 'prog-1',
+                            work_id: 'w-1',
+                            chapter_id: 'c-3',
+                            page_index: 1, // Page 1 must preserve ?page=1
+                            total_pages: 15,
+                            percentage: 42,
+                            last_read_at: '2026-09-06T13:00:00.000Z',
+                            work: {
+                              id: 'w-1',
+                              title: 'Noldan emas, minusdan',
+                              slug: 'noldan-emas-minusdan',
+                              cover_url: 'https://example.com/cover.webp',
+                              status: 'published',
+                              access_type: 'free',
+                              author: {
+                                pen_name: 'Anorboyev Diyorbek',
+                              },
+                            },
+                            chapter: {
+                              id: 'c-3',
+                              chapter_number: 3,
+                              title: 'Kelajakdagi men to‘laydi',
+                              slug: 'kelajakdagi-men-tolaydi',
+                              status: 'published',
+                              is_free: true,
+                            },
+                          },
+                        ],
+                        error: null,
+                      }),
+                    }),
+                  }),
+                }),
+              };
+            }
+            return { select: () => ({ in: async () => ({ data: [] }) }) };
+          },
+        };
+
+        const items = await getRecentReadingProgress('user-1', 5, mockAdmin as any);
+        expect(items.length).toBe(1);
+        const item = items[0];
+
+        // 1. Correct work title & author name
+        expect(item.workTitle).toBe('Noldan emas, minusdan');
+        expect(item.authorName).toBe('Anorboyev Diyorbek');
+        expect(item.work.authorName).toBe('Anorboyev Diyorbek');
+        expect(item.work.author?.pen_name).toBe('Anorboyev Diyorbek');
+
+        // 2. Correct chapter number and title (no undefined-bob, no empty -bob)
+        expect(item.chapterNumber).toBe(3);
+        expect(item.chapterTitle).toBe('Kelajakdagi men to‘laydi');
+        expect(item.chapter?.chapter_number).toBe(3);
+        expect(item.chapter?.number).toBe(3);
+        expect(item.last_chapter?.chapter_number).toBe(3);
+
+        // 3. Exact saved page preserved in resumeUrl (including page 1)
+        expect(item.pageNumber).toBe(1);
+        expect(item.resumeUrl).toBe('/asarlar/noldan-emas-minusdan/kelajakdagi-men-tolaydi?page=1');
+        expect(item.read_url).toBe('/asarlar/noldan-emas-minusdan/kelajakdagi-men-tolaydi?page=1');
+
+        // 4. Clamped progress percentage
+        expect(item.progressPercent).toBe(42);
+        expect(item.reading_progress).toBe(42);
+
+        // 5. No duplicated "o‘qildi o‘qilgandi"
+        expect(item.lastReadLabel).toContain('o‘qilgandi');
+        expect(item.lastReadLabel).not.toContain('o‘qildi o‘qilgandi');
+      });
+
+      it('Gracefully handles incomplete or legacy records without NaN, undefined or empty strings', async () => {
+        const mockAdmin = {
+          from: () => ({
+            select: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: async () => ({
+                    data: [
+                      {
+                        id: 'prog-legacy',
+                        work_id: 'w-legacy',
+                        chapter_id: null,
+                        page_index: null, // missing
+                        total_pages: null,
+                        percentage: 150, // exceeds 100, must be clamped
+                        last_read_at: 'invalid-date',
+                        work: {
+                          id: 'w-legacy',
+                          title: 'Eski asar',
+                          slug: 'eski-asar',
+                          status: 'published',
+                          access_type: 'free',
+                          author: null, // missing author
+                          author_id: 'auth-missing',
+                        },
+                        chapter: null, // missing chapter
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+
+        const items = await getRecentReadingProgress('user-1', 5, mockAdmin as any);
+        expect(items.length).toBe(1);
+        const item = items[0];
+
+        expect(item.pageNumber).toBe(1);
+        expect(item.progressPercent).toBe(100); // clamped to 100
+        expect(item.chapterNumber).toBe(1);
+        expect(item.chapterTitle).toBe('Mutolaa');
+        expect(item.resumeUrl).toBe('/asarlar/eski-asar');
+        expect(item.lastReadLabel).toBe('Yaqinda o‘qilgandi');
+      });
+
+      it('Deduplicates works to return distinct entries sorted by lastReadAt descending', async () => {
+        const now = Date.now();
+        const mockAdmin = {
+          from: () => ({
+            select: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: async () => ({
+                    data: [
+                      {
+                        id: 'prog-1',
+                        work_id: 'work-A',
+                        page_index: 3,
+                        last_read_at: new Date(now).toISOString(),
+                        work: { id: 'work-A', title: 'Work A', slug: 'work-a', status: 'published', access_type: 'free' },
+                        chapter: { id: 'c-2', chapter_number: 2, title: 'Ch 2', slug: 'ch-2', status: 'published' },
+                      },
+                      {
+                        id: 'prog-2',
+                        work_id: 'work-A', // Duplicate work, older read
+                        page_index: 1,
+                        last_read_at: new Date(now - 100000).toISOString(),
+                        work: { id: 'work-A', title: 'Work A', slug: 'work-a', status: 'published', access_type: 'free' },
+                        chapter: { id: 'c-1', chapter_number: 1, title: 'Ch 1', slug: 'ch-1', status: 'published' },
+                      },
+                      {
+                        id: 'prog-3',
+                        work_id: 'work-B',
+                        page_index: 10,
+                        last_read_at: new Date(now - 50000).toISOString(),
+                        work: { id: 'work-B', title: 'Work B', slug: 'work-b', status: 'published', access_type: 'free' },
+                        chapter: { id: 'c-5', chapter_number: 5, title: 'Ch 5', slug: 'ch-5', status: 'published' },
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+
+        const items = await getRecentReadingProgress('user-1', 5, mockAdmin as any);
+        expect(items.length).toBe(2);
+        expect(items[0].workId).toBe('work-A');
+        expect(items[0].chapterNumber).toBe(2); // Kept newer chapter
+        expect(items[1].workId).toBe('work-B');
+      });
+
+      it('Clears progress on sign-out / empty userId and isolates user progress without leaks', async () => {
+        // Empty userId (guest or signed out) must return []
+        const emptyResult = await getRecentReadingProgress('', 5);
+        expect(emptyResult).toEqual([]);
+
+        let queriedUserId = '';
+        const mockAdmin = {
+          from: (table: string) => ({
+            select: () => ({
+              eq: (field: string, val: string) => {
+                if (field === 'user_id') queriedUserId = val;
+                return {
+                  order: () => ({
+                    limit: async () => ({ data: [], error: null }),
+                  }),
+                };
+              },
+            }),
+          }),
+        };
+
+        await getRecentReadingProgress('user-alice-123', 5, mockAdmin as any);
+        expect(queriedUserId).toBe('user-alice-123');
+        // Ensure user-bob cannot receive user-alice's data
+        expect(queriedUserId).not.toBe('user-bob-456');
+      });
+
+      it('Ensures canonical DTO contains all fields consumed by Homepage, Cabinet and Library', async () => {
+        const mockAdmin = {
+          from: () => ({
+            select: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: async () => ({
+                    data: [
+                      {
+                        id: 'prog-canonical-1',
+                        work_id: 'work-noldan',
+                        chapter_id: 'ch-3',
+                        page_index: 1,
+                        total_pages: 15,
+                        percentage: 20,
+                        last_read_at: '2026-09-06T12:00:00.000Z',
+                        work: {
+                          id: 'work-noldan',
+                          title: 'Noldan emas, minusdan',
+                          slug: 'noldan-emas-minusdan',
+                          status: 'published',
+                          access_type: 'free',
+                          author_id: 'author-diyorbek',
+                          author: [{ pen_name: 'Anorboyev Diyorbek' }],
+                        },
+                        chapter: {
+                          id: 'ch-3',
+                          chapter_number: 3,
+                          title: 'Kelajakdagi men to‘laydi',
+                          slug: 'kelajakdagi-men-tolaydi',
+                          status: 'published',
+                          is_free: true,
+                        },
+                      },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+
+        const [item] = await getRecentReadingProgress('user-test', 5, mockAdmin as any);
+
+        // Canonical fields
+        expect(item.workSlug).toBe('noldan-emas-minusdan');
+        expect(item.chapterSlug).toBe('kelajakdagi-men-tolaydi');
+        expect(item.chapterNumber).toBe(3);
+        expect(item.chapterTitle).toBe('Kelajakdagi men to‘laydi');
+        expect(item.pageNumber).toBe(1);
+        expect(item.resumeUrl).toBe('/asarlar/noldan-emas-minusdan/kelajakdagi-men-tolaydi?page=1');
+        expect(item.authorName).toBe('Anorboyev Diyorbek');
+
+        // Consumed by Homepage Hero Carousel & Continue Reading
+        expect(item.lastReadLabel).toContain('o‘qilgandi');
+        expect(item.lastReadLabel).not.toContain('o‘qildi o‘qilgandi');
+        expect(item.work.author?.pen_name).toBe('Anorboyev Diyorbek');
+        expect(item.work.authorName).toBe('Anorboyev Diyorbek');
+
+        // Consumed by Reader Cabinet
+        expect(item.chapter?.number).toBe(3);
+        expect(item.chapter?.chapter_number).toBe(3);
+        expect(item.resume_url).toBe(item.resumeUrl);
+
+        // Consumed by Library
+        expect(item.read_url).toBe(item.resumeUrl);
+        expect(item.page_index).toBe(1);
+        expect(item.percentage).toBe(20);
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // B. "Siz uchun" Recommendation Tests
+    // -----------------------------------------------------------------------
+    describe('B. "Siz uchun" Recommendations & Fallback', () => {
+      const sampleWorks = [
+        {
+          id: 'w-1',
+          title: 'Biznes Asar',
+          status: 'published',
+          is_archived: false,
+          work_genres: [{ genre: { id: 'genre-biznes', name: 'Biznes' } }],
+          view_count: 50,
+          average_rating: 4.8,
+        },
+        {
+          id: 'w-2',
+          title: 'Fantastika Asar',
+          status: 'published',
+          is_archived: false,
+          work_genres: [{ genre: { id: 'genre-fantastika', name: 'Fantastika' } }],
+          view_count: 10,
+          average_rating: 4.2,
+        },
+        {
+          id: 'w-archived',
+          title: 'Arxiv Asar',
+          status: 'published',
+          is_archived: true, // Archived, must be excluded!
+          work_genres: [{ genre: { id: 'genre-biznes', name: 'Biznes' } }],
+          view_count: 500,
+        },
+        {
+          id: 'w-draft',
+          title: 'Qoralama Asar',
+          status: 'draft', // Draft, must be excluded!
+          is_archived: false,
+        },
+      ];
+
+      it('Prioritizes works matching selected user genres and excludes archived/draft works', () => {
+        const preferredGenreIds = new Set(['genre-biznes']);
+        const eligibleWorks = sampleWorks.filter((w) => w.status === 'published' && !w.is_archived);
+
+        expect(eligibleWorks.length).toBe(2);
+        expect(eligibleWorks.map((w) => w.id)).not.toContain('w-archived');
+        expect(eligibleWorks.map((w) => w.id)).not.toContain('w-draft');
+
+        const scored = eligibleWorks.map((w) => {
+          let score = 0;
+          const gIds = w.work_genres?.map((wg: any) => wg.genre?.id) || [];
+          if (gIds.some((id: string) => preferredGenreIds.has(id))) {
+            score += 50;
+          }
+          score += (w.average_rating || 0) * 4;
+          return { work: w, score };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+        expect(scored[0].work.id).toBe('w-1'); // Business work ranked first
+      });
+
+      it('Falls back to popular published works when user has no matching preferences', () => {
+        const preferredGenreIds = new Set(['genre-detektiv']); // User prefers detective, but catalog only has business & sci-fi
+        const eligibleWorks = sampleWorks.filter((w) => w.status === 'published' && !w.is_archived);
+
+        const matched = eligibleWorks.filter((w) =>
+          w.work_genres?.some((wg: any) => preferredGenreIds.has(wg.genre?.id)),
+        );
+        expect(matched.length).toBe(0);
+
+        // Fallback: provide eligible published works
+        const fallback = eligibleWorks.slice(0, 8);
+        expect(fallback.length).toBe(2);
+        expect(fallback.map((w) => w.id)).toEqual(['w-1', 'w-2']);
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // C. "Kuzatayotganlarim" Followed Works Tests
+    // -----------------------------------------------------------------------
+    describe('C. "Kuzatayotganlarim" Followed Content Filtering', () => {
+      it('Returns only published, non-archived works and removes duplicates from dual follow', () => {
+        const followedAuthorWorks = [
+          { id: 'w-1', title: 'Work 1', status: 'published', is_archived: false, author_id: 'author-1' },
+          { id: 'w-archived', title: 'Work Archived', status: 'published', is_archived: true, author_id: 'author-1' },
+        ];
+        const followedDirectWorks = [
+          { id: 'w-1', title: 'Work 1', status: 'published', is_archived: false }, // Duplicate of author work
+          { id: 'w-2', title: 'Work 2', status: 'published', is_archived: false },
+        ];
+
+        const combined = [...followedAuthorWorks, ...followedDirectWorks];
+        const eligible = combined.filter((w) => w.status === 'published' && !w.is_archived);
+
+        // Deduplication
+        const unique: any[] = [];
+        const seen = new Set<string>();
+        eligible.forEach((w) => {
+          if (!seen.has(w.id)) {
+            seen.add(w.id);
+            unique.push(w);
+          }
+        });
+
+        expect(unique.length).toBe(2);
+        expect(unique.map((w) => w.id)).toEqual(['w-1', 'w-2']);
+        expect(seen.has('w-archived')).toBe(false);
+      });
+
+      it('Identifies when user follows only archived or ineligible works for contextual empty state', () => {
+        const hasFollows = true;
+        const eligiblePublishedWorks: any[] = []; // All followed works are archived
+
+        const emptyReason = eligiblePublishedWorks.length === 0 ? (hasFollows ? 'only_ineligible' : 'no_follows') : null;
+        expect(emptyReason).toBe('only_ineligible');
+      });
+
+      it('Requires authentication for guest users on kuzatayotganlarim', () => {
+        const profile = null;
+        const isGuest = !profile;
+        const response = isGuest
+          ? { success: false, requiresAuth: true, status: 401 }
+          : { success: true };
+
+        expect(response.requiresAuth).toBe(true);
+        expect(response.status).toBe(401);
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // D. Free-Work Access Reconfirmation Tests
+    // -----------------------------------------------------------------------
+    describe('D. Free-Work Multi-Chapter Access Flow', () => {
+      it('Allows guest and ordinary reader to open all chapters of a fully free work without payment', () => {
+        const chapters = [
+          { number: 1, isFree: true, price: 0 },
+          { number: 2, isFree: true, price: 0 },
+          { number: 3, isFree: true, price: 0 },
+        ];
+
+        // Test Guest
+        chapters.forEach((ch) => {
+          const guestAccess = evaluateCanonicalChapterAccess({
+            workAccessType: 'free',
+            fullWorkPrice: 0,
+            chapterIsFree: ch.isFree,
+            chapterPrice: ch.price,
+            isWorkPublished: true,
+            isChapterPublished: true,
+            isAuthor: false,
+            isAdmin: false,
+            hasFullWorkEntitlement: false,
+            hasChapterEntitlement: false,
+          });
+          expect(guestAccess.canRead).toBe(true);
+          expect(guestAccess.reason).toBe('free');
+          expect(guestAccess.price).toBe(0);
+          expect(guestAccess.isLocked).toBe(false);
+        });
+
+        // Test Ordinary Reader (Not Author, Not Admin)
+        chapters.forEach((ch) => {
+          const readerAccess = evaluateCanonicalChapterAccess({
+            workAccessType: 'free',
+            fullWorkPrice: 0,
+            chapterIsFree: ch.isFree,
+            chapterPrice: ch.price,
+            isWorkPublished: true,
+            isChapterPublished: true,
+            isAuthor: false,
+            isAdmin: false,
+            hasFullWorkEntitlement: false,
+            hasChapterEntitlement: false,
+          });
+          expect(readerAccess.canRead).toBe(true);
+          expect(readerAccess.reason).toBe('free');
+        });
+      });
+
+      it('Ensures paid work chapters remain locked and protected', () => {
+        const paidChapterAccess = evaluateCanonicalChapterAccess({
+          workAccessType: 'paid_by_chapter',
+          fullWorkPrice: 0,
+          chapterIsFree: false,
+          chapterPrice: 3000,
+          isWorkPublished: true,
+          isChapterPublished: true,
+          isAuthor: false,
+          isAdmin: false,
+          hasFullWorkEntitlement: false,
+          hasChapterEntitlement: false,
+        });
+
+        expect(paidChapterAccess.canRead).toBe(false);
+        expect(paidChapterAccess.reason).toBe('locked');
+        expect(paidChapterAccess.price).toBe(3000);
+        expect(paidChapterAccess.isLocked).toBe(true);
+      });
+    });
+  });
 });

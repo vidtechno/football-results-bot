@@ -692,18 +692,22 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                 {(progressList.length > 0 ? progressList : Object.values(progressMap)).slice(0, 3).map((item: any) => {
                   const w = item.work;
                   const ch = item.chapter || item.last_chapter;
-                  const pageNum = item.page_index || item.page_number || 1;
-                  const percent = item.percentage ?? item.reading_progress ?? 0;
-                  const readUrl = item.read_url || (ch && w ? `/asarlar/${w.slug}/${ch.slug}${pageNum > 1 ? `?page=${pageNum}` : ''}` : w ? `/asarlar/${w.slug}` : '/asarlar');
+                  const pageNum = item.pageNumber ?? item.page_index ?? item.page_number ?? 1;
+                  const percent = item.progressPercent ?? item.percentage ?? item.reading_progress ?? 0;
+                  const chNum = item.chapterNumber ?? ch?.chapter_number ?? ch?.number ?? 1;
+                  const chTitle = item.chapterTitle ?? ch?.title ?? 'Mutolaa';
+                  const title = item.workTitle || w?.title || 'Asar';
+                  const cover = item.coverUrl || w?.cover_url;
+                  const readUrl = item.resumeUrl || item.read_url || (ch && w ? `/asarlar/${w.slug}/${ch.slug}?page=${pageNum}` : w ? `/asarlar/${w.slug}` : '/asarlar');
 
                   return (
                     <div
-                      key={item.work_id || item.id}
+                      key={item.workId || item.work_id || item.id}
                       className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/70 flex items-center gap-3"
                     >
                       <div className="relative w-12 h-16 rounded-xl bg-stone-200 overflow-hidden shrink-0">
-                        {w?.cover_url ? (
-                          <Image src={w.cover_url} alt={w?.title || ''} fill className="object-cover" />
+                        {cover ? (
+                          <Image src={cover} alt={title} fill className="object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-stone-400">
                             <BookOpen className="w-4 h-4" />
@@ -711,10 +715,10 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                         )}
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
-                        <h4 className="font-serif font-bold text-xs text-stone-900 truncate">{w?.title || 'Asar'}</h4>
-                        {ch && (
+                        <h4 className="font-serif font-bold text-xs text-stone-900 truncate">{title}</h4>
+                        {(ch || item.chapterTitle) && (
                           <p className="text-[11px] text-stone-600 truncate">
-                            {ch.chapter_number}-bob: {ch.title}
+                            {chNum}-bob: {chTitle}
                           </p>
                         )}
                         <div className="flex items-center justify-between text-[10px] text-amber-800 font-bold">

@@ -370,8 +370,18 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
             {items.map((item: any) => {
               const w = item.work;
               const ch = item.chapter;
-              const progress = item.percentage || 0;
-              const readUrl = ch ? `/asarlar/${w.slug}/${ch.slug}` : `/asarlar/${w.slug}`;
+              const progress = Math.min(100, Math.max(0, Math.round(Number(item.percentage ?? item.progressPercent ?? 0))));
+              const pageNum = Math.max(1, Math.floor(Number(item.page_index ?? item.pageNumber ?? 1)));
+              const searchParams = new URLSearchParams();
+              searchParams.set('page', String(pageNum));
+              const readUrl = ch && w
+                ? `/asarlar/${encodeURIComponent(w.slug)}/${encodeURIComponent(ch.slug)}?${searchParams.toString()}`
+                : w
+                ? `/asarlar/${encodeURIComponent(w.slug)}`
+                : '/asarlar';
+              const authorName = (item.authorName || w?.author?.pen_name || 'Muallif').trim();
+              const chapterNum = Number(ch?.chapter_number ?? item.chapterNumber ?? 1);
+              const chapterTitle = ch?.title || item.chapterTitle;
 
               return (
                 <div
@@ -379,7 +389,7 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
                   className="bg-white p-4 rounded-3xl border border-[#EAE5DD] flex items-center gap-4 shadow-xs hover:border-amber-400 transition-colors"
                 >
                   <div className="relative w-16 h-24 rounded-2xl bg-stone-100 overflow-hidden shrink-0 shadow-2xs border border-stone-200">
-                    {w.cover_url ? (
+                    {w?.cover_url ? (
                       <Image src={w.cover_url} alt={w.title} fill className="object-cover" sizes="64px" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-stone-400">
@@ -389,17 +399,17 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-1.5">
-                    <h3 className="font-serif font-bold text-stone-900 text-sm truncate">{w.title}</h3>
-                    <p className="text-xs text-stone-500 truncate">{w.author?.pen_name || 'Muallif'}</p>
-                    {ch && (
+                    <h3 className="font-serif font-bold text-stone-900 text-sm truncate">{w?.title}</h3>
+                    <p className="text-xs text-stone-500 truncate">{authorName}</p>
+                    {chapterTitle && (
                       <p className="text-[11px] text-amber-800 font-semibold truncate">
-                        {ch.chapter_number}-bob: {ch.title}
+                        {chapterNum}-bob: {chapterTitle}
                       </p>
                     )}
 
                     <div className="space-y-1 pt-1">
                       <div className="flex items-center justify-between text-[10px] text-stone-400 font-bold">
-                        <span>Mutolaa</span>
+                        <span>Mutolaa ({pageNum}-sahifa)</span>
                         <span>{progress}%</span>
                       </div>
                       <div className="w-full bg-stone-100 h-1.5 rounded-full overflow-hidden">

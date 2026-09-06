@@ -1,15 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useTransition } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Sparkles, TrendingUp, Clock, Bookmark, Info, Loader2, Users, Compass, BookOpen } from 'lucide-react';
+import { Sparkles, TrendingUp, Clock, Bookmark, Info, Users, BookOpen, RotateCcw, ArrowRight, LogIn } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { supabase } from '@/lib/supabase/client';
 import { WorkCard, WorkCardSkeleton } from '@/components/work/WorkCard';
 import type { Work } from '@/lib/types/platform';
 
 export type DiscoveryTabKey = 'yangi' | 'siz-uchun' | 'ommabop' | 'kuzatayotganlarim';
+
+const VALID_TABS: DiscoveryTabKey[] = ['yangi', 'siz-uchun', 'ommabop', 'kuzatayotganlarim'];
 
 interface HomeDiscoveryTabsProps {
   initialWorks?: Work[];
@@ -22,123 +25,195 @@ export function HomeDiscoveryTabs({
 }: HomeDiscoveryTabsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const urlTab = searchParams.get('tab') as DiscoveryTabKey | null;
-  const validTab = (urlTab && ['yangi', 'siz-uchun', 'ommabop', 'kuzatayotganlarim'].includes(urlTab))
-    ? urlTab
-    : 'yangi';
+  const initialTab: DiscoveryTabKey = urlTab && VALID_TABS.includes(urlTab) ? urlTab : 'yangi';
 
-  const [activeTab, setActiveTab] = useState<DiscoveryTabKey>(validTab);
-  const [works, setWorks] = useState<Work[]>(validTab === 'yangi' ? initialWorks : validTab === 'ommabop' ? popularWorks : []);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<DiscoveryTabKey>(initialTab);
+  const [works, setWorks] = useState<Work[]>(
+    initialTab === 'yangi' && initialWorks.length > 0
+      ? initialWorks
+      : initialTab === 'ommabop' && popularWorks.length > 0
+      ? popularWorks
+      : []
+  );
+  const [loading, setLoading] = useState<boolean>(
+    (initialTab === 'siz-uchun' || initialTab === 'kuzatayotganlarim') ||
+    (initialTab === 'yangi' && initialWorks.length === 0) ||
+    (initialTab === 'ommabop' && popularWorks.length === 0)
+  );
   const [error, setError] = useState<string | null>(null);
   const [emptyReason, setEmptyReason] = useState<string | null>(null);
-  const [isPersonalized, setIsPersonalized] = useState<boolean>(true);
-  const [isPending, startTransition] = useTransition();
-
-  // Cache fetched tab results in memory
   const [tabCache, setTabCache] = useState<Record<string, Work[]>>({
-    yangi: initialWorks,
+    ...(initialWorks.length > 0 ? { yangi: initialWorks } : {}),
     ...(popularWorks.length > 0 ? { ommabop: popularWorks } : {}),
   });
 
-  const fetchTabData = useCallback(async (tab: DiscoveryTabKey) => {
-    // If cached, use it immediately
-    if (tabCache[tab] && tabCache[tab].length > 0) {
-      setWorks(tabCache[tab]);
-      setError(null);
-      setEmptyReason(null);
-      return;
-    }
+  const requestIdRef = useRef<number>(0);
+  const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
-    setLoading(true);
-    setError(null);
-    setEmptyReason(null);
+  const loadTabData = useCallback(
+    async (tab: DiscoveryTabKey, forceFetch = false) => {
+      const requestId = ++requestIdRef.current;
 
-    try {
-      const res = await fetch(`/api/home/discovery?tab=${tab}`);
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        if (data.requiresAuth) {
-          router.push(`/kirish?returnUrl=${encodeURIComponent(`/?tab=${tab}`)}`);
-          return;
-        }
-        throw new Error(data.error || 'Ma’lumotlarni yuklab bo‘lmadi');
+      // Check client memory cache unless forced
+      if (!forceFetch && tabCache[tab] && tabCache[tab].length > 0) {
+        setWorks(tabCache[tab]);
+        setLoading(false);
+        setError(null);
+        setEmptyReason(null);
+        return;
       }
 
-      const fetchedWorks = data.works || [];
-      setWorks(fetchedWorks);
-      setEmptyReason(data.emptyReason || null);
-      setIsPersonalized(Boolean(data.isPersonalized));
+      setLoading(true);
+      setError(null);
+      setEmptyReason(null);
 
-      // Update cache
-      setTabCache((prev) => ({ ...prev, [tab]: fetchedWorks }));
-    } catch (err: any) {
-      setError(err.message || 'Xatolik yuz berdi');
-    } finally {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const res = await fetch(`/api/home/discovery?tab=${tab}`, { headers });
+        const data = await res.json();
+
+        // Discard stale responses from older requests
+        if (requestId !== requestIdRef.current) return;
+
+        if (!res.ok || !data.success) {
+          if (data.requiresAuth) {
+            setWorks([]);
+            setEmptyReason('guest');
+            return;
+          }
+          throw new Error(data.error || 'Ma’lumotlarni yuklab bo‘lmadi');
+        }
+
+        const fetchedWorks: Work[] = data.works || [];
+        setWorks(fetchedWorks);
+        setEmptyReason(data.emptyReason || null);
+
+        if (fetchedWorks.length > 0) {
+          setTabCache((prev) => ({ ...prev, [tab]: fetchedWorks }));
+        }
+      } catch (err: any) {
+        if (requestId === requestIdRef.current) {
+          setError(err.message || 'Xatolik yuz berdi');
+          setWorks([]);
+        }
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [tabCache],
+  );
+
+  // Initial fetch on mount or if direct landing on non-cached tab
+  useEffect(() => {
+    if (initialTab === 'yangi' && initialWorks.length > 0) {
+      setWorks(initialWorks);
       setLoading(false);
+    } else if (initialTab === 'ommabop' && popularWorks.length > 0) {
+      setWorks(popularWorks);
+      setLoading(false);
+    } else {
+      loadTabData(initialTab);
     }
-  }, [tabCache, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleSelectTab = (key: DiscoveryTabKey, requiresAuth?: boolean) => {
-    if (requiresAuth && !user) {
-      router.push(`/kirish?returnUrl=${encodeURIComponent(`/?tab=${key}`)}`);
-      return;
-    }
+  // Listen for browser Back/Forward (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentUrl = new URL(window.location.href);
+      const tabParam = currentUrl.searchParams.get('tab') as DiscoveryTabKey | null;
+      const targetTab: DiscoveryTabKey = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'yangi';
+      setActiveTab(targetTab);
+      loadTabData(targetTab);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [loadTabData]);
+
+  const handleSelectTab = (key: DiscoveryTabKey) => {
+    if (key === activeTab && !error) return;
 
     setActiveTab(key);
 
-    // Synchronize URL query parameter without full-page refresh
     const url = new URL(window.location.href);
-    if (key === 'yangi') {
-      url.searchParams.delete('tab');
-    } else {
-      url.searchParams.set('tab', key);
-    }
-    window.history.replaceState({}, '', url.toString());
+    url.searchParams.set('tab', key);
+    window.history.pushState({ tab: key }, '', url.toString());
 
-    fetchTabData(key);
+    loadTabData(key);
   };
 
-  useEffect(() => {
-    if (urlTab && urlTab !== 'yangi' && urlTab !== activeTab) {
-      handleSelectTab(urlTab);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlTab]);
+  // Keyboard navigation for accessible tabs
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    const tabKeys: DiscoveryTabKey[] = ['yangi', 'siz-uchun', 'ommabop', 'kuzatayotganlarim'];
+    let nextIndex = -1;
 
-  const tabs: { key: DiscoveryTabKey; label: string; icon: any; requiresAuth?: boolean }[] = [
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      nextIndex = (index + 1) % tabKeys.length;
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      nextIndex = (index - 1 + tabKeys.length) % tabKeys.length;
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      nextIndex = 0;
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      nextIndex = tabKeys.length - 1;
+    }
+
+    if (nextIndex >= 0) {
+      const nextKey = tabKeys[nextIndex];
+      handleSelectTab(nextKey);
+      tabsRef.current[nextIndex]?.focus();
+    }
+  };
+
+  const tabs: { key: DiscoveryTabKey; label: string; icon: any }[] = [
     { key: 'yangi', label: 'Yangi', icon: Clock },
     { key: 'siz-uchun', label: 'Siz uchun', icon: Sparkles },
     { key: 'ommabop', label: 'Ommabop', icon: TrendingUp },
-    { key: 'kuzatayotganlarim', label: 'Kuzatayotganlarim', icon: Bookmark, requiresAuth: true },
+    { key: 'kuzatayotganlarim', label: 'Kuzatayotganlarim', icon: Bookmark },
   ];
 
   return (
     <div className="space-y-4">
-      {/* Horizontal Tabs Row */}
+      {/* Horizontal Tabs Row with strict WAI-ARIA tablist */}
       <div
         role="tablist"
         aria-label="Kashf qilish bo‘limlari"
         className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none select-none"
       >
-        {tabs.map((tab) => {
+        {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
 
           return (
             <button
               key={tab.key}
+              ref={(el) => {
+                tabsRef.current[idx] = el;
+              }}
               role="tab"
               id={`tab-${tab.key}`}
               aria-selected={isActive}
               aria-controls={`panel-${tab.key}`}
+              tabIndex={isActive ? 0 : -1}
               type="button"
-              onClick={() => handleSelectTab(tab.key, tab.requiresAuth)}
+              onClick={() => handleSelectTab(tab.key)}
+              onKeyDown={(e) => handleKeyDown(e, idx)}
               className={clsx(
-                'inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all duration-150 shrink-0 border shadow-2xs cursor-pointer',
+                'inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all duration-150 shrink-0 border shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2',
                 isActive
                   ? 'bg-emerald-800 text-white border-emerald-800 shadow-xs'
                   : 'bg-white text-stone-600 border-[#EAE5DD] hover:border-emerald-600/40 hover:text-stone-900 hover:bg-stone-50',
@@ -156,26 +231,27 @@ export function HomeDiscoveryTabs({
         })}
       </div>
 
-      {/* Guest Explanation for "Siz uchun" */}
-      {activeTab === 'siz-uchun' && !user && (
+      {/* Guest info banner for "Siz uchun" */}
+      {activeTab === 'siz-uchun' && !user && !authLoading && (
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-xs text-amber-900">
           <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
             <strong>Ommabop tavsiyalar to‘plami:</strong> Siz tizimga kirmagansiz. Sevimli janrlaringiz va o‘qish tarixingiz asosida shaxsiy saralashni olish uchun{' '}
-            <Link href="/kirish?returnUrl=/?tab=siz-uchun" className="underline font-bold hover:text-amber-950">
+            <Link href={`/kirish?returnUrl=${encodeURIComponent('/?tab=siz-uchun')}`} className="underline font-bold hover:text-amber-950">
               tizimga kiring
             </Link>.
           </p>
         </div>
       )}
 
-      {/* Panel Content */}
+      {/* Mutually Exclusive Tabpanel States */}
       <div
         role="tabpanel"
         id={`panel-${activeTab}`}
         aria-labelledby={`tab-${activeTab}`}
         className="space-y-4"
       >
+        {/* State 1: Loading Skeleton */}
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -183,55 +259,145 @@ export function HomeDiscoveryTabs({
             ))}
           </div>
         ) : error ? (
+          /* State 2: Error with Retry */
           <div className="p-8 text-center bg-white rounded-3xl border border-red-200 shadow-xs space-y-3">
             <p className="text-xs text-red-600 font-semibold">{error}</p>
             <button
               type="button"
-              onClick={() => fetchTabData(activeTab)}
-              className="px-4 py-1.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition-colors"
+              onClick={() => loadTabData(activeTab, true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition-colors shadow-2xs"
             >
-              Qayta urinish
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Qayta urinish</span>
             </button>
           </div>
         ) : works.length === 0 ? (
-          <div className="p-8 sm:p-12 text-center bg-white rounded-3xl border border-[#EAE5DD] shadow-xs space-y-3">
-            {activeTab === 'kuzatayotganlarim' ? (
-              <>
-                <Users className="w-8 h-8 text-stone-300 mx-auto" />
-                <h3 className="font-serif font-bold text-stone-800 text-sm">
-                  Siz hali birorta muallif yoki asarni kuzatmadingiz
+          /* State 3: Empty State with Contextual Explanation & CTAs */
+          <div className="p-8 sm:p-12 text-center bg-white rounded-3xl border border-[#EAE5DD] shadow-xs space-y-4">
+            {activeTab === 'siz-uchun' ? (
+              <div className="max-w-md mx-auto space-y-3">
+                <Sparkles className="w-9 h-9 text-amber-500 mx-auto" />
+                <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
+                  Hozircha sizga mos tavsiyalar topilmadi
                 </h3>
-                <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                  Yangi boblar haqida xabar olish uchun sevimli mualliflaringizni kuzatib boring.
+                <p className="text-xs text-stone-500 leading-relaxed">
+                  Sevimli janrlaringizni tanlang yoki ko‘proq asar o‘qib, tavsiyalarni yaxshilang.
                 </p>
-                <div className="flex items-center justify-center gap-2 pt-1">
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                   <Link
-                    href="/mualliflar"
-                    className="inline-block px-4 py-2 rounded-xl bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors"
+                    href="/kabinet"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 transition-colors shadow-2xs"
                   >
-                    Mualliflarni ko‘rish
+                    <span>Janrlarni tanlash</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                   <Link
                     href="/asarlar"
-                    className="inline-block px-4 py-2 rounded-xl bg-stone-100 text-stone-700 font-bold text-xs hover:bg-stone-200 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-stone-100 text-stone-700 font-bold text-xs hover:bg-stone-200 transition-colors"
                   >
-                    Katalog
+                    <span>Barcha asarlarni ko‘rish</span>
                   </Link>
                 </div>
-              </>
+              </div>
+            ) : activeTab === 'kuzatayotganlarim' ? (
+              emptyReason === 'guest' || !user ? (
+                <div className="max-w-md mx-auto space-y-3">
+                  <LogIn className="w-9 h-9 text-emerald-600 mx-auto" />
+                  <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
+                    Kuzatuvlaringizni ko‘rish uchun tizimga kiring
+                  </h3>
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    Kuzatayotgan asarlaringiz va mualliflaringiz yangilanishlarini ko‘rish uchun profilingizga kiring.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <Link
+                      href={`/kirish?returnUrl=${encodeURIComponent('/?tab=kuzatayotganlarim')}`}
+                      className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors shadow-2xs"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>Tizimga kirish</span>
+                    </Link>
+                    <Link
+                      href="/asarlar"
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-stone-100 text-stone-700 font-bold text-xs hover:bg-stone-200 transition-colors"
+                    >
+                      <span>Asarlarni ko‘rish</span>
+                    </Link>
+                  </div>
+                </div>
+              ) : emptyReason === 'only_ineligible' ? (
+                <div className="max-w-md mx-auto space-y-3">
+                  <Bookmark className="w-9 h-9 text-stone-400 mx-auto" />
+                  <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
+                    Kuzatayotganlaringizda yangi asarlar yo‘q
+                  </h3>
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    Siz kuzatayotgan asarlar hozircha ochiq emas yoki yangi boblar chop etilmagan.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <Link
+                      href="/asarlar"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors shadow-2xs"
+                    >
+                      <span>Asarlarni ko‘rish</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                    <Link
+                      href="/mualliflar"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-stone-100 text-stone-700 font-bold text-xs hover:bg-stone-200 transition-colors"
+                    >
+                      <span>Mualliflarni ko‘rish</span>
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-md mx-auto space-y-3">
+                  <Users className="w-9 h-9 text-stone-400 mx-auto" />
+                  <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
+                    Siz hali birorta muallif yoki asarni kuzatmadingiz
+                  </h3>
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    Yangi boblar va asarlar haqida birinchilardan bo‘lib xabar olish uchun sevimli mualliflaringizni kuzatib boring.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <Link
+                      href="/mualliflar"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors shadow-2xs"
+                    >
+                      <span>Mualliflarni ko‘rish</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                    <Link
+                      href="/asarlar"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-stone-100 text-stone-700 font-bold text-xs hover:bg-stone-200 transition-colors"
+                    >
+                      <span>Asarlarni ko‘rish</span>
+                    </Link>
+                  </div>
+                </div>
+              )
             ) : (
-              <>
-                <BookOpen className="w-8 h-8 text-stone-300 mx-auto" />
-                <h3 className="font-serif font-bold text-stone-800 text-sm">
+              <div className="max-w-md mx-auto space-y-3">
+                <BookOpen className="w-9 h-9 text-stone-300 mx-auto" />
+                <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
                   Ushbu bo‘limda hozircha asarlar mavjud emas
                 </h3>
-                <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                  Yangi asarlar qo‘shilganda bu yerda ko‘rsatiladi.
+                <p className="text-xs text-stone-500 leading-relaxed">
+                  Yangi asarlar chop etilganda bu yerda ko‘rsatiladi.
                 </p>
-              </>
+                <div className="pt-2">
+                  <Link
+                    href="/asarlar"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors"
+                  >
+                    <span>Barcha asarlarni ko‘rish</span>
+                  </Link>
+                </div>
+              </div>
             )}
           </div>
         ) : (
+          /* State 4: Valid Results Grid */
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
             {works.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />

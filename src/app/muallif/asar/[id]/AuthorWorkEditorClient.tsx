@@ -23,8 +23,13 @@ import {
   Eye,
   Save,
   Trash2,
+  History,
+  Calendar,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { ShareCardGenerator } from '@/components/author/ShareCardGenerator';
 import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
 import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
@@ -82,6 +87,16 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
   const [chapterPrice, setChapterPrice] = useState('3000');
   const [savingChapter, setSavingChapter] = useState(false);
   const [chapterError, setChapterError] = useState<string | null>(null);
+
+  // Scheduling, Autosave & Versions state
+  const [chapterStatus, setChapterStatus] = useState<'published' | 'draft' | 'scheduled'>('published');
+  const [scheduledAt, setScheduledAt] = useState<string>('');
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isVersionsOpen, setIsVersionsOpen] = useState(false);
+  const [versionsList, setVersionsList] = useState<any[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
+  const [isShareCardOpen, setIsShareCardOpen] = useState(false);
 
   const loadWorkAndChapters = useCallback(async () => {
     setLoading(true);
@@ -280,6 +295,9 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     setChapterContent('');
     setIsFree(chapters.length === 0);
     setChapterPrice('3000');
+    setChapterStatus('published');
+    setScheduledAt('');
+    setAutosaveStatus('idle');
     setChapterError(null);
     setIsChapterModalOpen(true);
   }
@@ -291,8 +309,109 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     setChapterContent(chap.content || '');
     setIsFree(chap.is_free);
     setChapterPrice(String(chap.price || 3000));
+    setChapterStatus((chap.status as any) || 'published');
+    setScheduledAt(chap.scheduled_at ? new Date(chap.scheduled_at).toISOString().slice(0, 16) : '');
+    setAutosaveStatus('idle');
     setChapterError(null);
     setIsChapterModalOpen(true);
+  }
+
+  // 12-second debounced autosave when editing an existing chapter
+  useEffect(() => {
+    if (!isChapterModalOpen || !editingChapterId || !chapterTitle.trim() || !chapterContent.trim()) {
+      return;
+    }
+
+    setAutosaveStatus('idle');
+
+    const timer = setTimeout(async () => {
+      try {
+        setAutosaveStatus('saving');
+        const payload: any = {
+          chapterId: editingChapterId,
+          id: editingChapterId,
+          workId,
+          chapterNumber,
+          title: chapterTitle.trim(),
+          content: chapterContent.trim(),
+          isFree,
+          price: isFree ? 0 : Number(chapterPrice),
+          status: chapterStatus,
+          scheduled_at: chapterStatus === 'scheduled' && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        };
+
+        const res = await fetch('/api/chapters/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          setAutosaveStatus('saved');
+        } else {
+          setAutosaveStatus('error');
+        }
+      } catch {
+        setAutosaveStatus('error');
+      }
+    }, 12000);
+
+    return () => clearTimeout(timer);
+  }, [
+    chapterTitle,
+    chapterContent,
+    chapterStatus,
+    scheduledAt,
+    isFree,
+    chapterPrice,
+    isChapterModalOpen,
+    editingChapterId,
+    chapterNumber,
+    workId,
+  ]);
+
+  // Version Snapshots
+  async function loadVersions(chapId: string) {
+    setLoadingVersions(true);
+    try {
+      const res = await fetch(`/api/chapters/versions?chapter_id=${chapId}`);
+      if (res.ok) {
+        const json = await res.json();
+        setVersionsList(json.versions || []);
+      }
+    } catch (err) {
+      console.error('Failed to load versions:', err);
+    } finally {
+      setLoadingVersions(false);
+    }
+  }
+
+  async function handleRestoreVersion(versionId: string) {
+    if (!editingChapterId) return;
+    if (!confirm('Ushbu versiyadagi matnni tiklashni tasdiqlaysizmi? Hozirgi matn yangi versiya sifatida saqlanadi.')) return;
+
+    setRestoringVersionId(versionId);
+    try {
+      const res = await fetch('/api/chapters/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chapter_id: editingChapterId, version_id: versionId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Versiyani tiklab bo‘lmadi');
+      }
+
+      setChapterTitle(data.restoredTitle);
+      setChapterContent(data.restoredContent);
+      setIsVersionsOpen(false);
+      setNotice({ type: 'success', text: data.message });
+      await loadWorkAndChapters();
+    } catch (err: any) {
+      alert(err.message || 'Xatolik yuz berdi');
+    } finally {
+      setRestoringVersionId(null);
+    }
   }
 
   // Save Chapter with rich text
@@ -314,7 +433,8 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
         content: chapterContent.trim(),
         isFree,
         price: isFree ? 0 : Number(chapterPrice),
-        status: 'published',
+        status: chapterStatus,
+        scheduled_at: chapterStatus === 'scheduled' && scheduledAt ? new Date(scheduledAt).toISOString() : null,
       };
 
       const res = await fetch(endpoint, {
@@ -521,6 +641,15 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
               <span>Tekshiruv kutilmoqda</span>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={() => setIsShareCardOpen(true)}
+            className="px-4 py-3 rounded-2xl bg-white border border-stone-200 hover:bg-stone-50 text-stone-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+          >
+            <Sparkles className="w-4 h-4 text-amber-600" />
+            <span>Promo-karta</span>
+          </button>
 
           {isPublished && !isArchived && (
             <Link
@@ -970,17 +1099,52 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
       {isChapterModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-stone-950/70 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
           <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-stone-200 p-5 sm:p-8 my-auto space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <h3 className="font-serif font-bold text-lg text-stone-900">
-                {editingChapterId ? 'Bobni tahrirlash' : 'Yangi bob yaratish'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsChapterModalOpen(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
-              >
-                <XIcon className="w-5 h-5" />
-              </button>
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <h3 className="font-serif font-bold text-lg text-stone-900">
+                  {editingChapterId ? 'Bobni tahrirlash' : 'Yangi bob yaratish'}
+                </h3>
+                {autosaveStatus !== 'idle' && (
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all ${
+                      autosaveStatus === 'saving'
+                        ? 'bg-blue-50 text-blue-700 animate-pulse'
+                        : autosaveStatus === 'saved'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {autosaveStatus === 'saving'
+                      ? 'Saqlanmoqda...'
+                      : autosaveStatus === 'saved'
+                      ? 'Avtomatik saqlandi'
+                      : 'Avtosaqlashda xato'}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {editingChapterId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsVersionsOpen(true);
+                      loadVersions(editingChapterId);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-semibold transition"
+                  >
+                    <History className="w-3.5 h-3.5 text-stone-500" />
+                    <span>Versiyalar tarixi</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsChapterModalOpen(false)}
+                  className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+                >
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {chapterError && (
@@ -1015,6 +1179,65 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     required
                   />
                 </div>
+              </div>
+
+              {/* Publication Status & Scheduling */}
+              <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
+                <label className="block font-bold text-stone-700">Nashr holati:</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setChapterStatus('published')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
+                      chapterStatus === 'published'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    Darhol nashr qilish
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChapterStatus('draft')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
+                      chapterStatus === 'draft'
+                        ? 'bg-stone-800 text-white shadow-xs'
+                        : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    Qoralama sifatida saqlash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChapterStatus('scheduled')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition text-xs flex items-center gap-1.5 ${
+                      chapterStatus === 'scheduled'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Vaqt bo‘yicha rejalashtirish</span>
+                  </button>
+                </div>
+
+                {chapterStatus === 'scheduled' && (
+                  <div className="pt-2 border-t border-stone-200 space-y-1">
+                    <label className="block font-bold text-stone-700 text-[11px]">
+                      Nashr etilish sanasi va vaqti (Toshkent vaqti, UTC+5):
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={scheduledAt}
+                      onChange={(e) => setScheduledAt(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-stone-200 bg-white font-mono text-xs text-stone-900"
+                      required={chapterStatus === 'scheduled'}
+                    />
+                    <p className="text-[10px] text-stone-500">
+                      Ushbu vaqt yetganda avtomatlashtirilgan tizim bobni o‘z-o‘zidan nashr qiladi va kuzatuvchilarga xabar jo‘natadi.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Free vs Paid Toggle (when work is paid_by_chapter) */}
@@ -1083,6 +1306,90 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           </div>
         </div>
       )}
+
+      {/* Chapter Versions Modal */}
+      {isVersionsOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-6 bg-stone-950/70 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-stone-200 p-5 sm:p-6 my-auto space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div>
+                <h3 className="font-serif font-bold text-base text-stone-900">
+                  Bob versiyalari tarixi
+                </h3>
+                <p className="text-[11px] text-stone-500">
+                  Har bir saqlashda avvalgi matn arxivlanadi. Istalgan versiyani qayta tiklashingiz mumkin.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsVersionsOpen(false)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingVersions ? (
+              <div className="py-12 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+              </div>
+            ) : versionsList.length === 0 ? (
+              <div className="py-10 text-center text-xs text-stone-500">
+                Ushbu bob uchun avvalgi versiyalar topilmadi.
+              </div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto divide-y divide-stone-100 pr-1 space-y-1">
+                {versionsList.map((v) => (
+                  <div
+                    key={v.id}
+                    className="p-3 rounded-2xl hover:bg-stone-50 transition flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md font-mono font-bold bg-amber-100 text-amber-900 text-[10px]">
+                          v{v.version_number}
+                        </span>
+                        <span className="font-serif font-bold text-stone-900">{v.title}</span>
+                      </div>
+                      <div className="text-[11px] text-stone-500 mt-1 flex items-center gap-2">
+                        <span>{v.word_count || 0} ta so‘z</span>
+                        <span>•</span>
+                        <span>{new Date(v.created_at).toLocaleString('uz-UZ')}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={restoringVersionId !== null}
+                      onClick={() => handleRestoreVersion(v.id)}
+                      className="px-3 py-1.5 rounded-xl border border-stone-200 bg-white hover:bg-amber-50 hover:border-amber-300 text-stone-800 font-semibold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
+                    >
+                      {restoringVersionId === v.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                      ) : (
+                        <RotateCcw className="w-3.5 h-3.5 text-stone-500" />
+                      )}
+                      <span>Tiklash</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Shareable Promo Card Generator */}
+      <ShareCardGenerator
+        isOpen={isShareCardOpen}
+        onClose={() => setIsShareCardOpen(false)}
+        work={{
+          id: work.id,
+          title: work.title,
+          coverUrl: work.cover_url,
+          authorPenName: (work as any).author?.pen_name || 'Muallif',
+        }}
+      />
     </div>
   );
 }

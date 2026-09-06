@@ -41,6 +41,7 @@ import { formatUzbekDate } from '@/lib/utils/formatters';
 import { TopupModal } from '@/components/wallet/TopupModal';
 import { TransactionHistoryTable } from '@/components/wallet/TransactionHistoryTable';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { CabinetGenrePreferences } from '@/components/cabinet/CabinetGenrePreferences';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
 import type {
@@ -723,9 +724,10 @@ function KabinetContent() {
         </div>
       )}
 
-      {/* TAB 2: PROFILE SETTINGS & AVATAR */}
+      {/* TAB 2: PROFILE SETTINGS, AVATAR & GENRE PREFERENCES */}
       {activeTab === 'profile' && (
-        <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs max-w-2xl space-y-6">
+        <div className="space-y-6 max-w-2xl">
+          <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs space-y-6">
           <div className="flex items-center gap-3 pb-4 border-b border-stone-100">
             <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
               <User className="w-5 h-5" />
@@ -861,7 +863,10 @@ function KabinetContent() {
             </button>
           </form>
         </div>
-      )}
+
+        <CabinetGenrePreferences />
+      </div>
+    )}
 
       {/* TAB 3: FINANCES & PURCHASES */}
       {activeTab === 'finances' && (

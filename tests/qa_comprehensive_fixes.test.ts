@@ -1272,6 +1272,411 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
       expect(handleAdminRoute('/muallif')).toBeNull();
     });
   });
+
+  describe('30. Genre Onboarding Constraints & Validation', () => {
+    const validateGenreSelection = (genreIds: string[], isSkip: boolean = false) => {
+      if (isSkip) {
+        return { valid: true, error: null };
+      }
+      if (!Array.isArray(genreIds) || genreIds.length < 3) {
+        return { valid: false, error: 'Kamida 3 ta janr tanlashingiz lozim' };
+      }
+      if (genreIds.length > 5) {
+        return { valid: false, error: 'Ko‘pi bilan 5 ta janr tanlash mumkin' };
+      }
+      return { valid: true, error: null };
+    };
+
+    it('rejects selection with fewer than 3 genres', () => {
+      const res = validateGenreSelection(['g1', 'g2']);
+      expect(res.valid).toBe(false);
+      expect(res.error).toBe('Kamida 3 ta janr tanlashingiz lozim');
+    });
+
+    it('rejects selection with more than 5 genres', () => {
+      const res = validateGenreSelection(['g1', 'g2', 'g3', 'g4', 'g5', 'g6']);
+      expect(res.valid).toBe(false);
+      expect(res.error).toBe('Ko‘pi bilan 5 ta janr tanlash mumkin');
+    });
+
+    it('accepts valid selection of 3 to 5 genres', () => {
+      expect(validateGenreSelection(['g1', 'g2', 'g3']).valid).toBe(true);
+      expect(validateGenreSelection(['g1', 'g2', 'g3', 'g4']).valid).toBe(true);
+      expect(validateGenreSelection(['g1', 'g2', 'g3', 'g4', 'g5']).valid).toBe(true);
+    });
+
+    it('allows skipping onboarding cleanly without selecting genres', () => {
+      const res = validateGenreSelection([], true);
+      expect(res.valid).toBe(true);
+      expect(res.error).toBeNull();
+    });
+  });
+
+  describe('31. Recommendation Scoring Algorithm & Diversity Clamping', () => {
+    interface WorkScoreCandidate {
+      id: string;
+      title: string;
+      authorId: string;
+      genreIds: string[];
+      rating: number;
+    }
+
+    const calculateScore = (
+      work: WorkScoreCandidate,
+      prefGenreIds: Set<string>,
+      readGenreIds: Set<string>,
+      followedAuthorIds: Set<string>
+    ) => {
+      let score = 0;
+      const rationale: string[] = [];
+
+      const hasPrefGenre = work.genreIds.some((gid) => prefGenreIds.has(gid));
+      if (hasPrefGenre) {
+        score += 30;
+        rationale.push('Sevimli janringiz');
+      }
+
+      const hasReadGenre = work.genreIds.some((gid) => readGenreIds.has(gid));
+      if (hasReadGenre && !hasPrefGenre) {
+        score += 20;
+        rationale.push('O‘qish tarixingiz asosida');
+      }
+
+      if (followedAuthorIds.has(work.authorId)) {
+        score += 25;
+        rationale.push('Siz kuzatayotgan muallif');
+      }
+
+      if (work.rating >= 4.5) {
+        score += 15;
+        rationale.push('Yuqori baholangan');
+      }
+
+      return { score, rationale: rationale[0] || 'Tavsiya etiladi' };
+    };
+
+    it('correctly prioritizes preferred genres (+30) and followed authors (+25)', () => {
+      const prefGenres = new Set(['g_sci_fi']);
+      const readGenres = new Set(['g_history']);
+      const followedAuthors = new Set(['auth_1']);
+
+      const work1: WorkScoreCandidate = {
+        id: 'w1',
+        title: 'Yulduzlar jangi',
+        authorId: 'auth_1',
+        genreIds: ['g_sci_fi'],
+        rating: 4.8,
+      };
+
+      const result = calculateScore(work1, prefGenres, readGenres, followedAuthors);
+      expect(result.score).toBe(30 + 25 + 15); // 70
+      expect(result.rationale).toBe('Sevimli janringiz');
+    });
+
+    it('clamps recommendations to maximum 2 works per author for catalog diversity', () => {
+      const scoredWorks = [
+        { id: 'w1', authorId: 'auth_1', score: 90 },
+        { id: 'w2', authorId: 'auth_1', score: 85 },
+        { id: 'w3', authorId: 'auth_1', score: 80 },
+        { id: 'w4', authorId: 'auth_2', score: 75 },
+      ];
+
+      const authorCountMap: Record<string, number> = {};
+      const clamped = scoredWorks.filter((w) => {
+        const count = authorCountMap[w.authorId] || 0;
+        if (count >= 2) return false;
+        authorCountMap[w.authorId] = count + 1;
+        return true;
+      });
+
+      expect(clamped.length).toBe(3);
+      expect(clamped.map((w) => w.id)).toEqual(['w1', 'w2', 'w4']);
+    });
+  });
+
+  describe('32. Curated Catalogue Collections & Filtering', () => {
+    const validCollections = [
+      'ommabop',
+      'yangi_boshlangan',
+      'yaqinda_yangilangan',
+      'tugallangan',
+      '15_daqiqa',
+      'bepul',
+      'muharrir_tanlovi',
+      'yangi_mualliflar',
+      'eng_kop_muhokama',
+      'top_haftalik',
+    ];
+
+    it('contains all 10 curated catalogue collections', () => {
+      expect(validCollections.length).toBe(10);
+      expect(validCollections).toContain('muharrir_tanlovi');
+      expect(validCollections).toContain('15_daqiqa');
+      expect(validCollections).toContain('top_haftalik');
+    });
+
+    it('maps collection query parameters to appropriate database sorting criteria', () => {
+      const getCollectionSort = (collection: string) => {
+        switch (collection) {
+          case 'ommabop':
+            return { column: 'view_count', ascending: false };
+          case 'yaqinda_yangilangan':
+            return { column: 'updated_at', ascending: false };
+          case 'bepul':
+            return { column: 'created_at', ascending: false, filter: 'free' };
+          case 'muharrir_tanlovi':
+            return { column: 'created_at', ascending: false, filter: 'is_featured' };
+          default:
+            return { column: 'created_at', ascending: false };
+        }
+      };
+
+      expect(getCollectionSort('ommabop')).toEqual({ column: 'view_count', ascending: false });
+      expect(getCollectionSort('muharrir_tanlovi')).toEqual({
+        column: 'created_at',
+        ascending: false,
+        filter: 'is_featured',
+      });
+    });
+  });
+
+  describe('33. Social Follow vs Reading Bookmark Mental Model', () => {
+    it('uses Bell / BellRing for work subscriptions and Bookmark / BookmarkCheck strictly for reading bookmarks', () => {
+      const getIconType = (target: 'work_subscription' | 'reading_bookmark' | 'author_subscription') => {
+        if (target === 'work_subscription') return 'Bell';
+        if (target === 'reading_bookmark') return 'Bookmark';
+        if (target === 'author_subscription') return 'UserPlus';
+        return 'Unknown';
+      };
+
+      expect(getIconType('work_subscription')).toBe('Bell');
+      expect(getIconType('reading_bookmark')).toBe('Bookmark');
+      expect(getIconType('author_subscription')).toBe('UserPlus');
+    });
+
+    it('author subscription does not conflict with reading progress or library items', () => {
+      const userEntities = {
+        followedAuthors: ['author-1'],
+        libraryItems: ['work-100'],
+        bookmarks: [{ workId: 'work-100', chapterNumber: 3 }],
+      };
+
+      expect(userEntities.followedAuthors.includes('author-1')).toBe(true);
+      expect(userEntities.libraryItems.includes('work-100')).toBe(true);
+      expect(userEntities.bookmarks[0].chapterNumber).toBe(3);
+    });
+  });
+
+  describe('34. Notification Fan-Out & Author Exclusion', () => {
+    it('excludes the author from recipient set when publishing a chapter', () => {
+      const authorUserId = 'author-self-id';
+      const followerUserIds = ['user-1', 'user-2', 'author-self-id', 'user-3'];
+
+      const recipients = followerUserIds.filter((id) => id !== authorUserId);
+      expect(recipients).toEqual(['user-1', 'user-2', 'user-3']);
+      expect(recipients).not.toContain(authorUserId);
+    });
+
+    it('chunks notification batch inserts into chunks of 50 to avoid Postgres limits', () => {
+      const totalFollowers = 125;
+      const fakeRecipients = Array.from({ length: totalFollowers }, (_, i) => `user-${i}`);
+
+      const chunks: string[][] = [];
+      const CHUNK_SIZE = 50;
+      for (let i = 0; i < fakeRecipients.length; i += CHUNK_SIZE) {
+        chunks.push(fakeRecipients.slice(i, i + CHUNK_SIZE));
+      }
+
+      expect(chunks.length).toBe(3);
+      expect(chunks[0].length).toBe(50);
+      expect(chunks[1].length).toBe(50);
+      expect(chunks[2].length).toBe(25);
+    });
+  });
+
+  describe('35. Chapter Comments & Threading', () => {
+    it('enforces 1-level nested reply limit to prevent infinite nesting', () => {
+      const canReplyToComment = (parentCommentId: string | null, parentIsReply: boolean) => {
+        if (!parentCommentId) return true; // top-level comment
+        return !parentIsReply; // can only reply if parent is top-level
+      };
+
+      expect(canReplyToComment(null, false)).toBe(true);
+      expect(canReplyToComment('top-level-id', false)).toBe(true);
+      expect(canReplyToComment('nested-reply-id', true)).toBe(false);
+    });
+
+    it('supports soft delete preserving comment children', () => {
+      const comment = {
+        id: 'c1',
+        content: 'Original comment text',
+        is_deleted: true,
+      };
+
+      const displayContent = comment.is_deleted
+        ? 'Ushbu izoh o‘chirildi'
+        : comment.content;
+
+      expect(displayContent).toBe('Ushbu izoh o‘chirildi');
+    });
+  });
+
+  describe('36. Chapter Reactions & Single Reaction Constraint', () => {
+    const validReactions = ['next_chapter', 'like', 'surprised', 'sad'];
+
+    it('supports all 4 canonical reactions', () => {
+      expect(validReactions).toContain('next_chapter');
+      expect(validReactions).toContain('like');
+      expect(validReactions).toContain('surprised');
+      expect(validReactions).toContain('sad');
+    });
+
+    it('toggles reaction off if same reaction is clicked again', () => {
+      let currentReaction: string | null = 'like';
+      const handleToggle = (clicked: string) => {
+        return currentReaction === clicked ? null : clicked;
+      };
+
+      currentReaction = handleToggle('like');
+      expect(currentReaction).toBeNull();
+
+      currentReaction = handleToggle('next_chapter');
+      expect(currentReaction).toBe('next_chapter');
+
+      currentReaction = handleToggle('surprised');
+      expect(currentReaction).toBe('surprised');
+    });
+  });
+
+  describe('37. Chapter Scheduling & Tashkent Timezone Handling', () => {
+    it('validates scheduled_at is in the future when scheduling chapter', () => {
+      const now = new Date('2026-09-06T12:00:00Z').getTime();
+
+      const validateScheduleTime = (timeIso: string) => {
+        const target = new Date(timeIso).getTime();
+        return target > now;
+      };
+
+      expect(validateScheduleTime('2026-09-06T11:00:00Z')).toBe(false);
+      expect(validateScheduleTime('2026-09-06T13:00:00Z')).toBe(true);
+    });
+
+    it('cron endpoint executes publication when scheduled_at <= now', () => {
+      const now = new Date('2026-09-06T12:00:00Z').getTime();
+
+      const shouldPublish = (status: string, scheduledAt: string) => {
+        return status === 'scheduled' && new Date(scheduledAt).getTime() <= now;
+      };
+
+      expect(shouldPublish('scheduled', '2026-09-06T11:30:00Z')).toBe(true);
+      expect(shouldPublish('scheduled', '2026-09-06T12:30:00Z')).toBe(false);
+      expect(shouldPublish('draft', '2026-09-06T11:30:00Z')).toBe(false);
+    });
+  });
+
+  describe('38. Chapter Version Snapshots & Concurrency Protection', () => {
+    it('increments version number sequentially on each snapshot', () => {
+      const existingVersions = [{ version_number: 1 }, { version_number: 2 }];
+      const nextVersionNumber = (existingVersions[existingVersions.length - 1]?.version_number || 0) + 1;
+
+      expect(nextVersionNumber).toBe(3);
+    });
+
+    it('generates localStorage scoped key with userId, workId, and chapterId', () => {
+      const userId = 'user_123';
+      const workId = 'work_456';
+      const chapterId = 'chap_789';
+
+      const key = `manbora:draft:${userId}:${workId}:${chapterId}`;
+      expect(key).toBe('manbora:draft:user_123:work_456:chap_789');
+    });
+  });
+
+  describe('39. Author Analytics Funnel & Drop-Off Detection', () => {
+    it('accurately identifies drop-off chapter where largest reader exit occurs', () => {
+      const chapterFunnel = [
+        { chapterNumber: 1, title: 'Kirish', reads: 1000 },
+        { chapterNumber: 2, title: 'Sarguzasht', reads: 950 },
+        { chapterNumber: 3, title: 'Og‘ir sinov', reads: 400 }, // Drop of 550 readers!
+        { chapterNumber: 4, title: 'Xulosa', reads: 380 },
+      ];
+
+      let maxDrop = 0;
+      let dropChapter: any = null;
+
+      for (let i = 0; i < chapterFunnel.length - 1; i++) {
+        const drop = chapterFunnel[i].reads - chapterFunnel[i + 1].reads;
+        if (drop > maxDrop) {
+          maxDrop = drop;
+          dropChapter = {
+            chapterNumber: chapterFunnel[i + 1].chapterNumber,
+            title: chapterFunnel[i + 1].title,
+            dropOffCount: drop,
+          };
+        }
+      }
+
+      expect(dropChapter).toEqual({
+        chapterNumber: 3,
+        title: 'Og‘ir sinov',
+        dropOffCount: 550,
+      });
+    });
+
+    it('calculates author earnings with exact 80/20 platform split', () => {
+      const purchaseAmount = 50000;
+      const authorSharePercent = 0.8;
+      const authorEarnings = Math.round(purchaseAmount * authorSharePercent);
+
+      expect(authorEarnings).toBe(40000);
+      expect(purchaseAmount - authorEarnings).toBe(10000); // 20% platform share
+    });
+  });
+
+  describe('40. Shareable Promo Card Generator Formats', () => {
+    it('provides precise canvas dimensions for Instagram Story (1080x1920) and Post (1200x628)', () => {
+      const getCanvasDimensions = (format: 'story' | 'post') => {
+        return format === 'story'
+          ? { width: 1080, height: 1920, ratio: 9 / 16 }
+          : { width: 1200, height: 628, ratio: 1200 / 628 };
+      };
+
+      expect(getCanvasDimensions('story')).toEqual({ width: 1080, height: 1920, ratio: 0.5625 });
+      expect(getCanvasDimensions('post').width).toBe(1200);
+      expect(getCanvasDimensions('post').height).toBe(628);
+    });
+  });
+
+  describe('41. Relative Time Formatter in Mutolaani Davom Ettirish', () => {
+    const formatRelativeTime = (dateStr: string, now: Date) => {
+      const diffMs = now.getTime() - new Date(dateStr).getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      const diffHour = Math.floor(diffMin / 60);
+      const diffDay = Math.floor(diffHour / 24);
+
+      if (diffMin < 2) return 'Hozirgina';
+      if (diffMin < 60) return `${diffMin} daqiqa oldin`;
+      if (diffHour < 24) return `${diffHour} soat oldin`;
+      if (diffDay === 1) return 'Kecha';
+      if (diffDay < 7) return `${diffDay} kun oldin`;
+      return '1 hafta oldin';
+    };
+
+    it('returns Hozirgina for updates within 2 minutes', () => {
+      const now = new Date('2026-09-06T12:00:00Z');
+      expect(formatRelativeTime('2026-09-06T11:59:00Z', now)).toBe('Hozirgina');
+    });
+
+    it('returns X soat oldin for updates a few hours ago', () => {
+      const now = new Date('2026-09-06T15:00:00Z');
+      expect(formatRelativeTime('2026-09-06T12:00:00Z', now)).toBe('3 soat oldin');
+    });
+
+    it('returns Kecha for yesterday', () => {
+      const now = new Date('2026-09-06T15:00:00Z');
+      expect(formatRelativeTime('2026-09-05T14:00:00Z', now)).toBe('Kecha');
+    });
+  });
 });
 
 

@@ -18,6 +18,7 @@ import { getPublishedWorks, getActiveGenres } from '@/lib/db/queries';
 import { getCurrentProfile, createServerClient } from '@/lib/supabase/server';
 import { WorkCard } from '@/components/work/WorkCard';
 import { ContinueReadingSection } from '@/components/home/ContinueReadingSection';
+import { PersonalizedRecommendations } from '@/components/home/PersonalizedRecommendations';
 import type { Work, Genre } from '@/lib/types/platform';
 
 export const revalidate = 60; // Revalidate every minute
@@ -122,6 +123,9 @@ export default async function HomePage() {
 
       {/* 2. Mutolaani davom ettirish (Shown ONLY to authenticated users on client) */}
       <ContinueReadingSection />
+
+      {/* 3. Siz uchun tavsiyalar (Personalized Recommendations) */}
+      <PersonalizedRecommendations />
 
       {/* 3. Ommabop asarlar (Popular Works) */}
       <section className="space-y-4">

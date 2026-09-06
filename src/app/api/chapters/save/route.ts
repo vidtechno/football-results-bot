@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { slugify } from '@/lib/utils/formatters';
 import { sanitizeRichText } from '@/lib/utils/sanitizer';
+import { dispatchNewChapterPublicationNotifications } from '@/lib/notifications/inSite';
 
 export async function POST(request: Request) {
   try {
@@ -23,7 +24,19 @@ export async function POST(request: Request) {
     const content = sanitizeRichText(rawContent);
     const isFree = Boolean(body.isFree);
     const price = Number(body.price || 0);
-    const status = body.status === 'published' ? 'published' : 'draft';
+    const scheduledAt = body.scheduledAt ? String(body.scheduledAt) : null;
+    let status: 'draft' | 'scheduled' | 'published' = 'draft';
+    if (body.status === 'published') {
+      status = 'published';
+    } else if (body.status === 'scheduled') {
+      status = 'scheduled';
+      if (!scheduledAt || new Date(scheduledAt).getTime() <= Date.now()) {
+        return NextResponse.json(
+          { success: false, error: 'Rejalashtirilgan vaqt kelajakda bo‘lishi lozim' },
+          { status: 400 },
+        );
+      }
+    }
 
     if (!workId || !title) {
       return NextResponse.json(
@@ -113,17 +126,31 @@ export async function POST(request: Request) {
       }
 
       // Update draft chapter metadata
+      const nowIso = new Date().toISOString();
+      const willPublish = status === 'published' && existingChap?.status !== 'published';
+
+      const updateFields: any = {
+        chapter_number: chapterNumber,
+        title,
+        is_free: isFree,
+        price: isFree ? 0 : Math.max(0, Math.floor(price)),
+        status,
+        updated_at: nowIso,
+      };
+
+      if (status === 'scheduled') {
+        updateFields.scheduled_at = scheduledAt;
+        updateFields.published_at = null;
+      } else if (status === 'published') {
+        updateFields.published_at = existingChap?.published_at || nowIso;
+        updateFields.scheduled_at = null;
+      } else {
+        updateFields.scheduled_at = null;
+      }
+
       const { data: updatedChapter, error: updateError } = await supabase
         .from('chapters')
-        .update({
-          chapter_number: chapterNumber,
-          title,
-          is_free: isFree,
-          price: isFree ? 0 : Math.max(0, Math.floor(price)),
-          status,
-          published_at: status === 'published' ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateFields)
         .eq('id', id)
         .eq('work_id', workId)
         .select()
@@ -142,8 +169,26 @@ export async function POST(request: Request) {
         .upsert({
           chapter_id: id,
           content,
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso,
         });
+
+      // Dispatch follower notifications if transitioning to published
+      if (willPublish) {
+        await dispatchNewChapterPublicationNotifications(id);
+      }
+
+      // Save version snapshot
+      const wordCount = content ? content.trim().split(/\s+/).length : 0;
+      await supabase.from('chapter_versions').insert({
+        chapter_id: id,
+        work_id: workId,
+        author_id: profile.id,
+        title,
+        content,
+        summary: `Tahrirlandi (${wordCount} so‘z)`,
+        word_count: wordCount,
+        created_at: nowIso,
+      });
 
       return NextResponse.json({
         success: true,
@@ -164,18 +209,30 @@ export async function POST(request: Request) {
       slug = `${slug}-${Math.random().toString(36).substring(2, 5)}`;
     }
 
+    const nowIso = new Date().toISOString();
+    const insertFields: any = {
+      work_id: workId,
+      chapter_number: chapterNumber,
+      title,
+      slug,
+      is_free: isFree,
+      price: isFree ? 0 : Math.max(0, Math.floor(price)),
+      status,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+
+    if (status === 'scheduled') {
+      insertFields.scheduled_at = scheduledAt;
+      insertFields.published_at = null;
+    } else if (status === 'published') {
+      insertFields.published_at = nowIso;
+      insertFields.scheduled_at = null;
+    }
+
     const { data: newChapter, error: insertError } = await supabase
       .from('chapters')
-      .insert({
-        work_id: workId,
-        chapter_number: chapterNumber,
-        title,
-        slug,
-        is_free: isFree,
-        price: isFree ? 0 : Math.max(0, Math.floor(price)),
-        status,
-        published_at: status === 'published' ? new Date().toISOString() : null,
-      })
+      .insert(insertFields)
       .select()
       .single();
 
@@ -193,6 +250,24 @@ export async function POST(request: Request) {
         chapter_id: newChapter.id,
         content,
       });
+
+    // If published, notify followers of the work and author
+    if (status === 'published') {
+      await dispatchNewChapterPublicationNotifications(newChapter.id);
+    }
+
+    // Save initial version snapshot
+    const initialWords = content ? content.trim().split(/\s+/).length : 0;
+    await supabase.from('chapter_versions').insert({
+      chapter_id: newChapter.id,
+      work_id: workId,
+      author_id: profile.id,
+      title,
+      content,
+      summary: `Dastlabki nusxa (${initialWords} so‘z)`,
+      word_count: initialWords,
+      created_at: nowIso,
+    });
 
     return NextResponse.json({
       success: true,

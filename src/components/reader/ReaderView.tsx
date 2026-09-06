@@ -27,6 +27,8 @@ import type { ChapterAccessReason, ChapterAccessStatus } from '@/lib/security/ac
 import { formatUZS } from '@/lib/utils/currency';
 import { paginateChapterContent } from '@/lib/reader/pagination';
 import { PaywallUnlockCard } from './PaywallUnlockCard';
+import { ChapterReactionsBar } from './ChapterReactionsBar';
+import { ChapterCommentsSection } from './ChapterCommentsSection';
 
 interface ReaderViewProps {
   work: Work;
@@ -988,6 +990,23 @@ export function ReaderView({
             <div />
           )}
         </nav>
+
+        {/* Chapter Reactions & Feedback */}
+        {hasAccess && (
+          <div className="mt-8 space-y-8">
+            <ChapterReactionsBar
+              chapterId={currentChapter.id}
+              workId={work.id}
+            />
+
+            <ChapterCommentsSection
+              chapterId={currentChapter.id}
+              workId={work.id}
+              chapterTitle={currentChapter.title}
+              authorUserId={work.author_id}
+            />
+          </div>
+        )}
       </main>
 
       {/* Visual Toast Feedback */}

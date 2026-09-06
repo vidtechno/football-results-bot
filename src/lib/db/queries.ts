@@ -458,6 +458,7 @@ export async function getPaginatedCatalogue(options?: {
   accessType?: 'free' | 'paid_full_work' | 'paid_by_chapter';
   completionStatus?: 'ongoing' | 'completed';
   sortBy?: 'popular' | 'newest' | 'rating' | 'price_asc' | 'price_desc';
+  collection?: string;
 }): Promise<PaginatedCatalogueResult> {
   const page = Math.max(1, Number(options?.page) || 1);
   const pageSize = options?.pageSize || 20;
@@ -550,10 +551,48 @@ export async function getPaginatedCatalogue(options?: {
     q = q.eq('completion_status', options.completionStatus);
   }
 
-  if (options?.sortBy === 'price_asc') {
+  // Curated collections logic
+  if (options?.collection) {
+    switch (options.collection) {
+      case 'ommabop':
+        q = q.order('view_count', { ascending: false }).order('average_rating', { ascending: false });
+        break;
+      case 'yangi_boshlangan':
+        q = q.eq('type', 'serialized_story').eq('completion_status', 'ongoing').order('published_at', { ascending: false });
+        break;
+      case 'yaqinda_yangilangan':
+        q = q.order('updated_at', { ascending: false });
+        break;
+      case 'tugallangan':
+        q = q.eq('completion_status', 'completed');
+        break;
+      case '15_daqiqa':
+        q = q.or('total_words.lte.3500,type.eq.serialized_story');
+        break;
+      case 'bepul':
+        q = q.eq('access_type', 'free');
+        break;
+      case 'muharrir_tanlovi':
+        q = q.eq('is_featured', true);
+        break;
+      case 'yangi_mualliflar':
+        q = q.order('created_at', { ascending: false });
+        break;
+      case 'eng_kop_muhokama':
+        q = q.order('rating_count', { ascending: false }).order('view_count', { ascending: false });
+        break;
+      case 'top_haftalik':
+        q = q.order('average_rating', { ascending: false }).order('view_count', { ascending: false });
+        break;
+    }
+  } else if (options?.sortBy === 'price_asc') {
     q = q.order('full_work_price', { ascending: true }).order('id', { ascending: true });
   } else if (options?.sortBy === 'price_desc') {
     q = q.order('full_work_price', { ascending: false }).order('id', { ascending: true });
+  } else if (options?.sortBy === 'rating') {
+    q = q.order('average_rating', { ascending: false }).order('rating_count', { ascending: false });
+  } else if (options?.sortBy === 'popular') {
+    q = q.order('view_count', { ascending: false }).order('average_rating', { ascending: false });
   } else {
     q = q.order('published_at', { ascending: false }).order('id', { ascending: true });
   }

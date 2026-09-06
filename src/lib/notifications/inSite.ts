@@ -12,8 +12,8 @@ export interface InSiteNotificationPayload {
 }
 
 /**
- * Creates an in-site notification for a user.
- * Guaranteed never to throw or crash the calling financial transaction or caller action.
+ * Creates an in-site notification for a single user.
+ * Guaranteed never to throw or crash caller action.
  * Supports source-level deduplication to prevent duplicate alerts.
  */
 export async function createInSiteNotification(payload: InSiteNotificationPayload): Promise<boolean> {
@@ -35,7 +35,7 @@ export async function createInSiteNotification(payload: InSiteNotificationPayloa
           return true; // Already processed
         }
       } catch {
-        // In case columns not yet added to DB, proceed with insert
+        // Continue
       }
     }
 
@@ -47,10 +47,9 @@ export async function createInSiteNotification(payload: InSiteNotificationPayloa
       link_url: payload.linkUrl || null,
       data: payload.data || {},
       is_read: false,
+      source_type: payload.sourceType || null,
+      source_id: payload.sourceId || null,
     };
-
-    if (payload.sourceType) insertData.source_type = payload.sourceType;
-    if (payload.sourceId) insertData.source_id = payload.sourceId;
 
     const { error } = await admin.from('in_site_notifications').insert(insertData);
 
@@ -66,47 +65,109 @@ export async function createInSiteNotification(payload: InSiteNotificationPayloa
 }
 
 /**
- * Dispatches notifications to all followers of a work (e.g. when a new chapter is published).
+ * Dispatches notifications to all followers of a work and its author when a chapter is published.
+ * Excludes author, drafts, and prevents duplicate alerts via source deduplication.
  */
-export async function notifyWorkFollowers(
-  workId: string,
-  workTitle: string,
-  chapterTitle: string,
-  chapterUrl: string
-): Promise<void> {
+export async function dispatchNewChapterPublicationNotifications(chapterId: string): Promise<number> {
   try {
     const admin = createAdminClient();
-    const { data: followers } = await admin
-      .from('work_follows')
-      .select('user_id')
-      .eq('work_id', workId);
 
-    if (!followers || followers.length === 0) return;
+    // 1. Fetch chapter details
+    const { data: chapter, error: chapErr } = await admin
+      .from('chapters')
+      .select('id, work_id, chapter_number, title, slug, status')
+      .eq('id', chapterId)
+      .single();
 
-    const rows = followers.map((f) => ({
-      user_id: f.user_id,
-      type: 'new_chapter',
-      title: `Yangi bob: ${workTitle}`,
-      body: `«${workTitle}» asariga yangi bob qo‘shildi: ${chapterTitle}`,
-      link_url: chapterUrl,
-      data: { workId },
-      is_read: false,
-    }));
+    if (chapErr || !chapter || chapter.status !== 'published') {
+      // Never send notifications for drafts or scheduled chapters
+      return 0;
+    }
 
-    await admin.from('in_site_notifications').insert(rows);
+    // 2. Fetch work details
+    const { data: work, error: workErr } = await admin
+      .from('works')
+      .select(`
+        id, title, slug, author_id, status,
+        author:author_profiles(user_id, pen_name)
+      `)
+      .eq('id', chapter.work_id)
+      .single();
+
+    if (workErr || !work || work.status !== 'published') {
+      return 0;
+    }
+
+    const authorUserId = work.author_id;
+    const authorPenName = (work.author as any)?.pen_name || 'Muallif';
+
+    // 3. Concurrently fetch followers of work and followers of author
+    const [workFollowsRes, authorFollowsRes] = await Promise.all([
+      admin.from('work_follows').select('user_id').eq('work_id', work.id),
+      admin.from('author_follows').select('user_id').eq('author_id', authorUserId),
+    ]);
+
+    const recipientIds = new Set<string>();
+
+    (workFollowsRes.data || []).forEach((f: any) => {
+      if (f.user_id && f.user_id !== authorUserId) {
+        recipientIds.add(f.user_id);
+      }
+    });
+
+    (authorFollowsRes.data || []).forEach((f: any) => {
+      if (f.user_id && f.user_id !== authorUserId) {
+        recipientIds.add(f.user_id);
+      }
+    });
+
+    if (recipientIds.size === 0) return 0;
+
+    const linkUrl = `/asarlar/${work.slug}/${chapter.slug}`;
+    const title = `Yangi bob: «${work.title}»`;
+    const body = `${authorPenName} «${work.title}» asarining yangi ${chapter.chapter_number}-bobi («${chapter.title}»)ni nashr qildi!`;
+
+    const recipients = Array.from(recipientIds);
+    let insertedCount = 0;
+
+    // Batch insert in chunks of 50 to prevent oversized request payloads
+    const chunkSize = 50;
+    for (let i = 0; i < recipients.length; i += chunkSize) {
+      const chunk = recipients.slice(i, i + chunkSize);
+      const rows = chunk.map((uId) => ({
+        user_id: uId,
+        type: 'new_chapter',
+        title,
+        body,
+        link_url: linkUrl,
+        source_type: 'chapter',
+        source_id: chapter.id,
+        data: { workId: work.id, chapterId: chapter.id },
+        is_read: false,
+      }));
+
+      const { error: insertErr } = await admin.from('in_site_notifications').insert(rows);
+      if (!insertErr) {
+        insertedCount += rows.length;
+      }
+    }
+
+    return insertedCount;
   } catch (err: any) {
-    console.warn('Failed to notify work followers:', err?.message);
+    console.warn('Exception in dispatchNewChapterPublicationNotifications:', err?.message || err);
+    return 0;
   }
 }
 
 /**
- * Dispatches notifications to all followers of an author (e.g. when a new work is published).
+ * Dispatches notifications to all followers of an author when a new work is published.
  */
 export async function notifyAuthorFollowers(
   authorUserId: string,
   authorPenName: string,
   workTitle: string,
-  workUrl: string
+  workUrl: string,
+  workId?: string
 ): Promise<void> {
   try {
     const admin = createAdminClient();
@@ -117,17 +178,23 @@ export async function notifyAuthorFollowers(
 
     if (!followers || followers.length === 0) return;
 
-    const rows = followers.map((f) => ({
-      user_id: f.user_id,
-      type: 'new_work',
-      title: `Yangi asar: ${authorPenName}`,
-      body: `${authorPenName} yangi asar chop etdi: «${workTitle}»`,
-      link_url: workUrl,
-      data: { authorUserId },
-      is_read: false,
-    }));
+    const rows = followers
+      .filter((f: any) => f.user_id && f.user_id !== authorUserId)
+      .map((f: any) => ({
+        user_id: f.user_id,
+        type: 'new_work',
+        title: `Yangi asar: ${authorPenName}`,
+        body: `${authorPenName} yangi asar boshladi: «${workTitle}»`,
+        link_url: workUrl,
+        source_type: 'work',
+        source_id: workId || null,
+        data: { authorUserId, workId: workId || null },
+        is_read: false,
+      }));
 
-    await admin.from('in_site_notifications').insert(rows);
+    if (rows.length > 0) {
+      await admin.from('in_site_notifications').insert(rows);
+    }
   } catch (err: any) {
     console.warn('Failed to notify author followers:', err?.message);
   }

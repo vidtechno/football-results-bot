@@ -3,7 +3,7 @@ export type WorkType = 'book' | 'serialized_story';
 export type WorkStatus = 'draft' | 'pending_review' | 'published' | 'rejected' | 'archived';
 export type WorkAccessType = 'free' | 'paid_full_work' | 'paid_by_chapter';
 export type WorkCompletionStatus = 'ongoing' | 'completed';
-export type ChapterStatus = 'draft' | 'published';
+export type ChapterStatus = 'draft' | 'scheduled' | 'published' | 'archived';
 export type LibrarySavedState = 'reading' | 'completed' | 'want_to_read';
 export type PurchaseType = 'full_work' | 'chapter';
 export type PurchaseStatus = 'active' | 'refunded';
@@ -50,6 +50,7 @@ export interface Profile {
   bio: string | null;
   telegram_username: string | null;
   is_admin: boolean;
+  onboarding_completed?: boolean;
   reading_preferences?: ReadingPreferences | null;
   notification_preferences?: {
     email_marketing?: boolean;
@@ -139,6 +140,8 @@ export interface Work {
   completion_status: WorkCompletionStatus;
   language: string;
   is_archived?: boolean;
+  is_featured?: boolean;
+  total_words?: number;
   pending_revision?: boolean;
   average_rating?: number;
   rating_count?: number;
@@ -161,6 +164,7 @@ export interface Chapter {
   is_free: boolean;
   price: number;
   status: ChapterStatus;
+  scheduled_at?: string | null;
   published_at: string | null;
   created_at: string;
   updated_at: string;
@@ -283,4 +287,61 @@ export interface AdminAuditLog {
   metadata: Record<string, unknown>;
   created_at: string;
   admin?: Profile;
+}
+
+export interface UserGenrePreference {
+  user_id: string;
+  genre_id: string;
+  created_at: string;
+  genre?: Genre;
+}
+
+export interface ChapterComment {
+  id: string;
+  chapter_id: string;
+  work_id: string;
+  user_id: string;
+  parent_id: string | null;
+  content: string;
+  is_spoiler: boolean;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+  user?: Profile;
+  replies?: ChapterComment[];
+}
+
+export type ChapterReactionType = 'next_chapter' | 'like' | 'surprised' | 'sad';
+
+export interface ChapterReaction {
+  id: string;
+  chapter_id: string;
+  work_id: string;
+  user_id: string;
+  reaction_type: ChapterReactionType;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChapterVersion {
+  id: string;
+  chapter_id: string;
+  work_id: string;
+  author_id: string;
+  title: string;
+  content: string;
+  summary: string | null;
+  word_count: number;
+  created_at: string;
+}
+
+export interface AuthorPost {
+  id: string;
+  author_id: string;
+  content: string;
+  is_published: boolean;
+  likes_count: number;
+  created_at: string;
+  updated_at: string;
+  author?: AuthorProfile;
 }

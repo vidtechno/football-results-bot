@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
-import { Bookmark, BookmarkCheck, Heart, UserPlus, UserCheck, Loader2 } from 'lucide-react';
+import { Bell, BellRing, UserPlus, UserCheck, Loader2 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 
@@ -75,7 +75,24 @@ export function FollowButton({
         disabled={isPending}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        title={isFollowing ? 'Kuzatuvni to‘xtatish' : 'Kuzatish'}
+        title={
+          type === 'work'
+            ? isFollowing
+              ? 'Asar yangiliklarini kuzatishni to‘xtatish'
+              : 'Asarni kuzatish (yangi boblar bildirishnomasi)'
+            : isFollowing
+            ? 'Muallifni kuzatishni to‘xtatish'
+            : 'Muallifni kuzatish'
+        }
+        aria-label={
+          type === 'work'
+            ? isFollowing
+              ? 'Asar kuzatilmoqda'
+              : 'Asarni kuzatish'
+            : isFollowing
+            ? 'Muallif kuzatilmoqda'
+            : 'Muallifni kuzatish'
+        }
         className={`p-2 rounded-xl border transition-all flex items-center gap-1.5 text-xs font-bold min-h-[44px] ${
           isFollowing
             ? isHovered
@@ -87,7 +104,7 @@ export function FollowButton({
         {isPending ? (
           <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
         ) : type === 'work' ? (
-          isFollowing ? <BookmarkCheck className="w-4 h-4 text-amber-700" /> : <Bookmark className="w-4 h-4" />
+          isFollowing ? <BellRing className="w-4 h-4 text-amber-700" /> : <Bell className="w-4 h-4" />
         ) : (
           isFollowing ? <UserCheck className="w-4 h-4 text-amber-700" /> : <UserPlus className="w-4 h-4" />
         )}
@@ -113,7 +130,7 @@ export function FollowButton({
       {isPending ? (
         <Loader2 className="w-4 h-4 animate-spin" />
       ) : type === 'work' ? (
-        isFollowing ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />
+        isFollowing ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />
       ) : (
         isFollowing ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />
       )}
@@ -123,7 +140,7 @@ export function FollowButton({
           ? isFollowing
             ? isHovered
               ? 'Kuzatishni to‘xtatish'
-              : 'Kuzatilmoqda'
+              : 'Asar kuzatilmoqda'
             : 'Asarni kuzatish'
           : isFollowing
           ? isHovered

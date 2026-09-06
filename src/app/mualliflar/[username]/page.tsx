@@ -7,6 +7,8 @@ import { BookOpen, ChevronRight, Eye, Users, Sparkles, CheckCircle } from 'lucid
 import { getPublicAuthor } from '@/lib/db/queries';
 import { WorkCard } from '@/components/work/WorkCard';
 import { FollowButton } from '@/components/social/FollowButton';
+import { AuthorProfileFeed } from '@/components/author/AuthorProfileFeed';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export const revalidate = 60;
 
@@ -43,6 +45,14 @@ export default async function AuthorPublicProfilePage({
 
   const { author, works, totalWorks, totalReads, followerCount } = result;
   const profile = author.profile;
+
+  const admin = getSupabaseAdmin();
+  const { data: authorPosts } = await admin
+    .from('author_posts')
+    .select('id, content, pinned, created_at')
+    .eq('author_id', author.id)
+    .order('pinned', { ascending: false })
+    .order('created_at', { ascending: false });
 
   return (
     <div className="space-y-8 sm:space-y-10 pb-16">
@@ -122,28 +132,13 @@ export default async function AuthorPublicProfilePage({
         </div>
       </div>
 
-      {/* Author Works Grid */}
+      {/* Author Works & Posts Feed with Tabs and Sharing */}
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-[#B45309]" />
-            <h2 className="text-lg sm:text-xl font-black font-serif text-[#1C1917] tracking-tight">
-              Muallifning asarlari ({works.length})
-            </h2>
-          </div>
-        </div>
-
-        {works.length === 0 ? (
-          <div className="p-8 text-center bg-white rounded-3xl border border-[#EAE5DD] text-stone-500 text-xs font-semibold shadow-xs">
-            Ushbu muallif hozircha biron asar e’lon qilmagan.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
-            {works.map((work) => (
-              <WorkCard key={work.id} work={work} context="catalogue" />
-            ))}
-          </div>
-        )}
+        <AuthorProfileFeed
+          works={works}
+          posts={authorPosts || []}
+          authorPenName={author.pen_name}
+        />
       </section>
 
       {/* Structured Data (JSON-LD) for SEO */}

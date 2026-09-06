@@ -25,6 +25,7 @@ interface AsarlarPageProps {
     access?: 'free' | 'paid_full_work' | 'paid_by_chapter';
     status?: 'ongoing' | 'completed';
     sort?: 'popular' | 'newest' | 'rating' | 'price_asc' | 'price_desc';
+    collection?: string;
     page?: string;
   };
 }
@@ -35,6 +36,7 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
   const typeFilter = searchParams.type;
   const accessFilter = searchParams.access;
   const statusFilter = searchParams.status;
+  const collectionFilter = searchParams.collection;
   const sortBy = searchParams.sort || 'newest';
   const currentPage = Math.max(1, Number(searchParams.page) || 1);
 
@@ -48,6 +50,7 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
       accessType: accessFilter || undefined,
       completionStatus: statusFilter || undefined,
       sortBy: sortBy,
+      collection: collectionFilter || undefined,
     }),
     getActiveGenres(),
   ]);
@@ -61,6 +64,7 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
       genre: genreSlug,
       access: accessFilter,
       sort: sortBy !== 'newest' ? sortBy : undefined,
+      collection: collectionFilter,
       q: query || undefined,
       ...overrides,
     };
@@ -129,6 +133,55 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
           <Sparkles className="w-4 h-4 text-amber-600" />
           <span>Davomli hikoyalar</span>
         </Link>
+      </div>
+
+      {/* 10 Curated Collections Carousel / Pills */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
+            Sara to‘plamlar:
+          </span>
+          {collectionFilter && (
+            <Link
+              href={buildUrl({ collection: undefined, page: undefined })}
+              className="text-xs font-bold text-amber-800 hover:underline"
+            >
+              To‘plamni tozalash
+            </Link>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none text-xs">
+          {[
+            { id: undefined, label: 'Barcha to‘plamlar' },
+            { id: 'ommabop', label: '🔥 Hozir ommabop' },
+            { id: 'yangi_boshlangan', label: '✨ Yangi boshlangan' },
+            { id: 'yaqinda_yangilangan', label: '⚡ Yaqinda yangilangan' },
+            { id: 'tugallangan', label: '🏁 Tugallangan asarlar' },
+            { id: '15_daqiqa', label: '⏱️ 15 daqiqalik hikoyalar' },
+            { id: 'bepul', label: '🎁 Bepul o‘qish' },
+            { id: 'muharrir_tanlovi', label: '⭐ Muharrir tanlovi' },
+            { id: 'yangi_mualliflar', label: '✍️ Yangi mualliflar' },
+            { id: 'eng_kop_muhokama', label: '💬 Eng ko‘p muhokama' },
+            { id: 'top_haftalik', label: '🏆 Haftaning top asarlari' },
+          ].map((col) => {
+            const isActive = col.id === collectionFilter || (!col.id && !collectionFilter);
+            return (
+              <Link
+                key={col.label}
+                href={buildUrl({ collection: col.id, page: undefined })}
+                className={clsx(
+                  'px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 whitespace-nowrap border',
+                  isActive
+                    ? 'bg-amber-100/90 border-amber-300 text-amber-950 shadow-2xs'
+                    : 'bg-white border-[#EAE5DD] text-stone-600 hover:text-stone-900 hover:bg-stone-50',
+                )}
+              >
+                {col.label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* Search & Filter Toolbar */}

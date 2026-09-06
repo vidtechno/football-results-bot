@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Loader2,
   FileText,
+  BarChart3,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
@@ -356,13 +357,22 @@ export default function MuallifStudioPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsNewWorkOpen(true)}
-          className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs sm:text-sm shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2 flex-shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Yangi asar yaratish</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/muallif/analitika"
+            className="px-4 py-3 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold text-xs sm:text-sm shadow-xs active:scale-95 transition-all flex items-center gap-2 flex-shrink-0"
+          >
+            <BarChart3 className="w-4 h-4 text-blue-600" />
+            <span>Asarlar analitikasi</span>
+          </Link>
+          <button
+            onClick={() => setIsNewWorkOpen(true)}
+            className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs sm:text-sm shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2 flex-shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Yangi asar yaratish</span>
+          </button>
+        </div>
       </div>
 
       {/* Financial Summary Cards */}

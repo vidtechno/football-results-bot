@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { NotificationProvider } from '@/components/providers/NotificationProvider';
+import { GenreOnboardingModal } from '@/components/onboarding/GenreOnboardingModal';
 
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
@@ -94,6 +95,7 @@ export default function RootLayout({
             </main>
             <Footer />
             <MobileBottomNav />
+            <GenreOnboardingModal />
           </NotificationProvider>
         </AuthProvider>
       </body>

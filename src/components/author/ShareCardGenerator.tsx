@@ -2,12 +2,14 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Download, Sparkles, X, Image as ImageIcon } from "lucide-react";
+import QRCode from "qrcode";
 
 interface ShareCardGeneratorProps {
   isOpen: boolean;
   onClose: () => void;
   work: {
     id: string;
+    slug?: string;
     title: string;
     coverUrl?: string | null;
     authorPenName: string;
@@ -25,7 +27,7 @@ export function ShareCardGenerator({
   );
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const drawCard = useCallback(() => {
+  const drawCard = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -64,22 +66,44 @@ export function ShareCardGenerator({
     ctx.fillStyle = "#F59E0B";
     ctx.font = "bold 38px 'Playfair Display', Georgia, serif";
     ctx.textAlign = "center";
-    ctx.fillText("MANBORA", width / 2, isStory ? 160 : 70);
+    ctx.fillText("MANBORA", width / 2, isStory ? 150 : 65);
 
     ctx.fillStyle = "#A8A29E";
     ctx.font = "500 22px system-ui, sans-serif";
     ctx.fillText(
       "O‘zbek adabiyoti va hikoyalari platformasi",
       width / 2,
-      isStory ? 210 : 105
+      isStory ? 195 : 98
     );
 
+    // Generate canonical QR code for this work
+    const canonicalUrl = `https://manbora.uz/asarlar/${work.slug || work.id}`;
+    let qrImg: HTMLImageElement | null = null;
+    try {
+      const qrDataUrl = await QRCode.toDataURL(canonicalUrl, {
+        width: 320,
+        margin: 1,
+        color: {
+          dark: "#1A1715",
+          light: "#FFFFFF",
+        },
+      });
+      qrImg = new Image();
+      qrImg.src = qrDataUrl;
+      await new Promise((resolve) => {
+        qrImg!.onload = resolve;
+        qrImg!.onerror = resolve;
+      });
+    } catch (e) {
+      console.error("QR Code generation error:", e);
+    }
+
     // Render Cover Image (or styled placeholder)
-    const renderCover = (img?: HTMLImageElement) => {
-      const coverW = isStory ? 440 : 260;
-      const coverH = isStory ? 640 : 380;
-      const coverX = isStory ? (width - coverW) / 2 : 120;
-      const coverY = isStory ? 300 : 140;
+    const renderCoverAndDetails = (img?: HTMLImageElement) => {
+      const coverW = isStory ? 440 : 250;
+      const coverH = isStory ? 620 : 360;
+      const coverX = isStory ? (width - coverW) / 2 : 100;
+      const coverY = isStory ? 260 : 150;
 
       // Drop shadow for cover
       ctx.save();
@@ -107,78 +131,146 @@ export function ShareCardGenerator({
 
       // Typography / Details
       if (isStory) {
-        // Story Layout
+        // Story Layout (1080x1920)
         ctx.textAlign = "center";
 
         // Title
         ctx.fillStyle = "#FAF8F5";
-        ctx.font = "bold 56px 'Playfair Display', Georgia, serif";
-        ctx.fillText(work.title, width / 2, 1040, 900);
+        ctx.font = "bold 52px 'Playfair Display', Georgia, serif";
+        ctx.fillText(work.title, width / 2, 950, 920);
 
         // Author
         ctx.fillStyle = "#F59E0B";
-        ctx.font = "bold 34px system-ui, sans-serif";
-        ctx.fillText(`Muallif: ${work.authorPenName}`, width / 2, 1110);
+        ctx.font = "bold 32px system-ui, sans-serif";
+        ctx.fillText(`Muallif: ${work.authorPenName}`, width / 2, 1010);
 
         // Quote Box
         if (quote.trim()) {
           ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
           ctx.beginPath();
-          ctx.roundRect(140, 1190, 800, 260, 24);
+          ctx.roundRect(120, 1070, 840, 240, 24);
           ctx.fill();
           ctx.strokeStyle = "rgba(217, 119, 6, 0.3)";
           ctx.stroke();
 
           ctx.fillStyle = "#EAE5DD";
-          ctx.font = "italic 32px Georgia, serif";
-          ctx.fillText(`“${quote.trim()}”`, width / 2, 1320, 720);
+          ctx.font = "italic 30px Georgia, serif";
+          ctx.fillText(`“${quote.trim()}”`, width / 2, 1190, 760);
         }
 
-        // Call to action footer
-        ctx.fillStyle = "#FFFFFF";
-        ctx.font = "bold 30px system-ui, sans-serif";
-        ctx.fillText("manbora.uz da to‘liq o‘qing", width / 2, 1780);
+        // Canonical QR Code Badge (Story footer)
+        const qrCardW = 540;
+        const qrCardH = 220;
+        const qrCardX = (width - qrCardW) / 2;
+        const qrCardY = 1430;
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.07)";
+        ctx.beginPath();
+        ctx.roundRect(qrCardX, qrCardY, qrCardW, qrCardH, 28);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.4)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        if (qrImg) {
+          ctx.fillStyle = "#FFFFFF";
+          ctx.beginPath();
+          ctx.roundRect(qrCardX + 24, qrCardY + 20, 180, 180, 18);
+          ctx.fill();
+          ctx.drawImage(qrImg, qrCardX + 32, qrCardY + 28, 164, 164);
+        }
+
+        // QR Text info
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#F59E0B";
+        ctx.font = "bold 26px system-ui, sans-serif";
+        ctx.fillText("Hoziroq o‘qing", qrCardX + 230, qrCardY + 70);
+
+        ctx.fillStyle = "#FAF8F5";
+        ctx.font = "500 21px system-ui, sans-serif";
+        ctx.fillText("Kamerangizni qarating", qrCardX + 230, qrCardY + 110);
+
+        ctx.fillStyle = "#D6D3D1";
+        ctx.font = "600 20px monospace";
+        ctx.fillText("manbora.uz", qrCardX + 230, qrCardY + 155);
+
+        // Footer note
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#78716C";
+        ctx.font = "500 22px system-ui, sans-serif";
+        ctx.fillText("Manbora — o‘zbek adabiyoti va hikoyalari platformasi", width / 2, 1780);
       } else {
         // Horizontal Post Layout (1200x628)
-        const textX = 460;
+        const textX = 390;
         ctx.textAlign = "left";
 
         // Title
         ctx.fillStyle = "#FAF8F5";
-        ctx.font = "bold 44px 'Playfair Display', Georgia, serif";
-        ctx.fillText(work.title, textX, 230, 680);
+        ctx.font = "bold 40px 'Playfair Display', Georgia, serif";
+        ctx.fillText(work.title, textX, 220, 480);
 
         // Author
         ctx.fillStyle = "#F59E0B";
-        ctx.font = "bold 26px system-ui, sans-serif";
-        ctx.fillText(`Muallif: ${work.authorPenName}`, textX, 280);
+        ctx.font = "bold 24px system-ui, sans-serif";
+        ctx.fillText(`Muallif: ${work.authorPenName}`, textX, 265);
 
         // Quote
         if (quote.trim()) {
           ctx.fillStyle = "#D6D3D1";
-          ctx.font = "italic 24px Georgia, serif";
-          ctx.fillText(`“${quote.trim()}”`, textX, 360, 680);
+          ctx.font = "italic 22px Georgia, serif";
+          ctx.fillText(`“${quote.trim()}”`, textX, 335, 480);
         }
 
-        // URL badge
-        ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+        // Reading URL badge
+        ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
         ctx.beginPath();
-        ctx.roundRect(textX, 470, 360, 60, 16);
+        ctx.roundRect(textX, 445, 340, 56, 16);
         ctx.fill();
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = "bold 22px system-ui, sans-serif";
-        ctx.fillText("manbora.uz da mutolaa qiling", textX + 30, 508);
+        ctx.font = "bold 20px system-ui, sans-serif";
+        ctx.fillText("manbora.uz da mutolaa qiling", textX + 24, 480);
+
+        // QR Code Card on Right Side
+        const qrX = 920;
+        const qrY = 160;
+        const qrW = 200;
+        const qrH = 260;
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+        ctx.beginPath();
+        ctx.roundRect(qrX, qrY, qrW, qrH, 20);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.35)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        if (qrImg) {
+          ctx.fillStyle = "#FFFFFF";
+          ctx.beginPath();
+          ctx.roundRect(qrX + 20, qrY + 20, 160, 160, 14);
+          ctx.fill();
+          ctx.drawImage(qrImg, qrX + 26, qrY + 26, 148, 148);
+        }
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#FAF8F5";
+        ctx.font = "bold 15px system-ui, sans-serif";
+        ctx.fillText("Kamerani qarating", qrX + qrW / 2, qrY + 206);
+
+        ctx.fillStyle = "#F59E0B";
+        ctx.font = "bold 14px monospace";
+        ctx.fillText("manbora.uz", qrX + qrW / 2, qrY + 232);
       }
     };
 
     if (work.coverUrl) {
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.onload = () => renderCover(img);
-      img.onerror = () => renderCover();
+      img.onload = () => renderCoverAndDetails(img);
+      img.onerror = () => renderCoverAndDetails();
       img.src = work.coverUrl;
     } else {
-      renderCover();
+      renderCoverAndDetails();
     }
   }, [format, quote, work]);
 

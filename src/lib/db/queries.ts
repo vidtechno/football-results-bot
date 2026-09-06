@@ -651,7 +651,7 @@ export async function getPublicAuthor(identifier: string) {
     .from('author_profiles')
     .select(`
       *,
-      profile:profiles(id, display_name, username, avatar_url)
+      profile:profiles(id, display_name, username, avatar_url, social_links)
     `)
     .or(`user_id.eq.${identifier},id.eq.${identifier}`)
     .eq('status', 'approved')
@@ -670,7 +670,7 @@ export async function getPublicAuthor(identifier: string) {
         .from('author_profiles')
         .select(`
           *,
-          profile:profiles(id, display_name, username, avatar_url)
+          profile:profiles(id, display_name, username, avatar_url, social_links)
         `)
         .eq('user_id', profile.id)
         .eq('status', 'approved')

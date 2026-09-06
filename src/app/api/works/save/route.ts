@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { slugify } from '@/lib/utils/formatters';
+import { dispatchWorkCompletionNotifications } from '@/lib/notifications/inSite';
 
 export async function POST(request: Request) {
   try {
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
     if (id) {
       const { data: existing } = await supabase
         .from('works')
-        .select('id, author_id, status')
+        .select('id, author_id, status, completion_status')
         .eq('id', id)
         .single();
 
@@ -152,6 +153,14 @@ export async function POST(request: Request) {
         await supabase.from('work_genres').delete().eq('work_id', id);
         const joins = genreIds.map((gId) => ({ work_id: id, genre_id: gId }));
         await supabase.from('work_genres').insert(joins);
+      }
+
+      // If work transitioned to completed and is published, notify readers and followers
+      const wasCompleted = existing.completion_status === 'completed';
+      const isNowCompleted = completionStatus === 'completed';
+      const isPublished = existing.status === 'published';
+      if (!wasCompleted && isNowCompleted && isPublished) {
+        await dispatchWorkCompletionNotifications(id);
       }
 
       return NextResponse.json({ success: true, work: updatedWork });

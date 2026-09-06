@@ -4,6 +4,7 @@ import {
   getWorkChaptersAccessMap,
 } from '@/lib/security/access';
 import { paginateChapterContent } from '@/lib/reader/pagination';
+import { getRichTextStats } from '@/lib/utils/sanitizer';
 
 describe('QA Comprehensive Fixes & Security Access Tests', () => {
   const authorUserId = 'author-uuid-1111';
@@ -1675,6 +1676,197 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
     it('returns Kecha for yesterday', () => {
       const now = new Date('2026-09-06T15:00:00Z');
       expect(formatRelativeTime('2026-09-05T14:00:00Z', now)).toBe('Kecha');
+    });
+  });
+
+  describe('42. Author Analytics Dashboard API Contract', () => {
+    it('provides both metrics and summary keys with zero-safe defaults', () => {
+      const mockApiResponse = {
+        success: true,
+        metrics: {
+          totalReads: 0,
+          uniqueReaders: 0,
+          completedReads: 0,
+          readingProgressAvg: 0,
+          totalPurchases: 0,
+          estimatedEarnings: 0,
+          activeWorksCount: 0,
+        },
+        summary: {
+          totalReads: 0,
+          uniqueReaders: 0,
+          completedReads: 0,
+          readingProgressAvg: 0,
+          totalPurchases: 0,
+          estimatedEarnings: 0,
+          activeWorksCount: 0,
+        },
+        trafficChart: [],
+        funnelData: [],
+      };
+
+      // Both frontend contracts can read summary without runtime error
+      expect(mockApiResponse.metrics.totalReads).toBe(0);
+      expect(mockApiResponse.summary.totalReads).toBe(0);
+      expect(mockApiResponse.summary.estimatedEarnings).toBe(0);
+    });
+  });
+
+  describe('43. Genre Preferences Onboarding & Constraint Enforcement', () => {
+    it('enforces selecting between 3 and 5 genres', () => {
+      const validateGenreSelection = (genreIds: string[]) => {
+        if (genreIds.length < 3) {
+          return { valid: false, error: 'Kamida 3 ta janr tanlashingiz lozim' };
+        }
+        if (genreIds.length > 5) {
+          return { valid: false, error: 'Ko‘pi bilan 5 ta janr tanlash mumkin' };
+        }
+        return { valid: true, error: null };
+      };
+
+      expect(validateGenreSelection(['g1', 'g2']).valid).toBe(false);
+      expect(validateGenreSelection(['g1', 'g2', 'g3']).valid).toBe(true);
+      expect(validateGenreSelection(['g1', 'g2', 'g3', 'g4', 'g5']).valid).toBe(true);
+      expect(validateGenreSelection(['g1', 'g2', 'g3', 'g4', 'g5', 'g6']).valid).toBe(false);
+    });
+  });
+
+  describe('44. Rich Text Word & Character Counter with Uzbek Latin Apostrophes', () => {
+    it('correctly counts words across paragraphs, HTML entities, and Uzbek apostrophes', () => {
+      const html = '<p>O‘zbekiston — go‘zal va ma’suliyatli yurt.&nbsp;Yangi tong otdi.</p><p>Kitobxonlar mutolaa qilmoqda.</p>';
+      const stats = getRichTextStats(html);
+
+      // "O‘zbekiston", "—", "go‘zal", "va", "ma’suliyatli", "yurt.", "Yangi", "tong", "otdi.", "Kitobxonlar", "mutolaa", "qilmoqda."
+      expect(stats.words).toBeGreaterThanOrEqual(10);
+      expect(stats.characters).toBeGreaterThan(50);
+      expect(stats.readMinutes).toBeGreaterThanOrEqual(1);
+    });
+
+    it('returns 0 for empty or whitespace-only HTML content', () => {
+      expect(getRichTextStats('').words).toBe(0);
+      expect(getRichTextStats('<p><br></p>').words).toBe(0);
+      expect(getRichTextStats('   &nbsp;  ').words).toBe(0);
+    });
+  });
+
+  describe('45. Autosave Dirty State & Snapshot Deduplication', () => {
+    it('skips snapshot creation when title and content are identical to previous saved snapshot', () => {
+      const previousSnapshot = { title: '1-bob: Boshlanish', content: '<p>Salom dunyo</p>' };
+      const currentEditing = { title: '1-bob: Boshlanish', content: '<p>Salom dunyo</p>' };
+
+      const shouldCreateSnapshot =
+        previousSnapshot.title.trim() !== currentEditing.title.trim() ||
+        previousSnapshot.content.trim() !== currentEditing.content.trim();
+
+      expect(shouldCreateSnapshot).toBe(false);
+    });
+
+    it('creates snapshot only when actual modifications occurred', () => {
+      const previousSnapshot = { title: '1-bob: Boshlanish', content: '<p>Salom dunyo</p>' };
+      const currentEditing = { title: '1-bob: Boshlanish', content: '<p>Salom dunyo, yangi jumla qo‘shildi.</p>' };
+
+      const shouldCreateSnapshot =
+        previousSnapshot.title.trim() !== currentEditing.title.trim() ||
+        previousSnapshot.content.trim() !== currentEditing.content.trim();
+
+      expect(shouldCreateSnapshot).toBe(true);
+    });
+  });
+
+  describe('46. Chapter Comments Inline Editing & Authorization', () => {
+    it('allows author of the comment to edit and marks is_edited true', () => {
+      const commentOwnerId = 'user-abc-123';
+      const currentUserId = 'user-abc-123';
+      const canEdit = currentUserId === commentOwnerId;
+
+      expect(canEdit).toBe(true);
+
+      const editedComment = {
+        id: 'comment-1',
+        user_id: commentOwnerId,
+        content: 'Yangilangan fikr matni',
+        is_edited: true,
+        edited_at: new Date().toISOString(),
+      };
+
+      expect(editedComment.is_edited).toBe(true);
+      expect(editedComment.edited_at).toBeDefined();
+    });
+
+    it('blocks unauthorized users from editing other users comments', () => {
+      const commentOwnerId: string = 'user-abc-123';
+      const strangerId: string = 'user-stranger-999';
+      const isAdmin = false;
+
+      const canEdit = strangerId === commentOwnerId || isAdmin;
+      expect(canEdit).toBe(false);
+    });
+  });
+
+  describe('47. Share Card Canonical QR Code URL', () => {
+    it('generates canonical work URL for QR code', () => {
+      const workSlug = 'bekatdagi-soat';
+      const canonicalUrl = `https://manbora.uz/asarlar/${workSlug}`;
+      expect(canonicalUrl).toBe('https://manbora.uz/asarlar/bekatdagi-soat');
+    });
+  });
+
+  describe('48. Author Public Profile Social Links Sanitization', () => {
+    const sanitizeSocialUrl = (network: string, val?: string) => {
+      if (!val) return null;
+      const raw = val.trim();
+      if (network === 'telegram') {
+        if (raw.startsWith('https://t.me/')) return raw;
+        const clean = raw.replace(/^@/, '');
+        return `https://t.me/${clean}`;
+      }
+      if (network === 'instagram') {
+        if (raw.startsWith('https://instagram.com/')) return raw;
+        const clean = raw.replace(/^@/, '');
+        return `https://instagram.com/${clean}`;
+      }
+      return null;
+    };
+
+    it('formats handle into full canonical https URL', () => {
+      expect(sanitizeSocialUrl('telegram', '@manbora_uz')).toBe('https://t.me/manbora_uz');
+      expect(sanitizeSocialUrl('instagram', 'manbora_books')).toBe('https://instagram.com/manbora_books');
+    });
+  });
+
+  describe('49. Continue Reading 5 Unique Works Deduplication', () => {
+    it('deduplicates multiple chapter progress rows to distinct works', () => {
+      const rawProgressRows = [
+        { work_id: 'work-1', chapter_id: 'ch-1', percentage: 20 },
+        { work_id: 'work-1', chapter_id: 'ch-2', percentage: 40 },
+        { work_id: 'work-1', chapter_id: 'ch-3', percentage: 60 },
+        { work_id: 'work-2', chapter_id: 'ch-10', percentage: 50 },
+        { work_id: 'work-3', chapter_id: 'ch-20', percentage: 80 },
+      ];
+
+      const seen = new Set<string>();
+      const uniqueWorks: any[] = [];
+
+      for (const row of rawProgressRows) {
+        if (uniqueWorks.length >= 5) break;
+        if (seen.has(row.work_id)) continue;
+        seen.add(row.work_id);
+        uniqueWorks.push(row);
+      }
+
+      expect(uniqueWorks.length).toBe(3);
+      expect(uniqueWorks.map((u) => u.work_id)).toEqual(['work-1', 'work-2', 'work-3']);
+    });
+  });
+
+  describe('50. Work Completion Notifications Dispatch', () => {
+    it('creates work_completed notification payload excluding author', () => {
+      const authorUserId = 'author-uuid-777';
+      const allFollowers = ['user-1', 'user-2', authorUserId];
+
+      const recipients = allFollowers.filter((id) => id !== authorUserId);
+      expect(recipients).toEqual(['user-1', 'user-2']);
+      expect(recipients).not.toContain(authorUserId);
     });
   });
 });

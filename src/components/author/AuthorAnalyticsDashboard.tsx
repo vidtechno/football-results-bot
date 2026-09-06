@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -16,36 +16,55 @@ import {
   Loader2,
   Calendar,
   Filter,
+  RotateCcw,
+  Sparkles,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
 interface AnalyticsSummary {
   totalReads: number;
   uniqueReaders: number;
   totalFollowers: number;
+  followersCount?: number;
   totalBookmarks: number;
+  bookmarksCount?: number;
   totalLibraryAdds: number;
+  libraryCount?: number;
   totalReactions: number;
+  reactionsCount?: number;
   totalComments: number;
+  reviewsCount?: number;
   totalEarningsUzs: number;
+  totalEarnings?: number;
 }
 
 interface ChapterFunnelItem {
-  chapterId: string;
-  chapterNumber: number;
+  id?: string;
+  chapterId?: string;
+  chapterNumber?: number;
+  chapter_number?: number;
   title: string;
   reads: number;
-  dropOffRatePercent: number;
+  dropOffRatePercent?: number;
 }
 
 interface AnalyticsData {
-  summary: AnalyticsSummary;
+  success?: boolean;
+  summary?: AnalyticsSummary;
+  metrics?: AnalyticsSummary;
   chapterFunnel: ChapterFunnelItem[];
-  dropOffAlert: {
+  dropOffAlert?: {
     chapterNumber: number;
     title: string;
     dropOffCount: number;
   } | null;
-  worksList: Array<{ id: string; title: string }>;
+  dropOffChapter?: {
+    toChapterNumber: number;
+    toTitle: string;
+    dropCount: number;
+  } | null;
+  worksList?: Array<{ id: string; title: string }>;
+  works?: Array<{ id: string; title: string }>;
 }
 
 export default function AuthorAnalyticsDashboard() {
@@ -55,30 +74,81 @@ export default function AuthorAnalyticsDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AnalyticsData | null>(null);
 
-  useEffect(() => {
-    async function fetchAnalytics() {
-      setLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams();
-        params.set("period", period);
-        if (selectedWorkId !== "all") {
-          params.set("work_id", selectedWorkId);
-        }
-        const res = await fetch(`/api/author/analytics?${params.toString()}`);
-        if (!res.ok) {
-          throw new Error("Analitika ma'lumotlarini yuklab bo‘lmadi");
-        }
-        const json = await res.json();
-        setData(json);
-      } catch (err: any) {
-        setError(err.message || "Xatolik yuz berdi");
-      } finally {
-        setLoading(false);
+  const fetchAnalytics = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
       }
+
+      const params = new URLSearchParams();
+      params.set("period", period);
+      if (selectedWorkId !== "all") {
+        params.set("work_id", selectedWorkId);
+        params.set("workId", selectedWorkId);
+      }
+
+      const res = await fetch(`/api/author/analytics?${params.toString()}`, {
+        headers,
+      });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Tizimga kirish talab etiladi");
+        }
+        if (res.status === 403) {
+          throw new Error("Ushbu sahifa faqat tasdiqlangan mualliflar uchun ochiq");
+        }
+        throw new Error("Analitika ma’lumotlarini yuklab bo‘lmadi");
+      }
+
+      const json = await res.json();
+      if (!json.success && json.error) {
+        throw new Error(json.error);
+      }
+
+      setData(json);
+    } catch (err: any) {
+      setError(err.message || "Kutilmagan xatolik yuz berdi");
+    } finally {
+      setLoading(false);
     }
-    fetchAnalytics();
   }, [period, selectedWorkId]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  // Unified getters with zero fallbacks
+  const summary = data?.summary || data?.metrics || {
+    totalReads: 0,
+    uniqueReaders: 0,
+    totalFollowers: 0,
+    totalBookmarks: 0,
+    totalLibraryAdds: 0,
+    totalReactions: 0,
+    totalComments: 0,
+    totalEarningsUzs: 0,
+  };
+
+  const works = data?.worksList || data?.works || [];
+  const funnel = data?.chapterFunnel || [];
+  const dropAlert = data?.dropOffAlert || (data?.dropOffChapter ? {
+    chapterNumber: data.dropOffChapter.toChapterNumber,
+    title: data.dropOffChapter.toTitle,
+    dropOffCount: data.dropOffChapter.dropCount,
+  } : null);
+
+  const hasZeroStats =
+    summary.totalReads === 0 &&
+    summary.uniqueReaders === 0 &&
+    funnel.length === 0;
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] pb-16 pt-8 text-[#1A1A1A]">
@@ -99,7 +169,7 @@ export default function AuthorAnalyticsDashboard() {
           </div>
 
           {/* Work Selector */}
-          {data?.worksList && data.worksList.length > 0 && (
+          {works.length > 0 && (
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-[#8A847C]" />
               <select
@@ -108,7 +178,7 @@ export default function AuthorAnalyticsDashboard() {
                 className="rounded-lg border border-[#E5E0D8] bg-white px-3 py-1.5 text-xs font-medium text-[#1A1A1A] shadow-sm focus:border-[#4B6BFB] focus:outline-none"
               >
                 <option value="all">Barcha asarlarim</option>
-                {data.worksList.map((w) => (
+                {works.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.title}
                   </option>
@@ -144,17 +214,31 @@ export default function AuthorAnalyticsDashboard() {
         </div>
 
         {loading ? (
-          <div className="flex h-64 items-center justify-center">
+          <div className="flex h-64 flex-col items-center justify-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-[#4B6BFB]" />
+            <span className="text-xs font-semibold text-[#8A847C]">
+              Analitika yuklanmoqda...
+            </span>
           </div>
         ) : error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
-            {error}
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center space-y-3">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <p className="text-sm font-semibold text-red-800">{error}</p>
+            <button
+              type="button"
+              onClick={() => fetchAnalytics()}
+              className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-red-700 active:scale-95"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Qayta urinish</span>
+            </button>
           </div>
         ) : data ? (
           <div className="space-y-8">
             {/* Drop-off Alert Card */}
-            {data.dropOffAlert && (
+            {dropAlert && dropAlert.dropOffCount > 0 && (
               <div className="flex items-start gap-4 rounded-xl border border-amber-200 bg-amber-50/80 p-4 shadow-sm sm:p-5">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                 <div>
@@ -162,15 +246,30 @@ export default function AuthorAnalyticsDashboard() {
                     O‘quvchilar chiqib ketish xavfi aniqlandi
                   </h2>
                   <p className="mt-1 text-xs leading-relaxed text-amber-800">
-                    Kitobxonlarning eng katta qismi{" "}
+                    Kitobxonlarning sezilarli qismi{" "}
                     <strong>
-                      {data.dropOffAlert.chapterNumber}-bob: &quot;
-                      {data.dropOffAlert.title}&quot;
+                      {dropAlert.chapterNumber}-bob: &quot;{dropAlert.title}&quot;
                     </strong>{" "}
-                    bobidan keyin o‘qishni to‘xtatmoqda ({data.dropOffAlert.dropOffCount} ta o‘quvchi kamaygan).
-                    Ushbu bobning syujet sur’ati yoki tushunarliligini qayta ko‘rib chiqishni tavsiya qilamiz.
+                    bobidan keyin o‘qishni to‘xtatmoqda ({dropAlert.dropOffCount} ta o‘quvchi kamaygan).
+                    Ushbu bob syujetini yoki sahifalanishini ko‘zdan kechirishni tavsiya etamiz.
                   </p>
                 </div>
+              </div>
+            )}
+
+            {/* Empty State when no stats exist yet */}
+            {hasZeroStats && (
+              <div className="rounded-2xl border border-[#E5E0D8] bg-white p-8 text-center space-y-3 shadow-xs">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <h3 className="text-base font-bold text-[#1A1A1A]">
+                  Tahliliy ma’lumotlar to‘planmoqda
+                </h3>
+                <p className="mx-auto max-w-md text-xs leading-relaxed text-[#8A847C]">
+                  Asarlaringiz kitobxonlar tomonidan o‘qilishi bilan ushbu bo‘limda
+                  o‘qilishlar, boblar voronkasi, xatcho‘plar va tushumlar dinamikasi paydo bo‘ladi.
+                </p>
               </div>
             )}
 
@@ -182,7 +281,7 @@ export default function AuthorAnalyticsDashboard() {
                   Jami mutolaalar
                 </div>
                 <div className="mt-2 text-2xl font-extrabold text-[#1A1A1A]">
-                  {data.summary.totalReads.toLocaleString()}
+                  {(summary.totalReads || 0).toLocaleString()}
                 </div>
                 <div className="mt-1 text-[11px] text-[#8A847C]">
                   Ko‘rilgan boblar soni
@@ -195,7 +294,7 @@ export default function AuthorAnalyticsDashboard() {
                   Noyob kitobxonlar
                 </div>
                 <div className="mt-2 text-2xl font-extrabold text-[#1A1A1A]">
-                  {data.summary.uniqueReaders.toLocaleString()}
+                  {(summary.uniqueReaders || 0).toLocaleString()}
                 </div>
                 <div className="mt-1 text-[11px] text-[#8A847C]">
                   Haqiqiy faol o‘quvchilar
@@ -208,10 +307,14 @@ export default function AuthorAnalyticsDashboard() {
                   Kutubxona & Xatcho‘p
                 </div>
                 <div className="mt-2 text-2xl font-extrabold text-[#1A1A1A]">
-                  {(data.summary.totalLibraryAdds + data.summary.totalBookmarks).toLocaleString()}
+                  {(
+                    (summary.totalLibraryAdds || summary.libraryCount || 0) +
+                    (summary.totalBookmarks || summary.bookmarksCount || 0)
+                  ).toLocaleString()}
                 </div>
                 <div className="mt-1 text-[11px] text-[#8A847C]">
-                  {data.summary.totalLibraryAdds} javonga, {data.summary.totalBookmarks} xatcho‘pga
+                  {summary.totalLibraryAdds || summary.libraryCount || 0} javonda,{" "}
+                  {summary.totalBookmarks || summary.bookmarksCount || 0} xatcho‘pda
                 </div>
               </div>
 
@@ -221,7 +324,8 @@ export default function AuthorAnalyticsDashboard() {
                   Muallif daromadi
                 </div>
                 <div className="mt-2 text-2xl font-extrabold text-emerald-600">
-                  {data.summary.totalEarningsUzs.toLocaleString()} <span className="text-xs font-semibold text-[#8A847C]">so‘m</span>
+                  {(summary.totalEarningsUzs || summary.totalEarnings || 0).toLocaleString()}{" "}
+                  <span className="text-xs font-semibold text-[#8A847C]">so‘m</span>
                 </div>
                 <div className="mt-1 text-[11px] text-[#8A847C]">
                   80% muallif ulushi
@@ -234,7 +338,7 @@ export default function AuthorAnalyticsDashboard() {
                   Kuzatuvchilar
                 </div>
                 <div className="mt-2 text-2xl font-extrabold text-[#1A1A1A]">
-                  {data.summary.totalFollowers.toLocaleString()}
+                  {(summary.totalFollowers || summary.followersCount || 0).toLocaleString()}
                 </div>
                 <div className="mt-1 text-[11px] text-[#8A847C]">
                   Asarni kuzatayotganlar
@@ -247,7 +351,7 @@ export default function AuthorAnalyticsDashboard() {
                   Reaksiyalar
                 </div>
                 <div className="mt-2 text-2xl font-extrabold text-[#1A1A1A]">
-                  {data.summary.totalReactions.toLocaleString()}
+                  {(summary.totalReactions || summary.reactionsCount || 0).toLocaleString()}
                 </div>
                 <div className="mt-1 text-[11px] text-[#8A847C]">
                   Boblardagi hissiyotlar
@@ -257,10 +361,10 @@ export default function AuthorAnalyticsDashboard() {
               <div className="rounded-xl border border-[#E5E0D8] bg-white p-4 shadow-xs">
                 <div className="flex items-center gap-2 text-xs font-semibold text-[#8A847C]">
                   <MessageSquare className="h-4 w-4 text-blue-500" />
-                  Izohlar
+                  Izoh va taqrizlar
                 </div>
                 <div className="mt-2 text-2xl font-extrabold text-[#1A1A1A]">
-                  {data.summary.totalComments.toLocaleString()}
+                  {(summary.totalComments || summary.reviewsCount || 0).toLocaleString()}
                 </div>
                 <div className="mt-1 text-[11px] text-[#8A847C]">
                   Kitobxonlar fikrlari
@@ -276,37 +380,40 @@ export default function AuthorAnalyticsDashboard() {
                     Boblar bo‘yicha o‘qilish voronkasi
                   </h3>
                   <p className="text-xs text-[#8A847C]">
-                    Har bir bob necha marta o‘qilgani va oldingi bobga nisbatan yo‘qotish foizi
+                    Har bir bob necha marta o‘qilgani va oldingi bobga nisbatan chiqish foizi
                   </p>
                 </div>
                 <BarChart3 className="h-5 w-5 text-[#8A847C]" />
               </div>
 
-              {data.chapterFunnel.length === 0 ? (
+              {funnel.length === 0 ? (
                 <div className="py-8 text-center text-xs text-[#8A847C]">
-                  Hozircha boblar bo‘yicha mutolaa ma’lumotlari yetarli emas.
+                  Hozircha boblar bo‘yicha mutolaa ma’lumotlari mavjud emas.
                 </div>
               ) : (
                 <div className="space-y-3">
                   {(() => {
-                    const maxReads = Math.max(...data.chapterFunnel.map((c) => c.reads), 1);
-                    return data.chapterFunnel.map((ch) => {
+                    const maxReads = Math.max(...funnel.map((c) => c.reads), 1);
+                    return funnel.map((ch) => {
+                      const chNum = ch.chapterNumber || ch.chapter_number || 1;
+                      const chId = ch.chapterId || ch.id || `${chNum}`;
                       const percentage = Math.round((ch.reads / maxReads) * 100);
-                      const isHighDrop = ch.dropOffRatePercent > 35;
+                      const dropPercent = ch.dropOffRatePercent || 0;
+                      const isHighDrop = dropPercent > 35;
                       return (
-                        <div key={ch.chapterId} className="space-y-1">
+                        <div key={chId} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-semibold text-[#1A1A1A]">
-                              {ch.chapterNumber}-bob: {ch.title}
+                              {chNum}-bob: {ch.title}
                             </span>
                             <div className="flex items-center gap-3">
-                              {ch.dropOffRatePercent > 0 && (
+                              {dropPercent > 0 && (
                                 <span
                                   className={`font-semibold ${
                                     isHighDrop ? "text-red-600" : "text-[#8A847C]"
                                   }`}
                                 >
-                                  -{ch.dropOffRatePercent}% chiqish
+                                  -{dropPercent}% chiqish
                                 </span>
                               )}
                               <span className="font-bold text-[#1A1A1A]">

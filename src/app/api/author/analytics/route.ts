@@ -7,12 +7,15 @@ export async function GET(request: Request) {
   try {
     const profile = await getCurrentProfile(request.headers.get('Authorization'));
     if (!profile) {
-      return NextResponse.json({ success: false, error: 'Avtorizatsiya talab etiladi' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Avtorizatsiya talab etiladi' },
+        { status: 401 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30d'; // 7d, 30d, 90d, all
-    const selectedWorkId = searchParams.get('workId'); // optional filter
+    const selectedWorkId = searchParams.get('workId') || searchParams.get('work_id');
 
     const admin = createAdminClient();
 
@@ -24,7 +27,10 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     if (!author && !profile.is_admin) {
-      return NextResponse.json({ success: false, error: 'Faqat mualliflar uchun' }, { status: 403 });
+      return NextResponse.json(
+        { success: false, error: 'Faqat mualliflar uchun' },
+        { status: 403 }
+      );
     }
 
     // 2. Fetch author's works
@@ -33,7 +39,7 @@ export async function GET(request: Request) {
       .select('id, title, slug, cover_url, type, access_type, completion_status, view_count, average_rating, rating_count, created_at')
       .eq('author_id', profile.id);
 
-    if (selectedWorkId) {
+    if (selectedWorkId && selectedWorkId !== 'all') {
       worksQuery = worksQuery.eq('id', selectedWorkId);
     }
 
@@ -41,23 +47,36 @@ export async function GET(request: Request) {
     const works = worksData || [];
     const workIds = works.map((w) => w.id);
 
+    const defaultZeroMetrics = {
+      totalReads: 0,
+      uniqueReaders: 0,
+      followersCount: 0,
+      totalFollowers: 0,
+      totalEarnings: 0,
+      totalEarningsUzs: 0,
+      bookmarksCount: 0,
+      totalBookmarks: 0,
+      libraryCount: 0,
+      totalLibraryAdds: 0,
+      reactionsCount: 0,
+      totalReactions: 0,
+      reviewsCount: 0,
+      totalComments: 0,
+    };
+
+    const worksList = works.map((w) => ({ id: w.id, title: w.title, slug: w.slug }));
+
     if (workIds.length === 0) {
       return NextResponse.json({
         success: true,
         period,
-        metrics: {
-          totalReads: 0,
-          uniqueReaders: 0,
-          followersCount: 0,
-          totalEarnings: 0,
-          bookmarksCount: 0,
-          libraryCount: 0,
-          reactionsCount: 0,
-          reviewsCount: 0,
-        },
+        metrics: defaultZeroMetrics,
+        summary: defaultZeroMetrics,
         chapterFunnel: [],
         dropOffChapter: null,
-        works: [],
+        dropOffAlert: null,
+        works,
+        worksList,
       });
     }
 
@@ -89,6 +108,7 @@ export async function GET(request: Request) {
       bookmarksRes,
       libraryRes,
       reactionsRes,
+      commentsRes,
       reviewsRes,
       followersRes,
       earningsRes,
@@ -103,6 +123,7 @@ export async function GET(request: Request) {
       admin.from('reading_bookmarks').select('id', { count: 'exact', head: true }).in('work_id', workIds),
       admin.from('library_items').select('id', { count: 'exact', head: true }).in('work_id', workIds),
       admin.from('chapter_reactions').select('id', { count: 'exact', head: true }).in('work_id', workIds),
+      admin.from('chapter_comments').select('id', { count: 'exact', head: true }).in('work_id', workIds),
       admin.from('work_reviews').select('id', { count: 'exact', head: true }).in('work_id', workIds),
       admin.from('author_follows').select('id', { count: 'exact', head: true }).eq('author_id', profile.id),
       admin.from('wallet_accounts').select('balance').eq('user_id', profile.id).eq('account_type', 'author_earnings_available').maybeSingle(),
@@ -123,19 +144,30 @@ export async function GET(request: Request) {
       }
     });
 
-    const chapterFunnel = chapters.map((chap) => {
+    const chapterFunnel = chapters.map((chap, idx) => {
       const readCount = chapterReadCounts.get(chap.id) || 0;
+      let dropOffRatePercent = 0;
+      if (idx > 0) {
+        const prevReads = chapterReadCounts.get(chapters[idx - 1].id) || 0;
+        if (prevReads > 0 && prevReads > readCount) {
+          dropOffRatePercent = Math.round(((prevReads - readCount) / prevReads) * 100);
+        }
+      }
       return {
         id: chap.id,
+        chapterId: chap.id,
         work_id: chap.work_id,
         chapter_number: chap.chapter_number,
+        chapterNumber: chap.chapter_number,
         title: chap.title,
         reads: readCount,
+        dropOffRatePercent,
       };
     });
 
-    // Find highest drop-off chapter (greatest negative delta from previous chapter)
+    // Find highest drop-off chapter (greatest drop in readers from previous chapter)
     let dropOffChapter: any = null;
+    let dropOffAlert: any = null;
     let maxDrop = -1;
 
     for (let i = 1; i < chapterFunnel.length; i++) {
@@ -146,33 +178,57 @@ export async function GET(request: Request) {
         if (drop > maxDrop && drop > 0) {
           maxDrop = drop;
           dropOffChapter = {
-            fromChapterNumber: prev.chapter_number,
-            toChapterNumber: curr.chapter_number,
+            fromChapterNumber: prev.chapterNumber,
+            toChapterNumber: curr.chapterNumber,
             fromTitle: prev.title,
             toTitle: curr.title,
             dropCount: drop,
             retentionPercent: Math.round((curr.reads / prev.reads) * 100),
           };
+          dropOffAlert = {
+            chapterNumber: curr.chapterNumber,
+            title: curr.title,
+            dropOffCount: drop,
+          };
         }
       }
     }
 
+    const earningsBalance = earningsRes.data?.balance || 0;
+    const followersTotal = followersRes.count || 0;
+    const bookmarksTotal = bookmarksRes.count || 0;
+    const libraryTotal = libraryRes.count || 0;
+    const reactionsTotal = reactionsRes.count || 0;
+    const commentsTotal = commentsRes.count || 0;
+    const reviewsTotal = reviewsRes.count || 0;
+
+    const unifiedMetrics = {
+      totalReads,
+      uniqueReaders: uniqueReaderIds.size,
+      followersCount: followersTotal,
+      totalFollowers: followersTotal,
+      totalEarnings: earningsBalance,
+      totalEarningsUzs: earningsBalance,
+      bookmarksCount: bookmarksTotal,
+      totalBookmarks: bookmarksTotal,
+      libraryCount: libraryTotal,
+      totalLibraryAdds: libraryTotal,
+      reactionsCount: reactionsTotal,
+      totalReactions: reactionsTotal,
+      reviewsCount: reviewsTotal,
+      totalComments: commentsTotal,
+    };
+
     return NextResponse.json({
       success: true,
       period,
-      metrics: {
-        totalReads,
-        uniqueReaders: uniqueReaderIds.size,
-        followersCount: followersRes.count || 0,
-        totalEarnings: earningsRes.data?.balance || 0,
-        bookmarksCount: bookmarksRes.count || 0,
-        libraryCount: libraryRes.count || 0,
-        reactionsCount: reactionsRes.count || 0,
-        reviewsCount: reviewsRes.count || 0,
-      },
+      metrics: unifiedMetrics,
+      summary: unifiedMetrics,
       chapterFunnel,
       dropOffChapter,
+      dropOffAlert,
       works,
+      worksList,
     });
   } catch (err: any) {
     console.error('Error fetching author analytics:', err);

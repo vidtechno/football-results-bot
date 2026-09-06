@@ -35,6 +35,8 @@ export async function GET(request: Request) {
         content,
         is_spoiler,
         is_deleted,
+        is_edited,
+        edited_at,
         created_at,
         updated_at,
         user:profiles (
@@ -165,6 +167,8 @@ export async function POST(request: Request) {
         content,
         is_spoiler,
         is_deleted,
+        is_edited,
+        edited_at,
         created_at,
         updated_at,
         user:profiles (
@@ -192,6 +196,116 @@ export async function POST(request: Request) {
     });
   } catch (err: any) {
     console.error('Error posting chapter comment:', err);
+    return NextResponse.json({ success: false, error: 'Server xatosi' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const profile = await getCurrentProfile(request.headers.get('Authorization'));
+    if (!profile) {
+      return NextResponse.json(
+        { success: false, error: 'Avtorizatsiyadan o‘tishingiz lozim' },
+        { status: 401 },
+      );
+    }
+
+    const body = await request.json();
+    const commentId = String(body.commentId || body.id || '').trim();
+    const content = String(body.content || '').trim();
+    const isSpoiler = typeof body.isSpoiler === 'boolean' ? body.isSpoiler : undefined;
+
+    if (!commentId || !content) {
+      return NextResponse.json(
+        { success: false, error: 'Izoh identifikatori va yangi matn talab etiladi' },
+        { status: 400 },
+      );
+    }
+
+    if (content.length < 2 || content.length > 2000) {
+      return NextResponse.json(
+        { success: false, error: 'Fikr uzunligi 2 dan 2000 belgigacha bo‘lishi lozim' },
+        { status: 400 },
+      );
+    }
+
+    const admin = createAdminClient();
+
+    // Check comment existence and ownership
+    const { data: comment, error: fetchError } = await admin
+      .from('chapter_comments')
+      .select('id, user_id, is_deleted, is_spoiler')
+      .eq('id', commentId)
+      .single();
+
+    if (fetchError || !comment) {
+      return NextResponse.json({ success: false, error: 'Izoh topilmadi' }, { status: 404 });
+    }
+
+    if (comment.is_deleted) {
+      return NextResponse.json(
+        { success: false, error: 'O‘chirilgan izohni tahrirlab bo‘lmaydi' },
+        { status: 400 },
+      );
+    }
+
+    if (comment.user_id !== profile.id && !profile.is_admin) {
+      return NextResponse.json(
+        { success: false, error: 'Siz faqat o‘zingiz yozgan izohni tahrirlashingiz mumkin' },
+        { status: 403 },
+      );
+    }
+
+    const nowIso = new Date().toISOString();
+    const updatePayload: Record<string, any> = {
+      content,
+      is_edited: true,
+      edited_at: nowIso,
+      updated_at: nowIso,
+    };
+    if (typeof isSpoiler === 'boolean') {
+      updatePayload.is_spoiler = isSpoiler;
+    }
+
+    const { data: updatedComment, error: updateError } = await admin
+      .from('chapter_comments')
+      .update(updatePayload)
+      .eq('id', commentId)
+      .select(`
+        id,
+        chapter_id,
+        work_id,
+        user_id,
+        parent_id,
+        content,
+        is_spoiler,
+        is_deleted,
+        is_edited,
+        edited_at,
+        created_at,
+        updated_at,
+        user:profiles (
+          id,
+          display_name,
+          username,
+          avatar_url
+        )
+      `)
+      .single();
+
+    if (updateError || !updatedComment) {
+      return NextResponse.json(
+        { success: false, error: updateError?.message || 'Izohni yangilashda xatolik yuz berdi' },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      comment: updatedComment,
+    });
+  } catch (err: any) {
+    console.error('Error patching chapter comment:', err);
     return NextResponse.json({ success: false, error: 'Server xatosi' }, { status: 500 });
   }
 }

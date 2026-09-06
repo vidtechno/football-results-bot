@@ -82,14 +82,58 @@ export function sanitizeRichText(html: string): string {
 
 /**
  * Calculates word count and character count from rich text HTML.
+ * Correctly handles block separation, HTML entity decoding, whitespace normalization,
+ * and preserves Uzbek Latin apostrophe words (o‘, g‘, tutuq belgisi, etc.).
  */
-export function getRichTextStats(html: string): { wordCount: number; charCount: number } {
-  if (!html) return { wordCount: 0, charCount: 0 };
+export function getRichTextStats(html: string): {
+  wordCount: number;
+  charCount: number;
+  words: number;
+  characters: number;
+  readMinutes: number;
+} {
+  if (!html || typeof html !== 'string') {
+    return { wordCount: 0, charCount: 0, words: 0, characters: 0, readMinutes: 0 };
+  }
 
-  // Strip all HTML tags to get pure text content
-  const cleanText = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim();
-  const charCount = cleanText.length;
-  const wordCount = cleanText ? cleanText.split(/\s+/).filter(Boolean).length : 0;
+  // 1. Separate block elements with whitespace so adjoining blocks don't fuse words
+  let text = html
+    .replace(/<\/(p|div|h[1-6]|blockquote|li|tr|section|article)>/gi, ' ')
+    .replace(/<(br|hr)\s*\/?>/gi, ' ');
 
-  return { wordCount, charCount };
+  // 2. Strip all remaining HTML tags
+  text = text.replace(/<[^>]+>/g, ' ');
+
+  // 3. Decode common HTML entities
+  text = text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+
+  // 4. Normalize multiple whitespaces into a single space
+  const normalizedText = text.replace(/\s+/g, ' ').trim();
+
+  if (!normalizedText) {
+    return { wordCount: 0, charCount: 0, words: 0, characters: 0, readMinutes: 0 };
+  }
+
+  const charCount = normalizedText.length;
+
+  // 5. Match words: supports Unicode letters, numbers, and internal Uzbek apostrophes (', ‘, ’, ʻ, ʼ)
+  // E.g. "o‘qituvchi", "g‘alaba", "san'at", "ta'sir", "do'st" count as 1 word each.
+  const matchedWords = normalizedText.match(/[\p{L}\p{N}]+(?:['‘'’ʻʼ][\p{L}\p{N}]+)*/gu);
+  const wordCount = matchedWords ? matchedWords.length : 0;
+  const readMinutes = wordCount > 0 ? Math.max(1, Math.ceil(wordCount / 200)) : 0;
+
+  return {
+    wordCount,
+    charCount,
+    words: wordCount,
+    characters: charCount,
+    readMinutes,
+  };
 }

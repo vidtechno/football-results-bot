@@ -9,18 +9,25 @@ export async function GET(request: Request) {
     const admin = createAdminClient();
 
     // 1. Fetch active genres
-    const { data: genresData } = await admin
+    const { data: genresData, error: gErr } = await admin
       .from('genres')
       .select('id, name, slug, description, sort_order')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
 
+    if (gErr) {
+      console.error('Error querying genres:', gErr);
+    }
+
     const genres = genresData || [];
 
     if (!profile) {
       return NextResponse.json({
+        success: true,
         genres,
+        allGenres: genres,
         selectedGenreIds: [],
+        preferredGenreIds: [],
         onboardingCompleted: true,
       });
     }
@@ -34,15 +41,18 @@ export async function GET(request: Request) {
     const selectedGenreIds = (userPrefs || []).map((p: any) => p.genre_id);
 
     return NextResponse.json({
+      success: true,
       genres,
+      allGenres: genres,
       selectedGenreIds,
+      preferredGenreIds: selectedGenreIds,
       onboardingCompleted: Boolean((profile as any).onboarding_completed),
     });
   } catch (err: any) {
     console.error('Error fetching user genres:', err);
     return NextResponse.json(
       { success: false, error: 'Janrlarni yuklashda xatolik yuz berdi' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -53,7 +63,7 @@ export async function POST(request: Request) {
     if (!profile) {
       return NextResponse.json(
         { success: false, error: 'Avtorizatsiya talab etiladi' },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
@@ -80,8 +90,8 @@ export async function POST(request: Request) {
 
     if (genreIds.length < 3 || genreIds.length > 5) {
       return NextResponse.json(
-        { success: false, error: 'Iltimos, 3 tadan 5 tagacha janr tanlang' },
-        { status: 400 },
+        { success: false, error: 'Iltimos, kamida 3 ta va ko‘pi bilan 5 ta janr tanlang' },
+        { status: 400 }
       );
     }
 
@@ -102,13 +112,14 @@ export async function POST(request: Request) {
       .insert(rowsToInsert);
 
     if (insertError) {
+      console.error('Insert genre preferences error:', insertError);
       return NextResponse.json(
         { success: false, error: 'Janrlarni saqlashda xatolik yuz berdi' },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
-    // 3. Mark profile onboarding as completed
+    // Mark onboarding completed on profile
     await admin
       .from('profiles')
       .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
@@ -117,13 +128,15 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       selectedGenreIds: genreIds,
+      preferredGenreIds: genreIds,
       onboardingCompleted: true,
+      message: 'Sevimli janrlaringiz muvaffaqiyatli saqlandi',
     });
   } catch (err: any) {
     console.error('Error saving user genres:', err);
     return NextResponse.json(
-      { success: false, error: 'Serverda kutilmagan xatolik yuz berdi' },
-      { status: 500 },
+      { success: false, error: err.message || 'Server xatosi' },
+      { status: 500 }
     );
   }
 }

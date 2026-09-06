@@ -199,3 +199,86 @@ export async function notifyAuthorFollowers(
     console.warn('Failed to notify author followers:', err?.message);
   }
 }
+
+/**
+ * Dispatches notifications when an ongoing work is marked as completed.
+ * Notifies work followers, author followers, and active readers.
+ */
+export async function dispatchWorkCompletionNotifications(workId: string): Promise<number> {
+  try {
+    const admin = createAdminClient();
+
+    // 1. Fetch work details
+    const { data: work, error: workErr } = await admin
+      .from('works')
+      .select(`
+        id, title, slug, author_id, status, completion_status,
+        author:author_profiles(user_id, pen_name)
+      `)
+      .eq('id', workId)
+      .single();
+
+    if (workErr || !work || work.status !== 'published' || work.completion_status !== 'completed') {
+      return 0;
+    }
+
+    const authorUserId = work.author_id;
+    const authorPenName = (work.author as any)?.pen_name || 'Muallif';
+
+    // 2. Concurrently fetch followers and readers
+    const [workFollowsRes, authorFollowsRes, libraryItemsRes] = await Promise.all([
+      admin.from('work_follows').select('user_id').eq('work_id', work.id),
+      admin.from('author_follows').select('user_id').eq('author_id', authorUserId),
+      admin.from('library_items').select('user_id').eq('work_id', work.id),
+    ]);
+
+    const recipientIds = new Set<string>();
+
+    (workFollowsRes.data || []).forEach((f: any) => {
+      if (f.user_id && f.user_id !== authorUserId) recipientIds.add(f.user_id);
+    });
+
+    (authorFollowsRes.data || []).forEach((f: any) => {
+      if (f.user_id && f.user_id !== authorUserId) recipientIds.add(f.user_id);
+    });
+
+    (libraryItemsRes.data || []).forEach((f: any) => {
+      if (f.user_id && f.user_id !== authorUserId) recipientIds.add(f.user_id);
+    });
+
+    if (recipientIds.size === 0) return 0;
+
+    const linkUrl = `/asarlar/${work.slug}`;
+    const title = `Asar yakunlandi: «${work.title}»`;
+    const body = `${authorPenName} «${work.title}» asarini to‘liq yakunladi. Endi asarni boshidan oxirigacha mutolaa qilishingiz mumkin!`;
+
+    const recipients = Array.from(recipientIds);
+    let insertedCount = 0;
+    const chunkSize = 50;
+
+    for (let i = 0; i < recipients.length; i += chunkSize) {
+      const chunk = recipients.slice(i, i + chunkSize);
+      const rows = chunk.map((uId) => ({
+        user_id: uId,
+        type: 'work_completed',
+        title,
+        body,
+        link_url: linkUrl,
+        source_type: 'work_completion',
+        source_id: work.id,
+        data: { workId: work.id },
+        is_read: false,
+      }));
+
+      const { error: insertErr } = await admin.from('in_site_notifications').insert(rows);
+      if (!insertErr) {
+        insertedCount += rows.length;
+      }
+    }
+
+    return insertedCount;
+  } catch (err: any) {
+    console.warn('Exception in dispatchWorkCompletionNotifications:', err?.message || err);
+    return 0;
+  }
+}

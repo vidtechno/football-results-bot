@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -89,6 +89,9 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
   const [chapterError, setChapterError] = useState<string | null>(null);
 
   // Scheduling, Autosave & Versions state
+  const [isDirty, setIsDirty] = useState(false);
+  const lastSavedSnapshotRef = useRef<{ title: string; content: string } | null>(null);
+  const isAutosavingRef = useRef(false);
   const [chapterStatus, setChapterStatus] = useState<'published' | 'draft' | 'scheduled'>('published');
   const [scheduledAt, setScheduledAt] = useState<string>('');
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -299,41 +302,75 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     setScheduledAt('');
     setAutosaveStatus('idle');
     setChapterError(null);
+    setIsDirty(false);
+    lastSavedSnapshotRef.current = null;
     setIsChapterModalOpen(true);
   }
 
   function openEditChapterModal(chap: Chapter) {
+    const rawContent = chap.content || '';
     setEditingChapterId(chap.id);
     setChapterNumber(chap.chapter_number);
     setChapterTitle(chap.title);
-    setChapterContent(chap.content || '');
+    setChapterContent(rawContent);
     setIsFree(chap.is_free);
     setChapterPrice(String(chap.price || 3000));
     setChapterStatus((chap.status as any) || 'published');
     setScheduledAt(chap.scheduled_at ? new Date(chap.scheduled_at).toISOString().slice(0, 16) : '');
     setAutosaveStatus('idle');
     setChapterError(null);
+    setIsDirty(false);
+    lastSavedSnapshotRef.current = {
+      title: chap.title.trim(),
+      content: rawContent.trim(),
+    };
     setIsChapterModalOpen(true);
   }
 
-  // 12-second debounced autosave when editing an existing chapter
+  // Guard against accidental tab close or reload when changes are unsaved
   useEffect(() => {
-    if (!isChapterModalOpen || !editingChapterId || !chapterTitle.trim() || !chapterContent.trim()) {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isChapterModalOpen && isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isChapterModalOpen, isDirty]);
+
+  // 12-second debounced autosave when editing an existing chapter only if changes occurred
+  useEffect(() => {
+    if (!isChapterModalOpen || !editingChapterId || !chapterTitle.trim() || !chapterContent.trim() || !isDirty) {
+      return;
+    }
+
+    const currentTrimmedTitle = chapterTitle.trim();
+    const currentTrimmedContent = chapterContent.trim();
+
+    // Do not autosave if current values are identical to last saved snapshot
+    if (
+      lastSavedSnapshotRef.current &&
+      lastSavedSnapshotRef.current.title === currentTrimmedTitle &&
+      lastSavedSnapshotRef.current.content === currentTrimmedContent
+    ) {
       return;
     }
 
     setAutosaveStatus('idle');
 
     const timer = setTimeout(async () => {
+      if (isAutosavingRef.current) return;
       try {
+        isAutosavingRef.current = true;
         setAutosaveStatus('saving');
         const payload: any = {
           chapterId: editingChapterId,
           id: editingChapterId,
           workId,
           chapterNumber,
-          title: chapterTitle.trim(),
-          content: chapterContent.trim(),
+          title: currentTrimmedTitle,
+          content: currentTrimmedContent,
           isFree,
           price: isFree ? 0 : Number(chapterPrice),
           status: chapterStatus,
@@ -347,17 +384,25 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
         });
 
         if (res.ok) {
+          lastSavedSnapshotRef.current = {
+            title: currentTrimmedTitle,
+            content: currentTrimmedContent,
+          };
+          setIsDirty(false);
           setAutosaveStatus('saved');
         } else {
           setAutosaveStatus('error');
         }
       } catch {
         setAutosaveStatus('error');
+      } finally {
+        isAutosavingRef.current = false;
       }
     }, 12000);
 
     return () => clearTimeout(timer);
   }, [
+    isDirty,
     chapterTitle,
     chapterContent,
     chapterStatus,
@@ -404,6 +449,11 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
 
       setChapterTitle(data.restoredTitle);
       setChapterContent(data.restoredContent);
+      lastSavedSnapshotRef.current = {
+        title: (data.restoredTitle || '').trim(),
+        content: (data.restoredContent || '').trim(),
+      };
+      setIsDirty(false);
       setIsVersionsOpen(false);
       setNotice({ type: 'success', text: data.message });
       await loadWorkAndChapters();
@@ -466,6 +516,11 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
         } catch {}
       }
 
+      lastSavedSnapshotRef.current = {
+        title: chapterTitle.trim(),
+        content: chapterContent.trim(),
+      };
+      setIsDirty(false);
       setIsChapterModalOpen(false);
       await loadWorkAndChapters();
     } catch (err: any) {
@@ -1162,7 +1217,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     type="number"
                     min="1"
                     value={chapterNumber}
-                    onChange={(e) => setChapterNumber(Number(e.target.value))}
+                    onChange={(e) => {
+                      setChapterNumber(Number(e.target.value));
+                      setIsDirty(true);
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 font-mono font-bold text-stone-900"
                     required
                   />
@@ -1174,7 +1232,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     type="text"
                     placeholder="Masalan: Tungi uchrashuv va yangi sir"
                     value={chapterTitle}
-                    onChange={(e) => setChapterTitle(e.target.value)}
+                    onChange={(e) => {
+                      setChapterTitle(e.target.value);
+                      setIsDirty(true);
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 font-serif font-bold text-stone-900"
                     required
                   />
@@ -1187,7 +1248,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setChapterStatus('published')}
+                    onClick={() => {
+                      setChapterStatus('published');
+                      setIsDirty(true);
+                    }}
                     className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
                       chapterStatus === 'published'
                         ? 'bg-emerald-600 text-white shadow-xs'
@@ -1198,7 +1262,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                   </button>
                   <button
                     type="button"
-                    onClick={() => setChapterStatus('draft')}
+                    onClick={() => {
+                      setChapterStatus('draft');
+                      setIsDirty(true);
+                    }}
                     className={`px-3 py-1.5 rounded-xl font-bold transition text-xs ${
                       chapterStatus === 'draft'
                         ? 'bg-stone-800 text-white shadow-xs'
@@ -1209,7 +1276,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                   </button>
                   <button
                     type="button"
-                    onClick={() => setChapterStatus('scheduled')}
+                    onClick={() => {
+                      setChapterStatus('scheduled');
+                      setIsDirty(true);
+                    }}
                     className={`px-3 py-1.5 rounded-xl font-bold transition text-xs flex items-center gap-1.5 ${
                       chapterStatus === 'scheduled'
                         ? 'bg-blue-600 text-white shadow-xs'
@@ -1229,7 +1299,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     <input
                       type="datetime-local"
                       value={scheduledAt}
-                      onChange={(e) => setScheduledAt(e.target.value)}
+                      onChange={(e) => {
+                        setScheduledAt(e.target.value);
+                        setIsDirty(true);
+                      }}
                       className="px-3 py-2 rounded-xl border border-stone-200 bg-white font-mono text-xs text-stone-900"
                       required={chapterStatus === 'scheduled'}
                     />
@@ -1247,7 +1320,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     <input
                       type="checkbox"
                       checked={isFree}
-                      onChange={(e) => setIsFree(e.target.checked)}
+                      onChange={(e) => {
+                        setIsFree(e.target.checked);
+                        setIsDirty(true);
+                      }}
                       className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
                     />
                     <span>Ushbu bobni bepul qilish (namuna sifatida)</span>
@@ -1261,7 +1337,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                         step="1000"
                         min="1000"
                         value={chapterPrice}
-                        onChange={(e) => setChapterPrice(e.target.value)}
+                        onChange={(e) => {
+                          setChapterPrice(e.target.value);
+                          setIsDirty(true);
+                        }}
                         className="w-full max-w-xs px-3.5 py-2 rounded-xl border border-stone-200 font-bold text-stone-900"
                       />
                     </div>
@@ -1274,7 +1353,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                 <label className="block font-bold text-stone-700 mb-1.5">Bob matni (Formatlangan matn)</label>
                 <RichTextEditor
                   initialContent={chapterContent}
-                  onChange={(html) => setChapterContent(html)}
+                  onChange={(html) => {
+                    setChapterContent(html);
+                    setIsDirty(true);
+                  }}
                   storageKey={
                     user?.id
                       ? `manbora:draft:${user.id}:${workId}:${editingChapterId || newChapterSessionKey}`
@@ -1385,6 +1467,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
         onClose={() => setIsShareCardOpen(false)}
         work={{
           id: work.id,
+          slug: work.slug || work.id,
           title: work.title,
           coverUrl: work.cover_url,
           authorPenName: (work as any).author?.pen_name || 'Muallif',

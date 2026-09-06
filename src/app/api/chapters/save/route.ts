@@ -177,18 +177,29 @@ export async function POST(request: Request) {
         await dispatchNewChapterPublicationNotifications(id);
       }
 
-      // Save version snapshot
-      const wordCount = content ? content.trim().split(/\s+/).length : 0;
-      await supabase.from('chapter_versions').insert({
-        chapter_id: id,
-        work_id: workId,
-        author_id: profile.id,
-        title,
-        content,
-        summary: `Tahrirlandi (${wordCount} so‘z)`,
-        word_count: wordCount,
-        created_at: nowIso,
-      });
+      // Save version snapshot only if content or title has changed
+      const { data: latestVersion } = await supabase
+        .from('chapter_versions')
+        .select('title, content')
+        .eq('chapter_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const hasContentChanged = !latestVersion || latestVersion.title !== title || latestVersion.content !== content;
+      if (hasContentChanged) {
+        const wordCount = content ? content.trim().split(/\s+/).length : 0;
+        await supabase.from('chapter_versions').insert({
+          chapter_id: id,
+          work_id: workId,
+          author_id: profile.id,
+          title,
+          content,
+          summary: `Tahrirlandi (${wordCount} so‘z)`,
+          word_count: wordCount,
+          created_at: nowIso,
+        });
+      }
 
       return NextResponse.json({
         success: true,

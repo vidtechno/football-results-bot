@@ -54,13 +54,14 @@ export async function GET(request: Request) {
       `)
       .eq('user_id', profile.id)
       .order('last_read_at', { ascending: false })
-      .limit(5);
+      .limit(50);
 
     const validProgressItems: any[] = [];
     const seenWorkIds = new Set<string>();
 
     if (progressRows && progressRows.length > 0) {
       for (const row of progressRows) {
+        if (validProgressItems.length >= 5) break;
         const w = (row as any).work;
         const c = (row as any).chapter;
         if (!w || w.status !== 'published') continue;
@@ -93,9 +94,8 @@ export async function GET(request: Request) {
       }
     }
 
-    // 2. Complement with library_items if fewer than 5 works
+    // 2. Complement with library_items if fewer than 5 unique works
     if (validProgressItems.length < 5) {
-      const remainingLimit = 5 - validProgressItems.length;
       const { data: libRows } = await admin
         .from('library_items')
         .select(`
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
         `)
         .eq('user_id', profile.id)
         .order('updated_at', { ascending: false })
-        .limit(remainingLimit + 5);
+        .limit(20);
 
       if (libRows) {
         for (const row of libRows) {

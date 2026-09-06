@@ -13,6 +13,7 @@ import {
   Eye,
   EyeOff,
   User,
+  Pencil,
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
@@ -35,6 +36,8 @@ interface CommentItem {
   is_spoiler: boolean;
   is_deleted: boolean;
   is_author: boolean;
+  is_edited?: boolean;
+  edited_at?: string | null;
   created_at: string;
   updated_at: string;
   user?: CommentUser;
@@ -65,6 +68,84 @@ export function ChapterCommentsSection({
   const [replyContent, setReplyContent] = useState('');
   const [revealedSpoilers, setRevealedSpoilers] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editIsSpoiler, setEditIsSpoiler] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const startEditing = (comment: CommentItem) => {
+    setEditingCommentId(comment.id);
+    setEditContent(comment.content);
+    setEditIsSpoiler(Boolean(comment.is_spoiler));
+    setReplyingTo(null);
+  };
+
+  const cancelEditing = () => {
+    setEditingCommentId(null);
+    setEditContent('');
+    setEditIsSpoiler(false);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent, isReply = false, parentId?: string) => {
+    e.preventDefault();
+    if (!editingCommentId || !editContent.trim()) return;
+
+    try {
+      setSavingEdit(true);
+      setError(null);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch('/api/chapters/comments', {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          commentId: editingCommentId,
+          content: editContent.trim(),
+          isSpoiler: editIsSpoiler,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Izohni yangilashda xatolik yuz berdi');
+      }
+
+      const updated = data.comment;
+      if (isReply && parentId) {
+        setComments((prev) =>
+          prev.map((root) =>
+            root.id === parentId
+              ? {
+                  ...root,
+                  replies: (root.replies || []).map((r) =>
+                    r.id === editingCommentId ? { ...r, ...updated } : r
+                  ),
+                }
+              : root
+          )
+        );
+      } else {
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === editingCommentId
+              ? { ...c, ...updated, replies: c.replies }
+              : c
+          )
+        );
+      }
+      cancelEditing();
+    } catch (err: any) {
+      setError(err.message || 'Izohni yangilashda xatolik yuz berdi');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -299,6 +380,7 @@ export function ChapterCommentsSection({
             const isAuthor = c.is_author || (authorUserId && c.user_id === authorUserId);
             const isSpoilerVisible = !c.is_spoiler || revealedSpoilers[c.id];
             const canDelete = user && (user.id === c.user_id || profile?.is_admin);
+            const canEdit = user && user.id === c.user_id;
 
             return (
               <div key={c.id} className="bg-white rounded-2xl border border-stone-200/80 p-4 space-y-3 shadow-2xs">
@@ -319,26 +401,84 @@ export function ChapterCommentsSection({
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] text-stone-400 font-medium">
-                        {formatUzbekDate(c.created_at)}
+                      <span className="text-[10px] text-stone-400 font-medium flex items-center gap-1">
+                        <span>{formatUzbekDate(c.created_at)}</span>
+                        {c.is_edited && (
+                          <span
+                            className="text-[9px] text-stone-400 italic"
+                            title={c.edited_at ? `Tahrirlangan: ${formatUzbekDate(c.edited_at)}` : 'Tahrirlangan'}
+                          >
+                            (tahrirlangan)
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
 
-                  {canDelete && !c.is_deleted && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteComment(c.id)}
-                      className="p-1 text-stone-400 hover:text-rose-600 transition-colors"
-                      title="Izohni o‘chirish"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {canEdit && !c.is_deleted && editingCommentId !== c.id && (
+                      <button
+                        type="button"
+                        onClick={() => startEditing(c)}
+                        className="p-1 text-stone-400 hover:text-amber-700 transition-colors"
+                        title="Izohni tahrirlash"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {canDelete && !c.is_deleted && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteComment(c.id)}
+                        className="p-1 text-stone-400 hover:text-rose-600 transition-colors"
+                        title="Izohni o‘chirish"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Comment Content (with Spoiler blur) */}
-                {c.is_deleted ? (
+                {/* Comment Content (with Inline Edit or Spoiler blur) */}
+                {editingCommentId === c.id ? (
+                  <form onSubmit={(e) => handleSaveEdit(e, false)} className="space-y-2 pt-1">
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full p-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs focus:bg-white focus:border-amber-600 outline-hidden resize-none"
+                      rows={3}
+                      required
+                    />
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-amber-900">
+                        <input
+                          type="checkbox"
+                          checked={editIsSpoiler}
+                          onChange={(e) => setEditIsSpoiler(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500"
+                        />
+                        <span>Spoiler</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={cancelEditing}
+                          className="px-3 py-1 text-xs text-stone-500 hover:text-stone-800 font-bold"
+                        >
+                          Bekor qilish
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingEdit || !editContent.trim()}
+                          className="px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                        >
+                          {savingEdit ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                          <span>Saqlash</span>
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                ) : c.is_deleted ? (
                   <p className="text-xs text-stone-400 italic py-1">
                     Ushbu izoh muallif tomonidan o‘chirildi.
                   </p>
@@ -371,7 +511,7 @@ export function ChapterCommentsSection({
                 )}
 
                 {/* Reply action & replies list */}
-                {!c.is_deleted && (
+                {!c.is_deleted && editingCommentId !== c.id && (
                   <div className="pt-1 flex items-center gap-3 text-xs">
                     {user && (
                       <button
@@ -424,6 +564,9 @@ export function ChapterCommentsSection({
                   <div className="pl-4 space-y-2.5 border-l-2 border-stone-100 mt-2">
                     {c.replies.map((reply) => {
                       const isReplyAuthor = reply.is_author || (authorUserId && reply.user_id === authorUserId);
+                      const canDeleteReply = user && (user.id === reply.user_id || profile?.is_admin);
+                      const canEditReply = user && user.id === reply.user_id;
+
                       return (
                         <div key={reply.id} className="bg-stone-50/70 p-3 rounded-xl space-y-1 text-xs">
                           <div className="flex items-center justify-between">
@@ -437,13 +580,75 @@ export function ChapterCommentsSection({
                                 </span>
                               )}
                             </div>
-                            <span className="text-[10px] text-stone-400">
-                              {formatUzbekDate(reply.created_at)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-stone-400 flex items-center gap-1">
+                                <span>{formatUzbekDate(reply.created_at)}</span>
+                                {reply.is_edited && (
+                                  <span
+                                    className="text-[9px] text-stone-400 italic"
+                                    title={reply.edited_at ? `Tahrirlangan: ${formatUzbekDate(reply.edited_at)}` : 'Tahrirlangan'}
+                                  >
+                                    (tahrirlangan)
+                                  </span>
+                                )}
+                              </span>
+                              {canEditReply && !reply.is_deleted && editingCommentId !== reply.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditing(reply)}
+                                  className="p-0.5 text-stone-400 hover:text-amber-700 transition-colors"
+                                  title="Tahrirlash"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
+                              {canDeleteReply && !reply.is_deleted && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(reply.id, true, c.id)}
+                                  className="p-0.5 text-stone-400 hover:text-rose-600 transition-colors"
+                                  title="O‘chirish"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-stone-700 leading-relaxed font-normal">
-                            {reply.content}
-                          </p>
+
+                          {editingCommentId === reply.id ? (
+                            <form onSubmit={(e) => handleSaveEdit(e, true, c.id)} className="space-y-2 pt-1">
+                              <input
+                                type="text"
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-stone-200 text-xs focus:border-amber-600 outline-hidden"
+                                required
+                              />
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={cancelEditing}
+                                  className="px-2 py-0.5 text-[11px] text-stone-500 hover:text-stone-800 font-bold"
+                                >
+                                  Bekor qilish
+                                </button>
+                                <button
+                                  type="submit"
+                                  disabled={savingEdit || !editContent.trim()}
+                                  className="px-2.5 py-0.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  {savingEdit ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : null}
+                                  <span>Saqlash</span>
+                                </button>
+                              </div>
+                            </form>
+                          ) : reply.is_deleted ? (
+                            <p className="text-stone-400 italic text-[11px]">Ushbu izoh o‘chirildi</p>
+                          ) : (
+                            <p className="text-stone-700 leading-relaxed font-normal whitespace-pre-wrap">
+                              {reply.content}
+                            </p>
+                          )}
                         </div>
                       );
                     })}

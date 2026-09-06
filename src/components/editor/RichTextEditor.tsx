@@ -52,7 +52,7 @@ export function RichTextEditor({
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [hasDraftRecovery, setHasDraftRecovery] = useState(false);
   const [recoveredDraftMeta, setRecoveredDraftMeta] = useState<{ work?: string; chapter?: string } | null>(null);
-  const [stats, setStats] = useState({ wordCount: 0, charCount: 0 });
+  const [stats, setStats] = useState(() => getRichTextStats(initialContent));
   const autosaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const editor = useEditor({
@@ -74,6 +74,10 @@ export function RichTextEditor({
         class:
           'prose prose-stone max-w-none focus:outline-hidden min-h-[380px] p-5 font-serif text-base leading-relaxed text-stone-900',
       },
+    },
+    onCreate: ({ editor }) => {
+      const rawHtml = editor.getHTML();
+      setStats(getRichTextStats(rawHtml));
     },
     onUpdate: ({ editor }) => {
       const rawHtml = editor.getHTML();
@@ -164,6 +168,17 @@ export function RichTextEditor({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [saveStatus]);
 
+  // Sync editor content and stats when initialContent prop updates (e.g. on opening different chapter)
+  useEffect(() => {
+    if (editor && initialContent !== undefined) {
+      const currentHtml = editor.getHTML();
+      if (initialContent !== currentHtml && !editor.isFocused) {
+        editor.commands.setContent(initialContent);
+      }
+      setStats(getRichTextStats(initialContent));
+    }
+  }, [initialContent, editor]);
+
   const handleRestoreDraft = useCallback(() => {
     if (!storageKey || !editor) return;
     try {
@@ -176,13 +191,15 @@ export function RichTextEditor({
           } catch {}
         }
         editor.commands.setContent(contentToSet);
+        setStats(getRichTextStats(contentToSet));
+        onChange(contentToSet);
         setHasDraftRecovery(false);
         setSaveStatus('saved');
       }
     } catch {
       // ignore
     }
-  }, [storageKey, editor]);
+  }, [storageKey, editor, onChange]);
 
   const handleDiscardDraft = useCallback(() => {
     if (!storageKey) return;

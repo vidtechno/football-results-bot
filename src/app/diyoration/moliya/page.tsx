@@ -10,28 +10,34 @@ import {
   Calendar,
   CreditCard,
   BookOpen,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { supabase } from '@/lib/supabase/client';
+import { Skeleton } from '@/components/ui/Skeleton';
 
-export default function AdminFinancePage() {
+export default function AdminFinancialLedgerPage() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [platformRevenue, setPlatformRevenue] = useState<number>(0);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchFinancialData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       // 1. Fetch system platform revenue account
-      const { data: revAcc } = await supabase
+      const { data: revAcc, error: revErr } = await supabase
         .from('wallet_accounts')
         .select('balance')
         .eq('account_type', 'platform_revenue')
         .maybeSingle();
 
-      if (revAcc) {
+      if (revErr) {
+        setError('Moliyaviy ma’lumotlarni yuklab bo‘lmadi');
+      } else if (revAcc) {
         setPlatformRevenue(Number(revAcc.balance || 0));
       }
 
@@ -60,12 +66,14 @@ export default function AdminFinancePage() {
         query = query.eq('transaction_type', typeFilter);
       }
 
-      const { data: txData, error } = await query;
-      if (!error && txData) {
+      const { data: txData, error: txErr } = await query;
+      if (txErr) {
+        setError('Tranzaksiyalar registrini yuklab bo‘lmadi');
+      } else if (txData) {
         setTransactions(txData);
       }
     } catch {
-      // ignore
+      setError('Tarmoq xatosi yuz berdi. Qayta urinib ko‘ring.');
     } finally {
       setLoading(false);
     }
@@ -85,21 +93,42 @@ export default function AdminFinancePage() {
             <span>Moliyaviy Registr va Hamyon Amallari</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-            Manbora platformasining o‘zgarmas moliyaviy tranzaksiyalar daftari (Immutable Ledger)
+            Manbora platformasining o‘zgarmas moliyaviy tranzaksiyalar daftari (O‘zgarmas reyestr)
           </p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-900 to-slate-900 text-white shadow-sm flex items-center gap-4">
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-900 to-slate-900 text-white shadow-sm flex items-center gap-4 min-w-[200px]">
           <div>
             <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">
               Platforma Jami Daromadi
             </span>
-            <p className="font-serif text-xl sm:text-2xl font-black text-white mt-0.5">
-              {formatUZS(platformRevenue)}
-            </p>
+            {loading ? (
+              <Skeleton className="h-7 w-28 rounded bg-emerald-800/60 my-0.5" />
+            ) : (
+              <p className="font-serif text-xl sm:text-2xl font-black text-white mt-0.5">
+                {formatUZS(platformRevenue)}
+              </p>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Error state with retry */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={fetchFinancialData}
+            className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
+          >
+            Qayta urinish
+          </button>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">

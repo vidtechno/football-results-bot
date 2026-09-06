@@ -20,12 +20,14 @@ import {
 } from 'lucide-react';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function AdminAuthorsManagementPage() {
   const [authors, setAuthors] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Author Detail Drawer
   const [selectedAuthor, setSelectedAuthor] = useState<any | null>(null);
@@ -35,7 +37,7 @@ export default function AdminAuthorsManagementPage() {
   // Action Dialogs
   const [actionModal, setActionModal] = useState<{
     isOpen: boolean;
-    type: 'approve' | 'reject' | 'suspend' | 'restore' | 'note';
+    type: 'approve' | 'reject' | 'suspend' | 'unsuspend' | 'restore' | 'note';
     authorId: string;
     penName: string;
   } | null>(null);
@@ -48,14 +50,17 @@ export default function AdminAuthorsManagementPage() {
 
   const fetchAuthors = useCallback(async (q: string, filter: string) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/admin/authors?q=${encodeURIComponent(q)}&status=${encodeURIComponent(filter)}`);
       const data = await res.json();
       if (data.success) {
         setAuthors(data.authors || []);
+      } else {
+        setError(data.error || 'Mualliflarni yuklab bo‘lmadi');
       }
     } catch {
-      // ignore
+      setError('Tarmoq xatosi yuz berdi. Qayta urinib ko‘ring.');
     } finally {
       setLoading(false);
     }
@@ -159,11 +164,28 @@ export default function AdminAuthorsManagementPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-black">
-            Jami: {authors.length} nafar muallif
+          <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-black min-h-[32px] inline-flex items-center">
+            {loading ? <Skeleton className="h-4 w-20" /> : `Jami: ${authors.length} nafar muallif`}
           </span>
         </div>
       </div>
+
+      {/* Error state with retry */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchAuthors(searchQuery, activeFilter)}
+            className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
+          >
+            Qayta urinish
+          </button>
+        </div>
+      )}
 
       {/* Search and Filter bar */}
       <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-4">

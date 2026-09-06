@@ -8,17 +8,21 @@ import {
   Loader2,
   FileText,
   User,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { supabase } from '@/lib/supabase/client';
+import { Skeleton } from '@/components/ui/Skeleton';
 
-export default function AdminAuditLogsPage() {
+export default function AdminAuditLogPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchAuditLogs = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       let query = supabase
         .from('admin_audit_logs')
@@ -38,12 +42,14 @@ export default function AdminAuditLogsPage() {
         query = query.ilike('action', `%${actionFilter}%`);
       }
 
-      const { data, error } = await query;
-      if (!error && data) {
+      const { data, error: qErr } = await query;
+      if (qErr) {
+        setError('Audit jurnallarini yuklab bo‘lmadi');
+      } else if (data) {
         setLogs(data);
       }
     } catch {
-      // ignore
+      setError('Tarmoq xatosi yuz berdi. Qayta urinib ko‘ring.');
     } finally {
       setLoading(false);
     }
@@ -68,11 +74,28 @@ export default function AdminAuditLogsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-3.5 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-black">
-            Jami: {logs.length} ta yozuv
+          <span className="px-3.5 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-black min-h-[32px] inline-flex items-center">
+            {loading ? <Skeleton className="h-4 w-16" /> : `Jami: ${logs.length} ta yozuv`}
           </span>
         </div>
       </div>
+
+      {/* Error state with retry */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={fetchAuditLogs}
+            className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
+          >
+            Qayta urinish
+          </button>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">

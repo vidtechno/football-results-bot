@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     canonical: 'https://manbora.uz/mualliflar',
   },
   openGraph: {
-    title: 'Mualliflar | Manbora',
+    title: 'Mualliflar',
     description: 'Manbora platformasidagi o‘zbek mualliflari, ularning kitoblari va davomli asarlarini kashf eting.',
     url: 'https://manbora.uz/mualliflar',
     siteName: 'Manbora',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Mualliflar | Manbora',
+    title: 'Mualliflar',
     description: 'Manbora platformasidagi o‘zbek mualliflari, ularning kitoblari va davomli asarlarini kashf eting.',
   },
 };
@@ -50,7 +50,7 @@ export default async function AuthorsDirectoryPage() {
           Platforma mualliflari
         </h1>
         <p className="text-sm text-[#78716C] font-medium max-w-2xl">
-          O‘zbek adabiyotining eng yorqin zamonaviy mualliflari, novellistlari va serialized asar ijodkorlari bilan tanishing.
+          O‘zbek adabiyotining eng yorqin zamonaviy mualliflari, novellistlari va davomli asar ijodkorlari bilan tanishing.
         </p>
       </div>
 

@@ -1,61 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Bell, Check, ExternalLink, Loader2, Sparkles, BookOpen, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { formatUzbekDate } from '@/lib/utils/formatters';
-
-import { supabase } from '@/lib/supabase/client';
-
-interface NotificationItem {
-  id: string;
-  type: string;
-  title: string;
-  body?: string;
-  message?: string;
-  summary?: string;
-  link_url?: string;
-  is_read: boolean;
-  created_at: string;
-}
+import { useNotifications, type NotificationItem } from '@/components/providers/NotificationProvider';
 
 export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
   const { user, isAdmin } = useAuth();
+  const { notifications, unreadCount, loading, markAllAsRead, refreshNotifications } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
-
-  const fetchNotifications = useCallback(async () => {
-    if (!user) return;
-    try {
-      const endpoint = '/api/notifications';
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const headers: Record<string, string> = {};
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-      const res = await fetch(endpoint, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications((data.notifications || []).slice(0, 5));
-        setUnreadCount(data.unread_count || 0);
-      }
-    } catch {
-      // Ignore background network failure
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000); // 1 minute polling
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
 
   // Click outside listener to close dropdown
   useEffect(() => {
@@ -70,24 +27,6 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const markAllAsRead = async () => {
-    if (!user || unreadCount === 0) return;
-    setLoading(true);
-    try {
-      await fetch('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'mark_all_read' }),
-      });
-      setUnreadCount(0);
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (!user) return null;
 
   return (
@@ -96,7 +35,7 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
         type="button"
         onClick={() => {
           setIsOpen((prev) => !prev);
-          if (!isOpen) fetchNotifications();
+          if (!isOpen) refreshNotifications();
         }}
         className={clsx(
           'relative p-2 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F2EC] transition-colors shrink-0 min-h-[36px] min-w-[36px] flex items-center justify-center',

@@ -17,14 +17,17 @@ import {
   DollarSign,
   Tag,
   Eye,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { formatUZS } from '@/lib/utils/currency';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function AdminRevisionsPage() {
   const [workRevisions, setWorkRevisions] = useState<any[]>([]);
   const [chapterRevisions, setChapterRevisions] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'works' | 'chapters'>('works');
   const [selectedRevision, setSelectedRevision] = useState<any | null>(null);
@@ -36,15 +39,18 @@ export default function AdminRevisionsPage() {
 
   const fetchRevisions = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/admin/revisions-action');
       const data = await res.json();
       if (data.success) {
         setWorkRevisions(data.workRevisions || []);
         setChapterRevisions(data.chapterRevisions || []);
+      } else {
+        setError(data.error || 'Tahrirlarni yuklab bo‘lmadi');
       }
-    } catch (err) {
-      console.error('Error fetching revisions:', err);
+    } catch {
+      setError('Tarmoq xatosi yuz berdi. Qayta urinib ko‘ring.');
     } finally {
       setLoading(false);
     }
@@ -103,31 +109,50 @@ export default function AdminRevisionsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-black">
-            Kutilmoqda: {totalPending} ta tahrir
+          <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-black min-h-[32px] inline-flex items-center">
+            {loading ? <Skeleton className="h-4 w-20" /> : `Kutilmoqda: ${totalPending} ta tahrir`}
           </span>
         </div>
       </div>
+
+      {/* Error state with retry */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={fetchRevisions}
+            className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
+          >
+            Qayta urinish
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
           type="button"
           onClick={() => setActiveTab('works')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px] ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px] inline-flex items-center gap-1.5 ${
             activeTab === 'works' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
-          Asar tahrirlari ({workRevisions.length})
+          <span>Asar tahrirlari</span>
+          {loading ? <Skeleton className="h-3 w-4" /> : <span>({workRevisions.length})</span>}
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('chapters')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px] ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px] inline-flex items-center gap-1.5 ${
             activeTab === 'chapters' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
-          Bob tahrirlari ({chapterRevisions.length})
+          <span>Bob tahrirlari</span>
+          {loading ? <Skeleton className="h-3 w-4" /> : <span>({chapterRevisions.length})</span>}
         </button>
       </div>
 

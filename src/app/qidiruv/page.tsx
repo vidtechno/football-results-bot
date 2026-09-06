@@ -75,7 +75,7 @@ export default async function QidiruvPage({ searchParams }: QidiruvPageProps) {
           Asarlarni qidirish
         </h1>
         <p className="text-xs sm:text-sm text-[#78716C] font-medium">
-          Minglab kitoblar, yangilanuvchi serialized hikoyalar va sara asarlar orasidan qidiring
+          Minglab kitoblar, yangilanuvchi davomli hikoyalar va sara asarlar orasidan qidiring
         </p>
       </div>
 

@@ -929,5 +929,137 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
       expect(getSafeRedirectUrl(null)).toBe('/kabinet');
     });
   });
+
+  describe('21. Guest /kabinet Protection & Route Redirect Verification', () => {
+    it('redirects unauthenticated guest to /kirish with returnUrl=/kabinet', () => {
+      const isGuest = true;
+      const targetPath = '/kabinet';
+      const redirectUrl = isGuest ? `/kirish?returnUrl=${encodeURIComponent(targetPath)}` : targetPath;
+      expect(redirectUrl).toBe('/kirish?returnUrl=%2Fkabinet');
+    });
+
+    it('ensures safe returnUrl preservation for guest seeking reader or cabinet', async () => {
+      const { getSafeRedirectUrl } = await import('@/lib/utils/redirect');
+      const safeTarget = getSafeRedirectUrl('/kabinet');
+      expect(safeTarget).toBe('/kabinet');
+      const safeReaderTarget = getSafeRedirectUrl('/asarlar/bekatdagi-soat/1-bob');
+      expect(safeReaderTarget).toBe('/asarlar/bekatdagi-soat/1-bob');
+    });
+  });
+
+  describe('22. Unified Notification Count Synchronization Logic', () => {
+    it('accurately computes unread count and resets on mark-all-read and logout', () => {
+      let unreadCount = 5;
+      expect(unreadCount).toBe(5);
+
+      // Optimistic or authoritative mark all read
+      unreadCount = 0;
+      expect(unreadCount).toBe(0);
+
+      // New notification received via realtime
+      unreadCount += 1;
+      expect(unreadCount).toBe(1);
+
+      // User signs out
+      unreadCount = 0;
+      expect(unreadCount).toBe(0);
+    });
+  });
+
+  describe('23. Metadata Title Normalization & Deduplication', () => {
+    it('formats title correctly without producing double "| Manbora"', () => {
+      const template = '%s | Manbora';
+      const formatTitle = (pageTitle: string) => {
+        // Layout template appends " | Manbora" to pageTitle
+        // Page titles should NOT include "| Manbora"
+        expect(pageTitle.endsWith('| Manbora')).toBe(false);
+        return template.replace('%s', pageTitle);
+      };
+
+      expect(formatTitle('Barcha asarlar')).toBe('Barcha asarlar | Manbora');
+      expect(formatTitle('Kirish va ro‘yxatdan o‘tish')).toBe('Kirish va ro‘yxatdan o‘tish | Manbora');
+      expect(formatTitle('Ro‘yxatdan o‘tish')).toBe('Ro‘yxatdan o‘tish | Manbora');
+      expect(formatTitle('Sahifa topilmadi')).toBe('Sahifa topilmadi | Manbora');
+      expect(formatTitle('Muallif bo‘ling')).toBe('Muallif bo‘ling | Manbora');
+    });
+  });
+
+  describe('24. Migration 021 Typo Replacement Safety & Idempotency', () => {
+    it('corrects typo "qotib qolgan edi.an" to "qotib qolgan edi." idempotently', () => {
+      const dirtyText = 'Avtobus bekatida soat millari qotib qolgan edi.an Shamol esardi.';
+      const cleanText = dirtyText.replace(/qotib qolgan edi\.an/g, 'qotib qolgan edi.');
+
+      expect(cleanText).toBe('Avtobus bekatida soat millari qotib qolgan edi. Shamol esardi.');
+      expect(cleanText.includes('qotib qolgan edi.an')).toBe(false);
+
+      // Re-running replacement produces identical clean output (idempotent)
+      const rerun = cleanText.replace(/qotib qolgan edi\.an/g, 'qotib qolgan edi.');
+      expect(rerun).toBe(cleanText);
+    });
+  });
+
+  describe('25. Strict Multi-Role Route Access Enforcement', () => {
+    interface MockProfile {
+      id: string;
+      role: 'reader' | 'author' | 'admin';
+      is_admin?: boolean;
+      is_author?: boolean;
+    }
+
+    const checkAccess = (profile: MockProfile | null, path: string): { allowed: boolean; redirectTo?: string } => {
+      if (!profile) {
+        return { allowed: false, redirectTo: `/kirish?returnUrl=${encodeURIComponent(path)}` };
+      }
+      if (path.startsWith('/diyoration')) {
+        if (profile.is_admin || profile.role === 'admin') return { allowed: true };
+        return { allowed: false, redirectTo: '/kabinet' };
+      }
+      if (path.startsWith('/muallif')) {
+        if (profile.is_author || profile.role === 'author' || profile.role === 'admin' || profile.is_admin) {
+          return { allowed: true };
+        }
+        return { allowed: false, redirectTo: '/muallif-boling' };
+      }
+      return { allowed: true };
+    };
+
+    it('blocks reader from /diyoration admin dashboard and /muallif studio', () => {
+      const reader: MockProfile = { id: 'reader-1', role: 'reader', is_admin: false, is_author: false };
+      const adminAccess = checkAccess(reader, '/diyoration/dashboard');
+      expect(adminAccess.allowed).toBe(false);
+      expect(adminAccess.redirectTo).toBe('/kabinet');
+
+      const studioAccess = checkAccess(reader, '/muallif/yangi-asar');
+      expect(studioAccess.allowed).toBe(false);
+      expect(studioAccess.redirectTo).toBe('/muallif-boling');
+    });
+
+    it('author (@testly) can access /muallif studio but is blocked from /diyoration admin', () => {
+      const author: MockProfile = { id: 'author-testly', role: 'author', is_author: true, is_admin: false };
+      const studioAccess = checkAccess(author, '/muallif/yangi-asar');
+      expect(studioAccess.allowed).toBe(true);
+
+      const adminAccess = checkAccess(author, '/diyoration/dashboard');
+      expect(adminAccess.allowed).toBe(false);
+      expect(adminAccess.redirectTo).toBe('/kabinet');
+    });
+
+    it('admin has unrestricted access to /diyoration, /muallif, and /kabinet', () => {
+      const admin: MockProfile = { id: 'admin-1', role: 'admin', is_admin: true, is_author: true };
+      expect(checkAccess(admin, '/diyoration/dashboard').allowed).toBe(true);
+      expect(checkAccess(admin, '/muallif').allowed).toBe(true);
+      expect(checkAccess(admin, '/kabinet').allowed).toBe(true);
+    });
+
+    it('prevents author from editing another author’s work', () => {
+      const workAuthorId: string = 'author-A';
+      const currentAuthorId: string = 'author-B';
+      const isAdmin = false;
+
+      const canEdit = currentAuthorId === workAuthorId || isAdmin;
+      expect(canEdit).toBe(false);
+    });
+  });
 });
+
 

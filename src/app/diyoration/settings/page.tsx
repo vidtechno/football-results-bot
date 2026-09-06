@@ -81,8 +81,10 @@ export default function AdminSettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-16 text-center text-slate-500 font-bold text-xs sm:text-sm">
-        Sozlamalar yuklanmoqda...
+      <div className="space-y-6 max-w-4xl mx-auto pb-16 animate-pulse">
+        <div className="h-20 bg-slate-100 rounded-3xl" />
+        <div className="h-64 bg-slate-100 rounded-3xl" />
+        <div className="h-96 bg-slate-100 rounded-3xl" />
       </div>
     );
   }

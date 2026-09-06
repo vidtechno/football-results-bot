@@ -23,6 +23,17 @@ export async function middleware(request: NextRequest) {
       c.name === 'supabase-auth-token'
   );
 
+  const pathname = request.nextUrl.pathname;
+
+  // Intercept protected paths for guests without auth cookie immediately
+  if (pathname === '/kabinet' || pathname.startsWith('/kabinet/') || pathname === '/diyoration' || pathname.startsWith('/diyoration/')) {
+    if (!hasAuthCookie) {
+      const loginUrl = new URL('/kirish', request.url);
+      loginUrl.searchParams.set('returnUrl', pathname + request.nextUrl.search);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   // If no auth cookie exists, skip remote network call to prevent waterfall latency for anonymous visitors
   if (!hasAuthCookie) {
     return supabaseResponse;
@@ -49,7 +60,15 @@ export async function middleware(request: NextRequest) {
   });
 
   // Validates user and refreshes expired tokens in cookies
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user && (pathname === '/kabinet' || pathname.startsWith('/kabinet/') || pathname === '/diyoration' || pathname.startsWith('/diyoration/'))) {
+    const loginUrl = new URL('/kirish', request.url);
+    loginUrl.searchParams.set('returnUrl', pathname + request.nextUrl.search);
+    return NextResponse.redirect(loginUrl);
+  }
 
   return supabaseResponse;
 }

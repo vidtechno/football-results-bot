@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function AdminWorksManagementPage() {
   const [works, setWorks] = useState<any[]>([]);
@@ -30,6 +31,7 @@ export default function AdminWorksManagementPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [accessFilter, setAccessFilter] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Selected Work for Detail Drawer
   const [selectedWork, setSelectedWork] = useState<any | null>(null);
@@ -49,6 +51,7 @@ export default function AdminWorksManagementPage() {
 
   const fetchWorks = useCallback(async (q: string, status: string, access: string) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(
         `/api/admin/works?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}&access=${encodeURIComponent(access)}`
@@ -56,9 +59,11 @@ export default function AdminWorksManagementPage() {
       const data = await res.json();
       if (data.success) {
         setWorks(data.works || []);
+      } else {
+        setError(data.error || 'Asarlarni yuklab bo‘lmadi');
       }
     } catch {
-      // ignore
+      setError('Tarmoq xatosi yuz berdi. Qayta urinib ko‘ring.');
     } finally {
       setLoading(false);
     }
@@ -134,11 +139,28 @@ export default function AdminWorksManagementPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-3.5 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-black">
-            Jami: {works.length} ta asar
+          <span className="px-3.5 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-black min-h-[32px] inline-flex items-center">
+            {loading ? <Skeleton className="h-4 w-16" /> : `Jami: ${works.length} ta asar`}
           </span>
         </div>
       </div>
+
+      {/* Error state with retry */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchWorks(searchQuery, statusFilter, accessFilter)}
+            className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
+          >
+            Qayta urinish
+          </button>
+        </div>
+      )}
 
       {/* Search and Filters Bar */}
       <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-4">

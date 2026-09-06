@@ -8,7 +8,7 @@ import { UnifiedAuthCard } from '@/components/auth/UnifiedAuthCard';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Ro‘yxatdan o‘tish | Manbora',
+  title: 'Ro‘yxatdan o‘tish',
   description: 'Manbora platformasida ro‘yxatdan o‘ting va sara asarlar mutolaasini boshlang.',
   alternates: {
     canonical: 'https://manbora.uz/kirish?mode=register',

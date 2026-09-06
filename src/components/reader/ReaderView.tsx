@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   PenTool,
   Bookmark,
+  AlertCircle,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Work, Chapter } from '@/lib/types/platform';
@@ -183,6 +184,22 @@ export function ReaderView({
   // Bookmark state (strictly 1 bookmark per work per reader)
   const [bookmark, setBookmark] = useState<{ id: string; chapterId: string; pageNumber: number } | null>(null);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [readerToast, setReaderToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showReaderToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setReaderToast({ message, type });
+    toastTimerRef.current = setTimeout(() => {
+      setReaderToast(null);
+    }, 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -228,8 +245,12 @@ export function ReaderView({
         const json = await res.json();
         if (json.success) {
           setBookmark(null);
+          showReaderToast('Xatcho‘p o‘chirildi', 'success');
+        } else {
+          showReaderToast(json.error || 'Xatcho‘pni saqlab bo‘lmadi. Qayta urinib ko‘ring.', 'error');
         }
       } else {
+        const isMoved = bookmark !== null;
         // Save / update bookmark to current page
         const totalWorkChapters = Math.max(1, allChapters.length);
         const chapterFraction = paginated.totalPages > 0 ? currentPage / paginated.totalPages : 0;
@@ -255,10 +276,17 @@ export function ReaderView({
             chapterId: json.bookmark.chapter_id,
             pageNumber: json.bookmark.page_number,
           });
+          showReaderToast(
+            isMoved ? 'Xatcho‘p yangi joyga ko‘chirildi' : 'Xatcho‘p saqlandi',
+            'success',
+          );
+        } else {
+          showReaderToast(json.error || 'Xatcho‘pni saqlab bo‘lmadi. Qayta urinib ko‘ring.', 'error');
         }
       }
     } catch (err) {
       console.error('Bookmark toggle error:', err);
+      showReaderToast('Xatcho‘pni saqlab bo‘lmadi. Qayta urinib ko‘ring.', 'error');
     } finally {
       setBookmarkLoading(false);
     }
@@ -463,18 +491,24 @@ export function ReaderView({
               type="button"
               onClick={handleToggleBookmark}
               disabled={bookmarkLoading}
+              aria-pressed={isCurrentPageBookmarked}
+              aria-label={
+                isCurrentPageBookmarked
+                  ? 'Xatcho‘pni o‘chirish'
+                  : 'Ushbu sahifaga xatcho‘p qo‘yish'
+              }
               className={clsx(
                 'p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all',
                 isCurrentPageBookmarked
                   ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 ring-1 ring-amber-500/50'
                   : 'opacity-85 hover:opacity-100 hover:text-amber-600',
+                bookmarkLoading && 'opacity-50 cursor-not-allowed',
               )}
               title={
                 isCurrentPageBookmarked
                   ? 'Xatcho‘p saqlangan (bosilsa o‘chiriladi)'
                   : 'Ushbu sahifaga xatcho‘p qo‘yish'
               }
-              aria-label="Xatcho‘p"
             >
               <Bookmark
                 className={clsx(
@@ -955,6 +989,27 @@ export function ReaderView({
           )}
         </nav>
       </main>
+
+      {/* Visual Toast Feedback */}
+      {readerToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={clsx(
+            'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all duration-300 pointer-events-none animate-in fade-in slide-in-from-bottom-3',
+            readerToast.type === 'success'
+              ? 'bg-[#1C1917] text-white border border-amber-500/30'
+              : 'bg-red-900 text-white border border-red-700',
+          )}
+        >
+          {readerToast.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          )}
+          <span>{readerToast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

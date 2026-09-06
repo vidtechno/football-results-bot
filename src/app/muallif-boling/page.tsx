@@ -22,16 +22,16 @@ import { AuthorEarningsCalculator } from '@/components/author/AuthorEarningsCalc
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: 'Muallif bo‘ling — Asarlaringizni nashr eting va daromad oling | Manbora',
+  title: 'Muallif bo‘ling',
   description:
     'Manbora platformasida kitoblaringiz va davomli hikoyalaringizni chop eting. Intellektual mulk himoyasi, 80% sof daromad va minglab o‘quvchilar auditoriyasi.',
   alternates: {
     canonical: 'https://manbora.uz/muallif-boling',
   },
   openGraph: {
-    title: 'Muallif bo‘ling | Manbora',
+    title: 'Muallif bo‘ling',
     description:
-      'Kitob va serialized hikoyalaringizni Manbora’da nashr eting. 80% sof daromad, rasmiy mualliflik huquqi himoyasi va zamonaviy studiya.',
+      'Kitob va davomli hikoyalaringizni Manbora’da nashr eting. 80% sof daromad, rasmiy mualliflik huquqi himoyasi va zamonaviy studiya.',
     url: 'https://manbora.uz/muallif-boling',
     type: 'website',
   },
@@ -130,7 +130,7 @@ export default async function MuallifBolingPage() {
             </div>
             <h3 className="font-serif font-bold text-base text-stone-900">Format erkinligi</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Tugallangan qissa, roman yoki haftalik yangi boblar bilan to‘ldiriladigan serialized hikoyalarni chop eting.
+              Tugallangan qissa, roman yoki haftalik yangi boblar bilan to‘ldiriladigan davomli hikoyalarni chop eting.
             </p>
           </div>
 

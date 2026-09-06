@@ -10,7 +10,7 @@ import { CataloguePagination } from '@/components/catalogue/CataloguePagination'
 export const revalidate = 30;
 
 export const metadata: Metadata = {
-  title: 'Barcha asarlar katalogi | Manbora',
+  title: 'Barcha asarlar katalogi',
   description: 'O‘zbek adabiyotining sara kitoblari, davomli hikoyalari va qissalari katalogi. Bepul va pullik elektron asarlar mutolaasi.',
   alternates: {
     canonical: 'https://manbora.uz/asarlar',
@@ -85,7 +85,7 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
           <span>Asarlar katalogi</span>
         </h1>
         <p className="text-xs sm:text-sm text-[#78716C] font-medium">
-          O‘zbek adabiyotining sara kitoblari, qissalari va serialized hikoyalari
+          O‘zbek adabiyotining sara kitoblari, qissalari va davomli hikoyalari
         </p>
       </div>
 

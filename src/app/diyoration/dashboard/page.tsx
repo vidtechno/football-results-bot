@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { formatUZS } from '@/lib/utils/currency';
 import { supabase } from '@/lib/supabase/client';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface DashboardStats {
   totalUsers: number;
@@ -51,9 +52,11 @@ function DashboardContent() {
     platformRevenue: 0,
   });
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadStats = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const todayIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
 
@@ -99,7 +102,7 @@ function DashboardContent() {
         platformRevenue: Number(revenueRes.data?.balance || 0),
       });
     } catch {
-      // ignore
+      setError('Statistika ma’lumotlarini yuklashda xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.');
     } finally {
       setLoading(false);
     }
@@ -138,6 +141,23 @@ function DashboardContent() {
         </div>
       </div>
 
+      {/* Error state with Retry */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={loadStats}
+            className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
+          >
+            Qayta urinish
+          </button>
+        </div>
+      )}
+
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Total Users */}
@@ -150,11 +170,15 @@ function DashboardContent() {
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <p className="font-serif text-2xl sm:text-3xl font-black text-slate-900 mt-2">
-            {stats.totalUsers}
-          </p>
+          {loading ? (
+            <Skeleton className="h-8 w-20 rounded-xl my-1.5" />
+          ) : (
+            <p className="font-serif text-2xl sm:text-3xl font-black text-slate-900 mt-2">
+              {stats.totalUsers}
+            </p>
+          )}
           <span className="text-[11px] text-slate-400 mt-1 block">
-            Kitobxonlar: {stats.activeReaders} ta xarid qilgan
+            {loading ? <Skeleton className="h-3.5 w-32 rounded" /> : `Kitobxonlar: ${stats.activeReaders} ta xarid qilgan`}
           </span>
         </div>
 
@@ -168,11 +192,21 @@ function DashboardContent() {
               <PenTool className="w-4 h-4" />
             </div>
           </div>
-          <p className="font-serif text-2xl sm:text-3xl font-black text-slate-900 mt-2">
-            {stats.approvedAuthors}
-          </p>
+          {loading ? (
+            <Skeleton className="h-8 w-16 rounded-xl my-1.5" />
+          ) : (
+            <p className="font-serif text-2xl sm:text-3xl font-black text-slate-900 mt-2">
+              {stats.approvedAuthors}
+            </p>
+          )}
           <span className="text-[11px] text-amber-700 font-bold mt-1 block">
-            {stats.pendingAuthorApps > 0 ? `${stats.pendingAuthorApps} ta ariza kutilmoqda` : 'Barcha arizalar ko‘rilgan'}
+            {loading ? (
+              <Skeleton className="h-3.5 w-28 rounded" />
+            ) : stats.pendingAuthorApps > 0 ? (
+              `${stats.pendingAuthorApps} ta ariza kutilmoqda`
+            ) : (
+              'Barcha arizalar ko‘rilgan'
+            )}
           </span>
         </div>
 
@@ -186,11 +220,15 @@ function DashboardContent() {
               <BookOpen className="w-4 h-4" />
             </div>
           </div>
-          <p className="font-serif text-2xl sm:text-3xl font-black text-slate-900 mt-2">
-            {stats.publishedWorks}
-          </p>
+          {loading ? (
+            <Skeleton className="h-8 w-16 rounded-xl my-1.5" />
+          ) : (
+            <p className="font-serif text-2xl sm:text-3xl font-black text-slate-900 mt-2">
+              {stats.publishedWorks}
+            </p>
+          )}
           <span className="text-[11px] text-slate-400 mt-1 block">
-            Jami xaridlar: {stats.totalPurchases} marta
+            {loading ? <Skeleton className="h-3.5 w-28 rounded" /> : `Jami xaridlar: ${stats.totalPurchases} marta`}
           </span>
         </div>
 
@@ -204,11 +242,15 @@ function DashboardContent() {
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <p className="font-serif text-xl sm:text-2xl font-black text-purple-900 mt-2 truncate">
-            {formatUZS(stats.platformRevenue)}
-          </p>
+          {loading ? (
+            <Skeleton className="h-8 w-28 rounded-xl my-1.5" />
+          ) : (
+            <p className="font-serif text-xl sm:text-2xl font-black text-purple-900 mt-2 truncate">
+              {formatUZS(stats.platformRevenue)}
+            </p>
+          )}
           <span className="text-[11px] text-slate-400 mt-1 block">
-            Bugungi to‘ldirishlar: {stats.manualCreditsToday} ta
+            {loading ? <Skeleton className="h-3.5 w-32 rounded" /> : `Bugungi to‘ldirishlar: ${stats.manualCreditsToday} ta`}
           </span>
         </div>
       </div>
@@ -228,11 +270,15 @@ function DashboardContent() {
             </div>
             <div>
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Pul Yechish So‘rovlari
+                Pul yechish so‘rovlari
               </span>
-              <strong className="text-base font-black text-slate-900">
-                {stats.pendingPayouts} ta kutilmoqda
-              </strong>
+              {loading ? (
+                <Skeleton className="h-5 w-24 rounded my-1" />
+              ) : (
+                <strong className="text-base font-black text-slate-900">
+                  {stats.pendingPayouts} ta kutilmoqda
+                </strong>
+              )}
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
@@ -253,9 +299,13 @@ function DashboardContent() {
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                 Mualliflik Arizalari
               </span>
-              <strong className="text-base font-black text-slate-900">
-                {stats.pendingAuthorApps} ta ariza
-              </strong>
+              {loading ? (
+                <Skeleton className="h-5 w-20 rounded my-1" />
+              ) : (
+                <strong className="text-base font-black text-slate-900">
+                  {stats.pendingAuthorApps} ta ariza
+                </strong>
+              )}
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
@@ -276,9 +326,13 @@ function DashboardContent() {
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                 Asarlar Moderatsiyasi
               </span>
-              <strong className="text-base font-black text-slate-900">
-                {totalPendingModeration} ta tekshiruvda
-              </strong>
+              {loading ? (
+                <Skeleton className="h-5 w-24 rounded my-1" />
+              ) : (
+                <strong className="text-base font-black text-slate-900">
+                  {totalPendingModeration} ta tekshiruvda
+                </strong>
+              )}
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all" />

@@ -38,6 +38,9 @@ export function AdminNotificationBell() {
       });
       setUnreadCount(0);
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('manbora:notifications_changed'));
+      }
     } catch {
       // ignore
     }
@@ -52,6 +55,9 @@ export function AdminNotificationBell() {
       });
       setUnreadCount((prev) => Math.max(0, prev - 1));
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('manbora:notifications_changed'));
+      }
     } catch {
       // ignore
     }

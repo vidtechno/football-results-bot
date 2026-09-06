@@ -26,9 +26,9 @@ export default async function HomePage() {
   const profile = await getCurrentProfile();
   const supabase = createServerClient();
 
-  const [allWorks, freeWorks, serializedStories, genres, authorList] = await Promise.all([
+  const [allWorks, books, serializedStories, genres, authorList] = await Promise.all([
     getPublishedWorks({ limit: 12 }),
-    getPublishedWorks({ accessType: 'free', limit: 6 }),
+    getPublishedWorks({ type: 'book', limit: 6 }),
     getPublishedWorks({ type: 'serialized_story', limit: 6 }),
     getActiveGenres(),
     supabase
@@ -185,14 +185,14 @@ export default async function HomePage() {
         )}
       </section>
 
-      {/* 5. Davomli Serial Hikoyalar */}
+      {/* 5. Davomli hikoyalar */}
       {serializedStories.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#B45309]" />
               <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
-                Bepul sara asarlar
+                Davomli hikoyalar
               </h2>
             </div>
             <Link
@@ -212,31 +212,31 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* 6. Bepul mutolaa (Free Reading) */}
+      {/* 6. To‘liq kitoblar */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Bookmark className="w-4 h-4 text-[#B45309]" />
+            <BookOpen className="w-4 h-4 text-[#B45309]" />
             <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
               To‘liq kitoblar
             </h2>
           </div>
           <Link
-            href="/asarlar?access=free"
+            href="/asarlar?type=book"
             className="text-xs font-bold text-[#B45309] hover:underline flex items-center gap-1"
           >
-            Barcha bepul asarlar
+            Barcha kitoblar
             <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        {freeWorks.length === 0 ? (
+        {books.length === 0 ? (
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-8 text-center text-xs text-[#78716C]">
-            Hozircha bepul asarlar mavjud emas.
+            Hozircha to‘liq kitoblar mavjud emas.
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
-            {freeWorks.map((work: Work) => (
+            {books.map((work: Work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
           </div>

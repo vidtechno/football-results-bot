@@ -13,15 +13,18 @@ import {
   Loader2,
   X,
   ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { supabase } from '@/lib/supabase/client';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function AdminPayoutRequestsPage() {
   const [payouts, setPayouts] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Card reveal state
   const [revealedCards, setRevealedCards] = useState<Record<string, string>>({});
@@ -42,6 +45,7 @@ export default function AdminPayoutRequestsPage() {
 
   const fetchPayouts = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       let query = supabase
         .from('payout_requests')
@@ -59,12 +63,14 @@ export default function AdminPayoutRequestsPage() {
         query = query.eq('status', statusFilter);
       }
 
-      const { data, error } = await query;
-      if (!error && data) {
+      const { data, error: qErr } = await query;
+      if (qErr) {
+        setError('Pul yechish so‘rovlarini yuklab bo‘lmadi');
+      } else if (data) {
         setPayouts(data);
       }
     } catch {
-      // ignore
+      setError('Tarmoq xatosi yuz berdi. Qayta urinib ko‘ring.');
     } finally {
       setLoading(false);
     }
@@ -151,7 +157,7 @@ export default function AdminPayoutRequestsPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
             <CreditCard className="w-8 h-8 text-blue-600" />
-            <span>Pul Yechish So‘rovlari (Payouts)</span>
+            <span>Pul yechish so‘rovlari</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
             Mualliflar tomonidan ishlab topilgan gonorarlarni bank kartasiga to‘lash va chek bilan tasdiqlash
@@ -159,11 +165,28 @@ export default function AdminPayoutRequestsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-3.5 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-black">
-            Kutilmoqda: {pendingCount} ta
+          <span className="px-3.5 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-black min-h-[32px] inline-flex items-center">
+            {loading ? <Skeleton className="h-4 w-16" /> : `Kutilmoqda: ${pendingCount} ta`}
           </span>
         </div>
       </div>
+
+      {/* Error state with retry */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={fetchPayouts}
+            className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
+          >
+            Qayta urinish
+          </button>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">

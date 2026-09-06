@@ -12,6 +12,7 @@ import {
   Bookmark,
   ChevronRight,
   Clock,
+  Languages,
 } from 'lucide-react';
 import { getWorkBySlug } from '@/lib/db/queries';
 import { getCurrentProfile, createServerClient } from '@/lib/supabase/server';
@@ -19,6 +20,7 @@ import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { WorkSocialToolbar } from '@/components/social/WorkSocialToolbar';
 import { WorkReviewsSection } from '@/components/reviews/WorkReviewsSection';
+import { getPublicWorkAuthorName, getPublicWorkAuthorUsername } from '@/lib/utils/workAttribution';
 
 export const revalidate = 30;
 
@@ -34,8 +36,7 @@ export async function generateMetadata({ params }: WorkDetailPageProps): Promise
     return { title: 'Asar topilmadi' };
   }
 
-  const authorName =
-    work.author?.pen_name || work.author?.profile?.display_name || 'Muallif';
+  const authorName = getPublicWorkAuthorName(work);
 
   return {
     title: `${work.title} — ${authorName}`,
@@ -73,9 +74,8 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
       work.access_type !== 'free' &&
       Number(work.full_work_price || 0) > 0);
 
-  const authorName =
-    work.author?.pen_name || work.author?.profile?.display_name || 'Muallif';
-  const authorUsername = work.author?.profile?.username;
+  const authorName = getPublicWorkAuthorName(work);
+  const authorUsername = getPublicWorkAuthorUsername(work);
   const firstChapter = chapters.length > 0 ? chapters[0] : null;
 
   // Check if first chapter is unlocked (which indicates active purchase entitlement or author access)
@@ -101,7 +101,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
       <nav className="flex items-center gap-2 text-xs text-stone-500 font-medium truncate">
         <Link href="/" className="hover:text-amber-900 transition-colors">Bosh sahifa</Link>
         <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
-        <Link href="/asarlar" className="hover:text-amber-900 transition-colors">Asarlar</Link>
+        <Link href={work.is_translation ? '/tarjima-asarlar' : '/asarlar'} className="hover:text-amber-900 transition-colors">{work.is_translation ? 'Tarjima asarlar' : 'Asarlar'}</Link>
         <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
         <span className="text-stone-800 font-bold truncate">{work.title}</span>
       </nav>
@@ -132,6 +132,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
           <div className="flex-1 space-y-5 w-full">
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center gap-2">
+                {work.is_translation && <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-sky-50 text-sky-800 border border-sky-200"><Languages className="w-3.5 h-3.5" /> Tarjima asar</span>}
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
                     isFree
@@ -162,7 +163,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
               {/* Author link */}
               <div className="flex items-center gap-2 pt-1 text-sm font-semibold text-stone-600">
                 <User className="w-4 h-4 text-stone-400" />
-                <span>Muallif:</span>
+                <span>{work.is_translation ? 'Original muallif:' : 'Muallif:'}</span>
                 {authorUsername ? (
                   <Link
                     href={`/mualliflar/${authorUsername}`}
@@ -174,6 +175,14 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                   <span className="font-bold text-stone-900">{authorName}</span>
                 )}
               </div>
+              {work.is_translation && (
+                <div className="grid sm:grid-cols-2 gap-2 rounded-2xl border border-sky-100 bg-sky-50/60 p-4 text-xs text-stone-700">
+                  {work.original_title && <p><strong>Original nomi:</strong> {work.original_title}</p>}
+                  <p><strong>Tarjima tili:</strong> {work.source_language}dan o‘zbek tiliga</p>
+                  {work.translator_name && <p><strong>Tarjimon:</strong> {work.translator_name}</p>}
+                  <p><strong>Nashr asosi:</strong> {work.translation_rights_basis === 'licensed' ? 'Ruxsat/litsenziya asosida' : 'Public domain'}</p>
+                </div>
+              )}
             </div>
 
             {/* Description */}

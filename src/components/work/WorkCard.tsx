@@ -3,10 +3,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star, BookOpen, Clock, CheckCircle2, Flame, Sparkles } from 'lucide-react';
+import { Star, BookOpen, Clock, Sparkles, Languages } from 'lucide-react';
 import { clsx } from 'clsx';
 import { formatUZS } from '@/lib/utils/currency';
 import type { Work } from '@/lib/types/platform';
+import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
 
 interface WorkCardProps {
   work: Work | any;
@@ -37,10 +38,10 @@ export function WorkCard({
     ? Number(work.average_rating).toFixed(1)
     : null;
 
-  const authorName =
-    work.author?.pen_name ||
-    work.author_profile?.pen_name ||
-    (typeof work.author === 'string' ? work.author : 'Muallif');
+  const authorName = getPublicWorkAuthorName({
+    ...work,
+    author: work.author_profile || work.author,
+  });
 
   const genreName =
     work.genre?.name ||
@@ -133,6 +134,13 @@ export function WorkCard({
             </span>
           </div>
 
+          {work.is_translation && (
+            <div className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-950/90 text-indigo-100 border border-indigo-300/30 text-[9px] font-black uppercase tracking-wide shadow-xs backdrop-blur-md">
+              <Languages className="w-3 h-3" />
+              <span>Tarjima asar</span>
+            </div>
+          )}
+
           {/* Reading Progress Bar (Library / Continue Reading Contexts) */}
           {typeof progressPercent === 'number' && (
             <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/40 backdrop-blur-xs">
@@ -155,6 +163,12 @@ export function WorkCard({
           <p className="text-[11px] text-stone-500 font-medium truncate mt-0.5">
             {authorName}
           </p>
+
+          {work.is_translation && work.source_language && (
+            <p className="text-[10px] text-indigo-700 font-bold truncate mt-0.5">
+              {work.source_language}dan tarjima
+            </p>
+          )}
 
           {/* Badges: Genre / Status / Chapters Count */}
           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">

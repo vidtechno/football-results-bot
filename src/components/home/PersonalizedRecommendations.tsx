@@ -8,6 +8,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { Work } from '@/lib/types/platform';
+import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
 
 interface RecommendedWork extends Work {
   recommendation_reason?: string;
@@ -101,7 +102,7 @@ export function PersonalizedRecommendations() {
       {/* Grid of Recommendation Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
         {items.map((w) => {
-          const authorName = w.author?.pen_name || 'Muallif';
+          const authorName = getPublicWorkAuthorName(w);
           const genreName = (w.genres && w.genres.length > 0)
             ? w.genres[0].name
             : (w as any).work_genres?.[0]?.genre?.name || null;

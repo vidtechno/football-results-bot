@@ -20,6 +20,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import type { Work } from '@/lib/types/platform';
 import { getRelativeTimeString } from '@/lib/utils/formatters';
 import type { RecentReadingProgressDTO } from '@/lib/services/progress';
+import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
 
 interface HomeHeroCarouselProps {
   recentlyUpdatedWork?: Work | null;
@@ -113,7 +114,7 @@ export function HomeHeroCarousel({
       badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-400/30',
       title: fallbackWork ? fallbackWork.title : 'O‘zbek adabiyoti va zamonaviy asarlar',
       subtitle: fallbackWork
-        ? fallbackWork.author?.pen_name || 'Sara mualliflar'
+        ? getPublicWorkAuthorName(fallbackWork)
         : 'Mualliflar bilan kitobxonlar birlashgan platforma',
       extraInfo: fallbackWork?.description
         ? fallbackWork.description.slice(0, 120) + '...'
@@ -126,7 +127,7 @@ export function HomeHeroCarousel({
 
   // Slide 2: Recently Updated Serialized Work
   if (recentlyUpdatedWork) {
-    const authorName = recentlyUpdatedWork.author?.pen_name || 'Muallif';
+    const authorName = getPublicWorkAuthorName(recentlyUpdatedWork);
     const updateTime = getRelativeTimeString(recentlyUpdatedWork.updated_at || recentlyUpdatedWork.published_at || '');
 
     slides.push({
@@ -147,7 +148,7 @@ export function HomeHeroCarousel({
 
   // Slide 3: Editor's Choice
   if (editorChoiceWork) {
-    const authorName = editorChoiceWork.author?.pen_name || 'Muallif';
+    const authorName = getPublicWorkAuthorName(editorChoiceWork);
     const genreName =
       (editorChoiceWork as any).genre?.name ||
       (Array.isArray(editorChoiceWork.genres) && editorChoiceWork.genres[0]?.name) ||

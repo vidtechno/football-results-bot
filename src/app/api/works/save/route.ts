@@ -59,13 +59,21 @@ export async function POST(request: Request) {
     if (id) {
       const { data: existing } = await supabase
         .from('works')
-        .select('id, author_id, status, completion_status')
+        .select('id, author_id, status, completion_status, is_translation')
         .eq('id', id)
         .single();
 
       if (!existing || existing.author_id !== profile.id) {
         return NextResponse.json(
           { success: false, error: 'Siz faqat o‘zingizning asaringizni tahrirlashingiz mumkin' },
+          { status: 403 },
+        );
+      }
+
+
+      if (existing.is_translation && !profile.is_admin) {
+        return NextResponse.json(
+          { success: false, error: 'Tarjima asarlarni faqat administrator tahrirlay oladi' },
           { status: 403 },
         );
       }

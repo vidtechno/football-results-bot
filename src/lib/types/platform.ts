@@ -139,6 +139,12 @@ export interface Work {
   age_rating: string;
   completion_status: WorkCompletionStatus;
   language: string;
+  is_translation?: boolean;
+  original_title?: string | null;
+  original_author_name?: string | null;
+  source_language?: string | null;
+  translator_name?: string | null;
+  translation_rights_basis?: 'public_domain' | 'licensed' | null;
   is_archived?: boolean;
   is_featured?: boolean;
   total_words?: number;

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { BookOpen, Bookmark, Trash2, ArrowRight } from 'lucide-react';
+import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
 
 interface BookmarkItemCardProps {
   bookmark: {
@@ -16,6 +17,8 @@ interface BookmarkItemCardProps {
       title: string;
       slug: string;
       cover_url?: string;
+      is_translation?: boolean;
+      original_author_name?: string | null;
       author?: {
         pen_name?: string;
       };
@@ -87,7 +90,7 @@ export function BookmarkItemCard({ bookmark }: BookmarkItemCardProps) {
         </div>
 
         <h3 className="font-serif font-bold text-stone-900 text-sm truncate">{w.title}</h3>
-        <p className="text-xs text-stone-500 truncate">{w.author?.pen_name || 'Muallif'}</p>
+        <p className="text-xs text-stone-500 truncate">{getPublicWorkAuthorName(w)}</p>
 
         {ch && (
           <p className="text-[11px] text-amber-800 font-semibold truncate">

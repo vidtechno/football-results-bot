@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Sparkles, Clock, BookOpen, ChevronRight, Lock, Unlock } from 'lucide-react';
 import type { RecentChapterItem } from '@/lib/db/queries';
+import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
 
 interface RecentChaptersSectionProps {
   chapters: RecentChapterItem[];
@@ -37,7 +38,7 @@ export function RecentChaptersSection({ chapters }: RecentChaptersSectionProps) 
       {/* Grid of Chapter Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
         {chapters.map((item) => {
-          const authorName = item.work.author?.pen_name || 'Muallif';
+          const authorName = getPublicWorkAuthorName(item.work);
           const chapterUrl = `/asarlar/${item.work.slug}/${item.slug}`;
 
           return (

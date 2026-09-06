@@ -421,6 +421,7 @@ export async function getAuthorByUsername(username: string): Promise<{
     .select('*')
     .eq('author_id', author.user_id)
     .eq('status', 'published')
+    .eq('is_translation', false)
     .order('published_at', { ascending: false });
 
   return {
@@ -472,6 +473,8 @@ export async function getPaginatedCatalogue(options?: {
   completionStatus?: 'ongoing' | 'completed';
   sortBy?: 'popular' | 'newest' | 'rating' | 'price_asc' | 'price_desc';
   collection?: string;
+  isTranslation?: boolean;
+  sourceLanguage?: string;
 }): Promise<PaginatedCatalogueResult> {
   const page = Math.max(1, Number(options?.page) || 1);
   const pageSize = options?.pageSize || 20;
@@ -545,11 +548,19 @@ export async function getPaginatedCatalogue(options?: {
 
     if (authorIds.length > 0) {
       q = q.or(
-        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,author_id.in.(${authorIds.join(',')})`
+        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%,author_id.in.(${authorIds.join(',')})`
       );
     } else {
-      q = q.or(`title.ilike.%${normalized}%,description.ilike.%${normalized}%`);
+      q = q.or(`title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%`);
     }
+  }
+
+  if (options?.isTranslation !== undefined) {
+    q = q.eq('is_translation', options.isTranslation);
+  }
+
+  if (options?.sourceLanguage) {
+    q = q.eq('source_language', options.sourceLanguage);
   }
 
   if (options?.type) {
@@ -704,6 +715,7 @@ export async function getPublicAuthor(identifier: string) {
       `)
       .eq('author_id', author.user_id)
       .eq('status', 'published')
+      .eq('is_translation', false)
       .order('published_at', { ascending: false }),
     supabase
       .from('author_follows')
@@ -760,6 +772,8 @@ export interface RecentChapterItem {
     cover_url: string | null;
     access_type: string;
     type: string;
+    is_translation?: boolean;
+    original_author_name?: string | null;
     author?: {
       pen_name: string;
     };
@@ -792,6 +806,8 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
         cover_url,
         access_type,
         type,
+        is_translation,
+        original_author_name,
         status,
         author:author_profiles (
           pen_name
@@ -824,6 +840,8 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
           cover_url,
           access_type,
           type,
+          is_translation,
+          original_author_name,
           status,
           author:author_profiles (
             pen_name
@@ -870,4 +888,3 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
       relative_time: getRelativeTimeString(row.published_at || row.created_at),
     }));
 }
-

@@ -31,6 +31,7 @@ export function Footer() {
           <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-semibold text-stone-600">
             <Link href="/" className="hover:text-emerald-800 transition-colors">Bosh sahifa</Link>
             <Link href="/asarlar" className="hover:text-emerald-800 transition-colors">Barcha asarlar</Link>
+            <Link href="/tarjima-asarlar" className="hover:text-emerald-800 transition-colors">Tarjima asarlar</Link>
             <Link href="/kutubxona" className="hover:text-emerald-800 transition-colors">Kutubxonam</Link>
             <Link href="/muallif-boling" className="hover:text-emerald-800 transition-colors">Muallif bo‘ling</Link>
             <Link href="/kabinet" className="hover:text-emerald-800 transition-colors">Shaxsiy kabinet</Link>

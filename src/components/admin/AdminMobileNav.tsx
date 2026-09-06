@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, BookOpen, PenTool, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Users, Languages, PenTool, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export function AdminMobileNav() {
@@ -12,7 +12,7 @@ export function AdminMobileNav() {
   const navItems = [
     { label: 'Boshqaruv', href: '/diyoration/dashboard', icon: LayoutDashboard },
     { label: 'Foydalanuvchilar', href: '/diyoration/foydalanuvchilar', icon: Users },
-    { label: 'Asarlar', href: '/diyoration/asarlar', icon: BookOpen },
+    { label: 'Tarjimalar', href: '/diyoration/tarjima-asarlar', icon: Languages },
     { label: 'Mualliflar', href: '/diyoration/mualliflar', icon: PenTool },
     { label: 'Pul yechish', href: '/diyoration/yechish-sorovlari', icon: CreditCard },
   ];

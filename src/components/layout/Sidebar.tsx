@@ -16,6 +16,7 @@ import {
   PenTool,
   ShieldCheck,
   ArrowRight,
+  Languages,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -39,6 +40,13 @@ export function Sidebar() {
       label: 'Asarlar',
       href: '/asarlar',
       icon: Compass,
+      exact: false,
+      requiresAuth: false,
+    },
+    {
+      label: 'Tarjima asarlar',
+      href: '/tarjima-asarlar',
+      icon: Languages,
       exact: false,
       requiresAuth: false,
     },

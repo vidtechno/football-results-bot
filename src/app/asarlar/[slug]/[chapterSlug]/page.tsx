@@ -4,6 +4,7 @@ import { getChapterForReading } from '@/lib/db/queries';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { ReaderView } from '@/components/reader/ReaderView';
 import type { Metadata } from 'next';
+import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0; // Fresh access check on each read, zero shared caching
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: ReadingPageProps): Promise<Me
     return { title: 'Bob mutolaasi' };
   }
 
-  const authorName = work.author?.pen_name || 'Muallif';
+  const authorName = getPublicWorkAuthorName(work);
   return {
     title: `${chapter.title} — ${work.title}`,
     description: `«${work.title}» asarining ${chapter.chapter_number}-bobi. Muallif: ${authorName}. Manbora platformasida o‘qing.`,

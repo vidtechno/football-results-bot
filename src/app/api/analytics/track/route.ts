@@ -21,6 +21,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
+    // A public work view means one registered account, once per work.
+    // Guests are not counted and the composite primary key prevents duplicates.
+    if (body.eventType === 'work_view') {
+      await presence;
+      if (!profile || !/^[0-9a-f-]{36}$/i.test(body.workId || '')) {
+        return NextResponse.json({ success: true, counted: false });
+      }
+      const { error } = await admin.from('work_views').upsert(
+        { work_id: body.workId, user_id: profile.id },
+        { onConflict: 'work_id,user_id', ignoreDuplicates: true },
+      );
+      if (error) return NextResponse.json({ error: 'Ko‘rishni saqlab bo‘lmadi' }, { status: 500 });
+      return NextResponse.json({ success: true, counted: true });
+    }
+
     await Promise.all([
       presence,
       admin.from('analytics_events').insert({

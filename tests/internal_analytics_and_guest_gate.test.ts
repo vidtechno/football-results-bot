@@ -28,4 +28,12 @@ describe('first-party analytics and guest reading gate', () => {
     expect(read('src/app/diyoration/dashboard/page.tsx')).toContain('AdminAnalyticsOverview');
     expect(read('src/app/api/admin/analytics/route.ts')).toContain('verifyAdminProfile');
   });
+  it('counts each registered account once and excludes guests', () => {
+    const sql = read('supabase/migrations/028_unique_authenticated_work_views.sql');
+    const endpoint = read('src/app/api/analytics/track/route.ts');
+    expect(sql).toContain('PRIMARY KEY (work_id, user_id)');
+    expect(endpoint).toContain('if (!profile');
+    expect(endpoint).toContain("from('work_views').upsert");
+    expect(read('src/app/api/works/[id]/stats/route.ts')).toContain("from('work_views')");
+  });
 });

@@ -13,10 +13,10 @@ function getSessionId() {
 
 export function trackAnalytics(eventType: AnalyticsEvent, extra: Record<string, unknown> = {}) {
   if (typeof window === 'undefined') return;
-  void fetch('/api/analytics/track', {
+  return fetch('/api/analytics/track', {
     method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true,
     body: JSON.stringify({ sessionId: getSessionId(), eventType, path: location.pathname,
       referrerHost: document.referrer ? new URL(document.referrer).hostname : null,
       deviceType: innerWidth < 640 ? 'mobile' : innerWidth < 1024 ? 'tablet' : 'desktop', ...extra }),
-  }).catch(() => {});
+  }).catch(() => undefined);
 }

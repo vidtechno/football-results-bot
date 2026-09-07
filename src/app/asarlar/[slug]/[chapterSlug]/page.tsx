@@ -1,10 +1,11 @@
 import React from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getChapterForReading, getChapterMetadata } from '@/lib/db/queries';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { ReaderView } from '@/components/reader/ReaderView';
 import type { Metadata } from 'next';
 import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
+import { WorkAnalyticsTracker } from '@/components/analytics/WorkAnalyticsTracker';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0; // Fresh access check on each read, zero shared caching
@@ -59,11 +60,16 @@ export default async function ReadingPage({ params, searchParams }: ReadingPageP
   if (!work || !chapter) {
     notFound();
   }
+  if (!profile && allChapters[0]?.id !== chapter.id) {
+    const returnUrl = `/asarlar/${work.slug}/${chapter.slug}`;
+    redirect(`/kirish?returnUrl=${encodeURIComponent(returnUrl)}&reason=continue-reading`);
+  }
 
   const initialPage = searchParams?.page ? parseInt(searchParams.page, 10) : undefined;
 
   return (
     <>
+      <WorkAnalyticsTracker workId={work.id} chapterId={chapter.id} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

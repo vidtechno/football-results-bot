@@ -22,6 +22,7 @@ import {
 import { formatUZS } from '@/lib/utils/currency';
 import { supabase } from '@/lib/supabase/client';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { AdminAnalyticsOverview } from '@/components/admin/AdminAnalyticsOverview';
 
 interface DashboardStats {
   totalUsers: number;
@@ -254,6 +255,9 @@ function DashboardContent() {
           </span>
         </div>
       </div>
+
+      {/* Action Required Banners */}
+      <AdminAnalyticsOverview />
 
       {/* Action Required Banners */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -4,6 +4,7 @@ import './globals.css';
 import { PublicAppShell } from '@/components/layout/PublicAppShell';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { NotificationProvider } from '@/components/providers/NotificationProvider';
+import { AnalyticsTracker } from '@/components/analytics/AnalyticsTracker';
 
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
@@ -85,6 +86,7 @@ export default function RootLayout({
       <body className="bg-background text-stone-900 min-h-screen flex flex-col antialiased selection:bg-amber-100 selection:text-amber-950">
         <AuthProvider>
           <NotificationProvider>
+            <AnalyticsTracker />
             <PublicAppShell>{children}</PublicAppShell>
           </NotificationProvider>
         </AuthProvider>

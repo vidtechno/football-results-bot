@@ -30,6 +30,7 @@ import { paginateChapterContent } from '@/lib/reader/pagination';
 import { PaywallUnlockCard } from './PaywallUnlockCard';
 import { ChapterReactionsBar } from './ChapterReactionsBar';
 import { ChapterCommentsSection } from './ChapterCommentsSection';
+import { trackAnalytics } from '@/lib/analytics/client';
 
 interface ReaderViewProps {
   work: Work;
@@ -73,6 +74,7 @@ export function ReaderView({
   // UI Drawer & Settings state
   const [showSettings, setShowSettings] = useState(false);
   const [showToc, setShowToc] = useState(false);
+  const [showSignupGate, setShowSignupGate] = useState(false);
 
   // Close TOC and Settings on Escape key
   useEffect(() => {
@@ -422,9 +424,14 @@ export function ReaderView({
     if (currentPage < paginated.totalPages) {
       setCurrentPage((p) => p + 1);
     } else if (nextChapter) {
+      if (!isLoggedIn) {
+        setShowSignupGate(true);
+        trackAnalytics('signup_gate', { workId: work.id, chapterId: nextChapter.id });
+        return;
+      }
       router.push(`/asarlar/${work.slug}/${nextChapter.slug}`);
     }
-  }, [currentPage, paginated.totalPages, nextChapter, router, work.slug]);
+  }, [currentPage, paginated.totalPages, nextChapter, router, work.id, work.slug, isLoggedIn]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -1096,9 +1103,7 @@ export function ReaderView({
 
           {nextChapter ? (
             isNextLocked ? (
-              <Link
-                href={`/asarlar/${work.slug}/${nextChapter.slug}`}
-                prefetch={false}
+              <button type="button" onClick={goToNextPage}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 font-bold text-xs sm:text-sm shadow-xs hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-all active:scale-95"
               >
                 <Lock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
@@ -1107,16 +1112,15 @@ export function ReaderView({
                 </span>
                 <span className="sm:hidden">Keyingi ({formatUZS(nextChapter.price)})</span>
                 <ChevronRight className="w-4 h-4" />
-              </Link>
+              </button>
             ) : (
-              <Link
-                href={`/asarlar/${work.slug}/${nextChapter.slug}`}
+              <button type="button" onClick={goToNextPage}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all"
               >
                 <span className="hidden sm:inline">Keyingi bob</span>
                 <span className="sm:hidden">Keyingi</span>
                 <ChevronRight className="w-4 h-4" />
-              </Link>
+              </button>
             )
           ) : (
             <div />
@@ -1139,6 +1143,21 @@ export function ReaderView({
               authorUserId={work.author_id}
               canonicalUrl={`/asarlar/${work.slug}/${currentChapter.slug}`}
             />
+          </div>
+        )}
+
+        {showSignupGate && nextChapter && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-labelledby="signup-gate-title">
+            <div className="w-full max-w-md rounded-3xl bg-white p-6 text-stone-900 shadow-2xl">
+              <button type="button" onClick={() => setShowSignupGate(false)} className="float-right rounded-full p-2 hover:bg-stone-100" aria-label="Yopish"><X className="h-5 w-5" /></button>
+              <BookOpen className="mb-4 h-10 w-10 text-emerald-700" />
+              <h2 id="signup-gate-title" className="text-xl font-black">Mutolaani davom ettiring</h2>
+              <p className="mt-2 text-sm text-stone-600">Birinchi bobdan keyingi boblarni o‘qish uchun bepul ro‘yxatdan o‘ting yoki akkauntingizga kiring. O‘qish joyingiz saqlanadi.</p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <Link href={`/royxatdan-otish?returnUrl=${encodeURIComponent(`/asarlar/${work.slug}/${nextChapter.slug}`)}`} className="rounded-xl bg-emerald-700 px-4 py-3 text-center text-sm font-bold text-white hover:bg-emerald-800">Ro‘yxatdan o‘tish</Link>
+                <Link href={`/kirish?returnUrl=${encodeURIComponent(`/asarlar/${work.slug}/${nextChapter.slug}`)}`} className="rounded-xl border border-stone-300 px-4 py-3 text-center text-sm font-bold hover:bg-stone-50">Kirish</Link>
+              </div>
+            </div>
           </div>
         )}
       </main>

@@ -21,6 +21,8 @@ import { formatUzbekDate } from '@/lib/utils/formatters';
 import { WorkSocialToolbar } from '@/components/social/WorkSocialToolbar';
 import { WorkReviewsSection } from '@/components/reviews/WorkReviewsSection';
 import { getPublicWorkAuthorName, getPublicWorkAuthorUsername } from '@/lib/utils/workAttribution';
+import { WorkAnalyticsTracker } from '@/components/analytics/WorkAnalyticsTracker';
+import { PublicWorkStats } from '@/components/analytics/PublicWorkStats';
 
 export const revalidate = 30;
 
@@ -95,8 +97,10 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
     initialIsFollowing = Boolean(followCheck.data);
   }
 
+
   return (
     <div className="space-y-8 sm:space-y-12 pb-16">
+      <WorkAnalyticsTracker workId={work.id} />
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-stone-500 font-medium truncate">
         <Link href="/" className="hover:text-amber-900 transition-colors">Bosh sahifa</Link>
@@ -243,6 +247,8 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
           </div>
         </div>
       </div>
+
+      <PublicWorkStats workId={work.id} initialFollowers={followerCount} />
 
       {/* Chapters Table of Contents */}
       <section className="space-y-4">

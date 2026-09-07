@@ -21,6 +21,7 @@ import {
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
+import { OnlineUsersBadge } from '@/components/analytics/OnlineUsersBadge';
 
 export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
   const pathname = usePathname();
@@ -212,6 +213,7 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
 
       {/* Bottom Compact Author CTA Card */}
       <div className="pt-4 border-t border-[#EAE5DD]">
+        <div className="px-2 pb-3"><OnlineUsersBadge /></div>
         <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#FAF8F5] via-emerald-50/40 to-emerald-100/30 border border-emerald-200/80 shadow-2xs space-y-2">
           <div className="flex items-center gap-1.5 text-emerald-900">
             <Sparkles className="w-3.5 h-3.5 text-emerald-700 shrink-0" />

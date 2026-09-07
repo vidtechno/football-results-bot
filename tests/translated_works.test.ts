@@ -36,4 +36,13 @@ describe('admin-curated translated works', () => {
     expect(read('src/app/diyoration/tarjima-asarlar/page.tsx')).toContain('/api/admin/translated-works');
     expect(read('src/components/layout/Sidebar.tsx')).toContain('/tarjima-asarlar');
   });
+
+  it('promotes translated works on the homepage without showing an empty section', () => {
+    const home = read('src/app/page.tsx');
+    expect(home).toContain('isTranslation: true');
+    expect(home).toContain('Dunyo adabiyoti o‘zbek tilida');
+    expect(home).toContain('href="/tarjima-asarlar"');
+    expect(home).toContain('translatedWorks.length > 0');
+    expect(home).toContain('shownWorkIds.add(work.id)');
+  });
 });

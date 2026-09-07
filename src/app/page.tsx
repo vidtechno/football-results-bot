@@ -13,8 +13,9 @@ import {
   ArrowRight,
   ChevronRight,
   PenTool,
+  Languages,
 } from 'lucide-react';
-import { getPublishedWorks, getActiveGenres, getRecentChapters } from '@/lib/db/queries';
+import { getPublishedWorks, getActiveGenres, getRecentChapters, getPaginatedCatalogue } from '@/lib/db/queries';
 import { createServerClient } from '@/lib/supabase/server';
 import { WorkCard } from '@/components/work/WorkCard';
 import { HomeHeroCarousel } from '@/components/home/HomeHeroCarousel';
@@ -37,6 +38,7 @@ export default async function HomePage() {
     freeWorks,
     genres,
     authorList,
+    translatedCatalogue,
   ] = await Promise.all([
     getPublishedWorks({ sortBy: 'updated', limit: 10 }),
     getRecentChapters(8),
@@ -55,6 +57,12 @@ export default async function HomePage() {
       `)
       .eq('status', 'approved')
       .limit(6),
+    getPaginatedCatalogue({
+      page: 1,
+      pageSize: 5,
+      isTranslation: true,
+      sortBy: 'newest',
+    }),
   ]);
 
   const authors = (authorList.data || []) as any[];
@@ -69,6 +77,10 @@ export default async function HomePage() {
 
   // Deduplication system across sections to prevent repeating identical works in small catalogues
   const shownWorkIds = new Set<string>();
+
+  // Give translated works their own prominent section and avoid repeating them below.
+  const translatedWorks = translatedCatalogue.works;
+  translatedWorks.forEach((work) => shownWorkIds.add(work.id));
 
   const getDeduplicatedSlice = (candidateWorks: Work[], maxCount = 5): Work[] => {
     // Pick works that have not been displayed yet
@@ -125,6 +137,40 @@ export default async function HomePage() {
         initialWorks={recentUpdatedWorks}
         popularWorks={popularWorks}
       />
+
+      {/* Curated translations uploaded by the Manbora administration */}
+      {translatedWorks.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-xl bg-indigo-100 text-indigo-900">
+                <Languages className="w-4 h-4 text-indigo-800" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-[#1C1917] tracking-tight">
+                  Dunyo adabiyoti o‘zbek tilida
+                </h2>
+                <p className="text-xs text-stone-500 font-medium">
+                  Manbora tahririyati tomonidan saralangan tarjima asarlar
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/tarjima-asarlar"
+              className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:underline flex items-center gap-1 shrink-0"
+            >
+              <span>Barchasi</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
+            {translatedWorks.map((work) => (
+              <WorkCard key={work.id} work={work} context="catalogue" />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* SECTION 1: Yaqinda yangilangan (Recently Updated Works) */}
       {section1Works.length > 0 && (

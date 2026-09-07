@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
         .from('in_site_notifications')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', profile.id)
-        .eq('is_read', false),
+        .eq('is_read', false)
+        .is('read_at', null),
     ]);
 
     const rawList = notificationsRes.data || [];

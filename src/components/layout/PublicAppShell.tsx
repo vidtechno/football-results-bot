@@ -11,13 +11,17 @@ import { GenreOnboardingModal } from '@/components/onboarding/GenreOnboardingMod
 export function PublicAppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // 1. Reader Exception: /asarlar/[slug]/[chapterSlug]
-  // Must remain strictly distraction-free without permanent sidebar or bottom nav!
+  // 1. Reader layout: keep desktop navigation visible; omit mobile bottom navigation.
   const segments = pathname.split('/').filter(Boolean);
   const isReaderPage = segments[0] === 'asarlar' && segments.length >= 3;
 
   if (isReaderPage) {
-    return <div className="min-h-screen w-full">{children}</div>;
+    return (
+      <div className="min-h-screen w-full flex bg-[#FAF8F5]">
+        <Sidebar readerMode />
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+    );
   }
 
   // 2. Admin Panel: /diyoration/* has its own dedicated AdminLayout

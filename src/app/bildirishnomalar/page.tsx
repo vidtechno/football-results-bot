@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { Bell, Check, Sparkles, BookOpen, Clock, AlertCircle } from 'lucide-react';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { formatUzbekDate } from '@/lib/utils/formatters';
+import { NotificationsReadStatus } from '@/components/notifications/NotificationsReadStatus';
 
 export const revalidate = 0;
 
@@ -32,7 +33,6 @@ export default async function BildirishnomalarPage() {
     .limit(50);
 
   const list = notifications || [];
-  const unreadCount = list.filter((n) => !n.is_read).length;
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-16 max-w-3xl mx-auto">
@@ -43,9 +43,7 @@ export default async function BildirishnomalarPage() {
             <Bell className="w-7 h-7 text-amber-600" />
             <span>Bildirishnomalar</span>
           </h1>
-          <p className="text-xs sm:text-sm text-[#78716C] font-medium">
-            {unreadCount > 0 ? `${unreadCount} ta o‘qilmagan xabar` : 'Barcha xabarlar o‘qilgan'}
-          </p>
+          <NotificationsReadStatus />
         </div>
       </div>
 

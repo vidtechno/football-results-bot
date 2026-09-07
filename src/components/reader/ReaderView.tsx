@@ -20,6 +20,7 @@ import {
   PenTool,
   Bookmark,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Work, Chapter } from '@/lib/types/platform';
@@ -737,6 +738,137 @@ export function ReaderView({
           </div>
         )}
       </header>
+
+      {/* Persistent desktop reading tools */}
+      <aside className="fixed right-5 top-20 bottom-5 z-30 hidden w-60 xl:flex flex-col rounded-3xl border border-stone-200/80 dark:border-stone-800 bg-white/90 dark:bg-stone-900/90 p-4 shadow-lg backdrop-blur-md">
+        <div className="mb-3 flex items-center gap-2 border-b border-stone-200 dark:border-stone-800 pb-3">
+          <ListFilter className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+          <div className="min-w-0">
+            <h2 className="text-sm font-black">Mundarija</h2>
+            <p className="text-[10px] opacity-55">{allChapters.length} ta bob</p>
+          </div>
+        </div>
+        <nav className="mb-4 max-h-52 space-y-1 overflow-y-auto border-b border-stone-200 dark:border-stone-800 pb-3 pr-1" aria-label="Doimiy mundarija">
+          {allChapters.map((chap) => {
+            const isCurrent = chap.id === currentChapter.id;
+            const access = chapterAccessMap[chap.id];
+            const isLocked = access ? access.isLocked : !chap.is_free;
+            return (
+              <Link
+                key={chap.id}
+                href={`/asarlar/${work.slug}/${chap.slug}`}
+                prefetch={!isLocked}
+                className={clsx(
+                  'flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px] leading-snug transition-colors',
+                  isCurrent
+                    ? 'bg-amber-100 text-amber-950 ring-1 ring-amber-400/60 dark:bg-amber-950/60 dark:text-amber-200'
+                    : 'hover:bg-stone-100 dark:hover:bg-stone-800',
+                )}
+              >
+                <span className="w-5 shrink-0 font-mono opacity-50">{chap.chapter_number}.</span>
+                <span className="line-clamp-2 flex-1 font-semibold">{chap.title}</span>
+                {isLocked && <Lock className="h-3 w-3 shrink-0 text-amber-700" />}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="mb-3 flex items-center gap-2 border-b border-stone-200 dark:border-stone-800 pb-3">
+          <Type className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+          <h2 className="text-sm font-black">Mutolaa sozlamalari</h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleToggleBookmark}
+          disabled={bookmarkLoading}
+          aria-pressed={isCurrentPageBookmarked}
+          className={clsx(
+            'mb-4 flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-xs font-black shadow-sm transition-all disabled:opacity-60',
+            isCurrentPageBookmarked
+              ? 'bg-amber-100 text-amber-950 ring-1 ring-amber-500 dark:bg-amber-950/70 dark:text-amber-200'
+              : 'bg-amber-600 text-stone-950 hover:bg-amber-500',
+          )}
+        >
+          {bookmarkLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Bookmark className={clsx('h-4 w-4', isCurrentPageBookmarked && 'fill-current')} />
+          )}
+          <span>{isCurrentPageBookmarked ? 'Xatcho‘p saqlangan' : 'Xatcho‘pga saqlash'}</span>
+        </button>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider opacity-50">Ko‘rinish</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([
+                ['light', Sun, 'Yorug‘'],
+                ['sepia', Coffee, 'Sepiya'],
+                ['dark', Moon, 'Tungi'],
+              ] as const).map(([value, Icon, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setTheme(value);
+                    savePrefs({ theme: value });
+                  }}
+                  title={label}
+                  className={clsx(
+                    'flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-[9px] font-bold',
+                    theme === value
+                      ? 'border-amber-500 bg-amber-100 text-amber-950 dark:bg-amber-950/70 dark:text-amber-200'
+                      : 'border-stone-200 dark:border-stone-700',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider opacity-50">Shrift</p>
+              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">{fontSize}px</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const value = Math.max(14, fontSize - 1);
+                  setFontSize(value);
+                  savePrefs({ fontSize: value });
+                }}
+                className="rounded-xl border border-stone-200 dark:border-stone-700 py-2 text-xs font-black"
+              >
+                A−
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const value = Math.min(28, fontSize + 1);
+                  setFontSize(value);
+                  savePrefs({ fontSize: value });
+                }}
+                className="rounded-xl border border-stone-200 dark:border-stone-700 py-2 text-sm font-black"
+              >
+                A+
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowSettings(true)}
+            className="w-full rounded-xl bg-stone-100 dark:bg-stone-800 py-2 text-[11px] font-bold hover:bg-stone-200 dark:hover:bg-stone-700"
+          >
+            Barcha sozlamalar
+          </button>
+        </div>
+      </aside>
 
       {/* Table of Contents Drawer Modal */}
       {showToc && (

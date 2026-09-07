@@ -1,6 +1,6 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
-import { getChapterForReading } from '@/lib/db/queries';
+import { getChapterForReading, getChapterMetadata } from '@/lib/db/queries';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { ReaderView } from '@/components/reader/ReaderView';
 import type { Metadata } from 'next';
@@ -20,7 +20,7 @@ interface ReadingPageProps {
 }
 
 export async function generateMetadata({ params }: ReadingPageProps): Promise<Metadata> {
-  const { work, chapter } = await getChapterForReading(params.slug, params.chapterSlug, null);
+  const { work, chapter } = await getChapterMetadata(params.slug, params.chapterSlug);
   if (!work || !chapter) {
     return { title: 'Bob mutolaasi' };
   }

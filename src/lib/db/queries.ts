@@ -252,6 +252,31 @@ export interface ChapterReadingData {
   savedProgress: { pageIndex: number; percentage: number; chapterId: string } | null;
 }
 
+export async function getChapterMetadata(workSlug: string, chapterSlug: string): Promise<{
+  work: Work | null;
+  chapter: Pick<Chapter, 'title' | 'chapter_number' | 'slug'> | null;
+}> {
+  const supabase = createAdminClient();
+  const { data: work } = await supabase
+    .from('works')
+    .select('id, title, slug, cover_url, is_translation, original_author_name, author:author_profiles(pen_name)')
+    .eq('slug', workSlug)
+    .eq('status', 'published')
+    .maybeSingle();
+
+  if (!work) return { work: null, chapter: null };
+
+  const { data: chapter } = await supabase
+    .from('chapters')
+    .select('title, chapter_number, slug')
+    .eq('work_id', work.id)
+    .eq('slug', chapterSlug)
+    .eq('status', 'published')
+    .maybeSingle();
+
+  return { work: work as unknown as Work, chapter };
+}
+
 /**
  * Fetch chapter reading content with access validation.
  * Full content is returned ONLY if canReadChapter evaluates to true.
@@ -292,21 +317,22 @@ export async function getChapterForReading(
     };
   }
 
-  const { data: allChapters } = await supabase
-    .from('chapters')
-    .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
-    .eq('work_id', work.id)
-    .eq('status', 'published')
-    .order('chapter_number', { ascending: true });
+  const [{ data: allChapters }, { data: chapter }] = await Promise.all([
+    supabase
+      .from('chapters')
+      .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
+      .eq('work_id', work.id)
+      .eq('status', 'published')
+      .order('chapter_number', { ascending: true }),
+    supabase
+      .from('chapters')
+      .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
+      .eq('work_id', work.id)
+      .eq('slug', chapterSlug)
+      .single(),
+  ]);
 
   const chaptersList = (allChapters as Chapter[]) || [];
-
-  const { data: chapter } = await supabase
-    .from('chapters')
-    .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
-    .eq('work_id', work.id)
-    .eq('slug', chapterSlug)
-    .single();
 
   if (!chapter) {
     return {
@@ -321,51 +347,30 @@ export async function getChapterForReading(
     };
   }
 
-  // 1. Authoritative access check via canReadChapter
-  const accessResult = await canReadChapter(userId, chapter.id, {
-    isAdminRoute: options?.isAdminRoute,
-  });
+  const [accessResult, chapterAccessMap, walletResult, progressResult] = await Promise.all([
+    canReadChapter(userId, chapter.id, { isAdminRoute: options?.isAdminRoute }),
+    getWorkChaptersAccessMap(userId, work.id, chaptersList, {
+      authorId: work.author_id,
+      workAccessType: work.access_type,
+      fullWorkPrice: Number(work.full_work_price || 0),
+    }),
+    userId
+      ? supabase.from('wallet_accounts').select('balance').eq('user_id', userId).eq('account_type', 'reader_credit').maybeSingle()
+      : Promise.resolve({ data: null }),
+    userId
+      ? supabase.from('reading_progress').select('page_index, percentage, chapter_id').eq('user_id', userId).eq('work_id', work.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
-  // 2. Fetch full chapter access map for navigation and TOC
-  const chapterAccessMap = await getWorkChaptersAccessMap(userId, work.id, chaptersList, {
-    authorId: work.author_id,
-    workAccessType: work.access_type,
-    fullWorkPrice: Number(work.full_work_price || 0),
-  });
-
-  // 3. User balance if authenticated
-  let userBalance = 0;
-  if (userId) {
-    const { data: wallet } = await supabase
-      .from('wallet_accounts')
-      .select('balance')
-      .eq('user_id', userId)
-      .eq('account_type', 'reader_credit')
-      .maybeSingle();
-
-    if (wallet) {
-      userBalance = Number(wallet.balance || 0);
-    }
-  }
-
-  // 4. Reading progress for this work/user if authenticated
-  let savedProgress: { pageIndex: number; percentage: number; chapterId: string } | null = null;
-  if (userId) {
-    const { data: prog } = await supabase
-      .from('reading_progress')
-      .select('page_index, percentage, chapter_id')
-      .eq('user_id', userId)
-      .eq('work_id', work.id)
-      .maybeSingle();
-
-    if (prog) {
-      savedProgress = {
+  const userBalance = Number(walletResult.data?.balance || 0);
+  const prog = progressResult.data;
+  const savedProgress = prog
+    ? {
         pageIndex: Number(prog.page_index || 1),
         percentage: Number(prog.percentage || 0),
         chapterId: prog.chapter_id,
-      };
-    }
-  }
+      }
+    : null;
 
   // Strictly sanitized chapter:
   // If accessResult.canRead is false, content is EMPTY STRING ("").

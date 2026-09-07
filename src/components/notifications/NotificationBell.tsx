@@ -10,7 +10,7 @@ import { useNotifications, type NotificationItem } from '@/components/providers/
 
 export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
   const { user, isAdmin } = useAuth();
-  const { notifications, unreadCount, loading, markAllAsRead, refreshNotifications } = useNotifications();
+  const { notifications, unreadCount, loading, markAllAsRead, markItemAsRead, refreshNotifications } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -101,7 +101,10 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
                   <Link
                     key={item.id}
                     href={link}
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => {
+                      if (isUnread) void markItemAsRead(item.id);
+                      setIsOpen(false);
+                    }}
                     className={clsx(
                       'p-3 block transition-colors hover:bg-[#F9F7F4]',
                       isUnread && 'bg-amber-50/40',

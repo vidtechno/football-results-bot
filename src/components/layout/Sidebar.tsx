@@ -22,7 +22,7 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
 
-export function Sidebar() {
+export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
   const pathname = usePathname();
   const { user, author, isAdmin } = useAuth();
   const { unreadCount } = useNotifications();
@@ -101,7 +101,10 @@ export function Sidebar() {
 
   return (
     <aside
-      className="hidden lg:flex flex-col w-[240px] shrink-0 border-r border-[#EAE5DD] bg-[#FAF8F5]/80 backdrop-blur-sm sticky top-[72px] h-[calc(100vh-72px)] overflow-y-auto px-3.5 py-4 select-none justify-between"
+      className={clsx(
+        'hidden lg:flex flex-col w-[240px] shrink-0 border-r border-[#EAE5DD] bg-[#FAF8F5]/80 backdrop-blur-sm sticky overflow-y-auto px-3.5 py-4 select-none justify-between',
+        readerMode ? 'top-0 h-screen' : 'top-[72px] h-[calc(100vh-72px)]',
+      )}
       aria-label="Asosiy yon menyu"
     >
       <div className="space-y-6">

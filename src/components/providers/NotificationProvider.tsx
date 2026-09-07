@@ -184,10 +184,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markItemAsRead = async (id: string) => {
     if (!user) return;
+    const item = notifications.find((notification) => notification.id === id);
+    if (!item || item.is_read || item.read_at) return;
 
     // Optimistic update
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
     );
     setUnreadCount((prev) => Math.max(0, prev - 1));
 

@@ -48,6 +48,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { CabinetGenrePreferences } from '@/components/cabinet/CabinetGenrePreferences';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
+import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 import type {
   TopupRequest,
   WalletTransaction,
@@ -133,7 +134,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
   const resolveTab = (param: string | null): KabinetTab => {
     if (param === 'profile') return 'profile';
     if (param === 'finances' || param === 'topups' || param === 'purchases' || param === 'transactions') return 'finances';
-    if (param === 'notifications') return 'notifications';
+    if (param === 'notifications') return NOTIFICATIONS_ENABLED ? 'notifications' : 'overview';
     if (param === 'security') return 'security';
     if (param === 'quick_links') return 'quick_links';
     return 'overview';
@@ -609,7 +610,9 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           { id: 'overview', label: 'Umumiy ko‘rinish', icon: Compass },
           { id: 'profile', label: 'Profil ma’lumotlari', icon: User },
           { id: 'finances', label: 'Xaridlar va balans', icon: Wallet },
-          { id: 'notifications', label: 'Bildirishnomalar', icon: Bell },
+          ...(NOTIFICATIONS_ENABLED
+            ? [{ id: 'notifications', label: 'Bildirishnomalar', icon: Bell }]
+            : []),
           { id: 'security', label: 'Xavfsizlik', icon: Shield },
           { id: 'quick_links', label: 'Tezkor havolalar', icon: Bookmark },
         ].map((t) => {
@@ -1105,7 +1108,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       )}
 
       {/* TAB 4: NOTIFICATIONS PREFERENCES */}
-      {activeTab === 'notifications' && (
+      {NOTIFICATIONS_ENABLED && activeTab === 'notifications' && (
         <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs max-w-2xl space-y-6">
           <div className="flex items-center gap-3 pb-4 border-b border-stone-100">
             <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">

@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { useNotifications, type NotificationItem } from '@/components/providers/NotificationProvider';
+import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
   const { user, isAdmin } = useAuth();
@@ -27,7 +28,7 @@ export function NotificationBell({ isMobile = false }: { isMobile?: boolean }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  if (!user) return null;
+  if (!NOTIFICATIONS_ENABLED || !user) return null;
 
   return (
     <div className="relative shrink-0" ref={dropdownRef}>

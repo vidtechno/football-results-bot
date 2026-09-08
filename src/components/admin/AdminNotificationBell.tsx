@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Bell, Check, Flag, PlusCircle, ExternalLink, Loader2 } from 'lucide-react';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { useNotifications } from '@/components/providers/NotificationProvider';
+import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export function AdminNotificationBell() {
   const { notifications, unreadCount, loading, markAllAsRead, markItemAsRead } = useNotifications();
@@ -23,6 +24,8 @@ export function AdminNotificationBell() {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
+
+  if (!NOTIFICATIONS_ENABLED) return null;
 
   return (
     <div className="relative" ref={dropdownRef}>

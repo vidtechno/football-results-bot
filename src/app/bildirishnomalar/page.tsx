@@ -6,6 +6,7 @@ import { Bell, Check, Sparkles, BookOpen, Clock, AlertCircle } from 'lucide-reac
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { NotificationsReadStatus } from '@/components/notifications/NotificationsReadStatus';
+import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export const revalidate = 0;
 
@@ -19,6 +20,10 @@ export const metadata: Metadata = {
 };
 
 export default async function BildirishnomalarPage() {
+  if (!NOTIFICATIONS_ENABLED) {
+    redirect('/kabinet');
+  }
+
   const profile = await getCurrentProfile();
   if (!profile) {
     redirect('/kirish?redirect=/bildirishnomalar');

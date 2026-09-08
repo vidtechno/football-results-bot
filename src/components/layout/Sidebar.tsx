@@ -22,6 +22,7 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
 import { OnlineUsersBadge } from '@/components/analytics/OnlineUsersBadge';
+import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
   const pathname = usePathname();
@@ -81,14 +82,18 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
       exact: false,
       requiresAuth: false,
     },
-    {
-      label: 'Bildirishnomalar',
-      href: user ? '/kabinet?tab=notifications' : '/kirish?returnUrl=/kabinet?tab=notifications',
-      icon: Bell,
-      exact: false,
-      badge: unreadCount > 0 ? unreadCount : null,
-      requiresAuth: true,
-    },
+    ...(NOTIFICATIONS_ENABLED
+      ? [
+          {
+            label: 'Bildirishnomalar',
+            href: user ? '/kabinet?tab=notifications' : '/kirish?returnUrl=/kabinet?tab=notifications',
+            icon: Bell,
+            exact: false,
+            badge: unreadCount > 0 ? unreadCount : null,
+            requiresAuth: true,
+          },
+        ]
+      : []),
     {
       label: 'Muallif bo‘ling',
       href: '/muallif-boling',

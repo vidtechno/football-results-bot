@@ -6,7 +6,7 @@ type Stats = { views:number; readers:number; bookmarks:number; completed:number;
 export function PublicWorkStats({ workId, initialFollowers }: { workId:string; initialFollowers:number }) {
   const [stats, setStats] = useState<Stats | null>(null);
   useEffect(() => {
-    const load = () => { void fetch(`/api/works/${workId}/stats`, { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject()).then(setStats).catch(() => {}); };
+    const load = () => { void fetch(`/api/works/${workId}/stats`).then(r => r.ok ? r.json() : Promise.reject()).then(setStats).catch(() => {}); };
     load();
     const refresh = (event: Event) => { if ((event as CustomEvent).detail?.workId === workId) load(); };
     window.addEventListener('manbora:work-view-recorded', refresh);

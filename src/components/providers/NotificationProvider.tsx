@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
+import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export interface NotificationItem {
   id: string;
@@ -46,7 +47,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const activeUserIdRef = useRef<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
-    if (!user) {
+    if (!NOTIFICATIONS_ENABLED || !user) {
       setNotifications([]);
       setUnreadCount(0);
       setError(null);
@@ -91,47 +92,48 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     activeUserIdRef.current = user?.id || null;
 
-    if (!user) {
+    if (!NOTIFICATIONS_ENABLED || !user) {
       setNotifications([]);
       setUnreadCount(0);
       setError(null);
       setLoading(false);
-    } else {
-      let cancelled = false;
-      const run = () => {
-        if (!cancelled) {
-          fetchNotifications();
-        }
-      };
-
-      let idleHandle: any;
-      let timerHandle: any;
-      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-        idleHandle = (window as any).requestIdleCallback(run, { timeout: 1500 });
-      } else {
-        timerHandle = setTimeout(run, 300);
-      }
-
-      return () => {
-        cancelled = true;
-        if (idleHandle && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
-          (window as any).cancelIdleCallback(idleHandle);
-        }
-        if (timerHandle) clearTimeout(timerHandle);
-      };
+      return;
     }
+
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) {
+        fetchNotifications();
+      }
+    };
+
+    let idleHandle: any;
+    let timerHandle: any;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleHandle = (window as any).requestIdleCallback(run, { timeout: 1500 });
+    } else {
+      timerHandle = setTimeout(run, 300);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleHandle && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        (window as any).cancelIdleCallback(idleHandle);
+      }
+      if (timerHandle) clearTimeout(timerHandle);
+    };
   }, [user, fetchNotifications]);
 
   // Periodic fallback polling every 45 seconds if user is logged in
   useEffect(() => {
-    if (!user) return;
+    if (!NOTIFICATIONS_ENABLED || !user) return;
     const interval = setInterval(fetchNotifications, 45000);
     return () => clearInterval(interval);
   }, [user, fetchNotifications]);
 
   // Realtime Supabase postgres_changes subscription (zero memory leak, safe cleanup)
   useEffect(() => {
-    if (!user?.id) return;
+    if (!NOTIFICATIONS_ENABLED || !user?.id) return;
 
     const channelName = `realtime_notifications_${user.id}`;
     const channel = supabase
@@ -157,6 +159,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Global event listener for immediate sync across components
   useEffect(() => {
+    if (!NOTIFICATIONS_ENABLED) return;
     const handleSync = () => {
       fetchNotifications();
     };
@@ -168,7 +171,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [fetchNotifications]);
 
   const markAllAsRead = async () => {
-    if (!user || unreadCount === 0) return;
+    if (!NOTIFICATIONS_ENABLED || !user || unreadCount === 0) return;
     setLoading(true);
 
     // Optimistic update
@@ -204,7 +207,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   const markItemAsRead = async (id: string) => {
-    if (!user) return;
+    if (!NOTIFICATIONS_ENABLED || !user) return;
     const item = notifications.find((notification) => notification.id === id);
     if (!item || item.is_read || item.read_at) return;
 

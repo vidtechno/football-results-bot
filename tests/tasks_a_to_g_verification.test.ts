@@ -141,3 +141,52 @@ describe('TASK F — Production Environment & Auth Robustness', () => {
     expect(serverSupabase).toContain('Ishlab chiqarish (production) muhitida');
   });
 });
+
+describe('PRODUCTION OPTIMIZATION SUITE — Tasks 1 to 10', () => {
+  it('Task 1: central feature flag disables notifications by default and suppresses traffic/UI', () => {
+    const features = read('src/lib/config/features.ts');
+    const provider = read('src/components/providers/NotificationProvider.tsx');
+    const bell = read('src/components/notifications/NotificationBell.tsx');
+    const adminBell = read('src/components/admin/AdminNotificationBell.tsx');
+    const sidebar = read('src/components/layout/Sidebar.tsx');
+    const mobileNav = read('src/components/layout/MobileBottomNav.tsx');
+    const apiRoute = read('src/app/api/notifications/route.ts');
+    const pageRoute = read('src/app/bildirishnomalar/page.tsx');
+
+    expect(features).toContain("process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED === 'true'");
+    expect(provider).toContain('if (!NOTIFICATIONS_ENABLED || !user) return;');
+    expect(bell).toContain('if (!NOTIFICATIONS_ENABLED || !user) return null;');
+    expect(adminBell).toContain('if (!NOTIFICATIONS_ENABLED) return null;');
+    expect(sidebar).toContain('NOTIFICATIONS_ENABLED');
+    expect(mobileNav).toContain('NOTIFICATIONS_ENABLED');
+    expect(apiRoute).toContain('if (!NOTIFICATIONS_ENABLED)');
+    expect(pageRoute).toContain("redirect('/kabinet')");
+  });
+
+  it('Task 3: reading progress uses immediate localStorage caching and throttled server persistence', () => {
+    const reader = read('src/components/reader/ReaderView.tsx');
+    const progressApi = read('src/app/api/library/progress/route.ts');
+
+    expect(reader).toContain('manbora:progress:');
+    expect(reader).toContain('timeSinceLast < 45000');
+    expect(reader).toContain('sendBeacon');
+    expect(reader).toContain('visibilitychange');
+    expect(progressApi).toContain('Eski progress e’tiborsiz qoldirildi');
+  });
+
+  it('Task 4: analytics presence heartbeat is throttled to 6 minutes and is activity/visibility aware', () => {
+    const analytics = read('src/components/analytics/AnalyticsTracker.tsx');
+    const trackApi = read('src/app/api/analytics/track/route.ts');
+
+    expect(analytics).toContain('360000');
+    expect(analytics).toContain('visibilitychange');
+    expect(trackApi).toContain("onConflict: 'work_id,user_id'");
+  });
+
+  it('Task 10: migration 030 adds high-value indexes on reading_progress and reading_bookmarks', () => {
+    const mig030 = read('supabase/migrations/030_performance_indexes.sql');
+    expect(mig030).toContain('CREATE INDEX IF NOT EXISTS idx_reading_progress_work_id');
+    expect(mig030).toContain('CREATE INDEX IF NOT EXISTS idx_reading_bookmarks_work_id');
+  });
+});
+

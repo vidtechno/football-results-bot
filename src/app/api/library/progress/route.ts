@@ -8,7 +8,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Avtorizatsiya talab etiladi' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch {
+      try {
+        const text = await request.text();
+        body = JSON.parse(text);
+      } catch {
+        body = {};
+      }
+    }
+
     const workId = String(body.workId || '').trim();
     const chapterId = String(body.chapterId || '').trim();
     const pageIndex = Math.max(1, Math.floor(Number(body.pageIndex || body.page || 1)));
@@ -23,6 +34,22 @@ export async function POST(request: Request) {
 
     const adminClient = createAdminClient();
     const nowIso = new Date().toISOString();
+
+    // Prevent stale progress from overwriting newer progress (e.g. from an older inactive tab)
+    const { data: existingProgress } = await adminClient
+      .from('reading_progress')
+      .select('last_read_at, chapter_id, percentage')
+      .eq('user_id', profile.id)
+      .eq('work_id', workId)
+      .maybeSingle();
+
+    if (existingProgress && existingProgress.last_read_at) {
+      const incomingTime = body.timestamp ? Number(body.timestamp) : Date.now();
+      const existingTime = new Date(existingProgress.last_read_at).getTime();
+      if (incomingTime < existingTime - 30000 && existingProgress.chapter_id !== chapterId) {
+        return NextResponse.json({ success: true, ignored: true, reason: 'Eski progress e’tiborsiz qoldirildi' });
+      }
+    }
 
     // 1. Authoritative Reading Progress update (user_id + work_id unique constraint)
     const { error: progressError } = await adminClient

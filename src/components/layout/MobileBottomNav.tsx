@@ -7,6 +7,7 @@ import { BookOpen, Search, Bookmark, Bell, User } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
+import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
@@ -45,14 +46,18 @@ export function MobileBottomNav() {
       exact: false,
       activePattern: '/kutubxona',
     },
-    {
-      href: user ? '/kabinet?tab=notifications' : '/kirish?returnUrl=/kabinet?tab=notifications',
-      label: 'Bildirishnomalar',
-      icon: Bell,
-      exact: false,
-      activePattern: '/kabinet?tab=notifications',
-      badge: unreadCount > 0 ? unreadCount : null,
-    },
+    ...(NOTIFICATIONS_ENABLED
+      ? [
+          {
+            href: user ? '/kabinet?tab=notifications' : '/kirish?returnUrl=/kabinet?tab=notifications',
+            label: 'Bildirishnomalar',
+            icon: Bell,
+            exact: false,
+            activePattern: '/kabinet?tab=notifications',
+            badge: unreadCount > 0 ? unreadCount : null,
+          },
+        ]
+      : []),
     {
       href: user ? '/kabinet' : '/kirish',
       label: 'Profil',

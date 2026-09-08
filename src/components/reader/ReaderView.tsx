@@ -124,6 +124,17 @@ export function ReaderView({
     if (typeof initialPage === 'number' && initialPage >= 1) {
       return initialPage;
     }
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem(`manbora:progress:${work.id}`);
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (parsed.chapterId === currentChapter.id && parsed.pageIndex >= 1) {
+            return parsed.pageIndex;
+          }
+        }
+      } catch {}
+    }
     if (savedProgress?.chapterId === currentChapter.id && savedProgress.pageIndex >= 1) {
       return savedProgress.pageIndex;
     }
@@ -231,7 +242,7 @@ export function ReaderView({
         (window as any).cancelIdleCallback(handle);
       };
     } else {
-      const timer = setTimeout(fetchBookmark, 200);
+      const timer = setTimeout(fetchBookmark, 500);
       return () => {
         isMounted = false;
         clearTimeout(timer);
@@ -310,10 +321,44 @@ export function ReaderView({
     }
   };
 
+  // Throttled & local-first progress persistence
+  const lastSavedTimeRef = useRef<number>(0);
+  const lastSavedPageRef = useRef<number>(currentPage);
+  const lastSavedChapterRef = useRef<string>(currentChapter.id);
+  const serverSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Authoritative progress persistence to PostgreSQL server
   const saveProgressToServer = useCallback(
-    (page: number) => {
+    (page: number, options?: { force?: boolean }) => {
       if (!isLoggedIn || !hasAccess) return;
+      const force = options?.force || false;
+      const now = Date.now();
+
+      // If not forced: throttle server writes to at most once per 45s or if >= 5 pages turned
+      const timeSinceLast = now - lastSavedTimeRef.current;
+      const pagesSinceLast = Math.abs(page - lastSavedPageRef.current);
+      const chapterChanged = currentChapter.id !== lastSavedChapterRef.current;
+
+      if (!force && !chapterChanged && timeSinceLast < 45000 && pagesSinceLast < 5) {
+        if (!serverSaveTimerRef.current) {
+          const delay = Math.max(1000, 45000 - timeSinceLast);
+          serverSaveTimerRef.current = setTimeout(() => {
+            serverSaveTimerRef.current = null;
+            saveProgressToServer(page, { force: true });
+          }, delay);
+        }
+        return;
+      }
+
+      if (serverSaveTimerRef.current) {
+        clearTimeout(serverSaveTimerRef.current);
+        serverSaveTimerRef.current = null;
+      }
+
+      lastSavedTimeRef.current = now;
+      lastSavedPageRef.current = page;
+      lastSavedChapterRef.current = currentChapter.id;
+
       const totalWorkChapters = Math.max(1, allChapters.length);
       const chapterFraction = paginated.totalPages > 0 ? (page / paginated.totalPages) : 0;
       const percentage = Math.min(
@@ -321,19 +366,27 @@ export function ReaderView({
         Math.max(0, Math.round(((currentIndex + chapterFraction) / totalWorkChapters) * 100))
       );
 
-      fetch('/api/library/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workId: work.id,
-          chapterId: currentChapter.id,
-          pageIndex: page,
-          totalPages: paginated.totalPages,
-          percentage,
-          isCompleted: page >= paginated.totalPages && currentIndex === allChapters.length - 1,
-        }),
-        keepalive: true,
-      }).catch(() => {});
+      const payload = JSON.stringify({
+        workId: work.id,
+        chapterId: currentChapter.id,
+        pageIndex: page,
+        totalPages: paginated.totalPages,
+        percentage,
+        isCompleted: page >= paginated.totalPages && currentIndex === allChapters.length - 1,
+        timestamp: now,
+      });
+
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon && (force || document.visibilityState === 'hidden')) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon('/api/library/progress', blob);
+      } else {
+        fetch('/api/library/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {});
+      }
     },
     [
       isLoggedIn,
@@ -346,23 +399,46 @@ export function ReaderView({
     ],
   );
 
-  // Debounced progress saving when page changes
+  // 1. Immediate localStorage persistence on every page turn + schedule throttled server write
   useEffect(() => {
-    const timer = setTimeout(() => {
-      saveProgressToServer(currentPage);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [currentPage, saveProgressToServer]);
-
-  // Save on beforeunload
-  useEffect(() => {
-    function handleBeforeUnload() {
-      saveProgressToServer(currentPage);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          `manbora:progress:${work.id}`,
+          JSON.stringify({
+            workId: work.id,
+            chapterId: currentChapter.id,
+            pageIndex: currentPage,
+            totalPages: paginated.totalPages,
+            timestamp: Date.now(),
+          })
+        );
+      } catch {}
     }
+    saveProgressToServer(currentPage, { force: false });
+  }, [work.id, currentChapter.id, currentPage, paginated.totalPages, saveProgressToServer]);
+
+  // 2. Immediate server flush when chapter changes, tab hides, or before unload
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        saveProgressToServer(currentPage, { force: true });
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      saveProgressToServer(currentPage, { force: true });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      saveProgressToServer(currentPage);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+      saveProgressToServer(currentPage, { force: true });
     };
   }, [currentPage, saveProgressToServer]);
 

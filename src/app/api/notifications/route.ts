@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
+import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  if (!NOTIFICATIONS_ENABLED) {
+    return NextResponse.json({ notifications: [], unread_count: 0, disabled: true });
+  }
+
   try {
     const profile = await getCurrentProfile(req.headers.get('Authorization'));
     if (!profile) {
@@ -47,6 +52,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!NOTIFICATIONS_ENABLED) {
+    return NextResponse.json({ success: true, disabled: true });
+  }
+
   try {
     const profile = await getCurrentProfile(req.headers.get('Authorization'));
     if (!profile) {

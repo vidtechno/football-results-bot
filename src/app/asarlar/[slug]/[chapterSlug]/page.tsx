@@ -55,7 +55,9 @@ export default async function ReadingPage({ params, searchParams }: ReadingPageP
     allChapters,
     chapterAccessMap,
     savedProgress,
-  } = await getChapterForReading(params.slug, params.chapterSlug, userId);
+  } = await getChapterForReading(params.slug, params.chapterSlug, userId, {
+    isAdmin: Boolean(profile?.is_admin),
+  });
 
   if (!work || !chapter) {
     notFound();

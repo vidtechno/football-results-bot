@@ -15,7 +15,7 @@ import {
   PenTool,
   Languages,
 } from 'lucide-react';
-import { getPublishedWorks, getActiveGenres, getRecentChapters, getPaginatedCatalogue } from '@/lib/db/queries';
+import { getPublishedWorks, getActiveGenres, getRecentChapters } from '@/lib/db/queries';
 import { createServerClient } from '@/lib/supabase/server';
 import { WorkCard } from '@/components/work/WorkCard';
 import { HomeHeroCarousel } from '@/components/home/HomeHeroCarousel';
@@ -29,23 +29,11 @@ export default async function HomePage() {
   const supabase = createServerClient();
 
   // Fetch all necessary catalogue subsets concurrently
-  const [
-    recentUpdatedWorks,
-    recentChapters,
-    featuredWorks,
-    storyWorks,
-    popularWorks,
-    freeWorks,
-    genres,
-    authorList,
-    translatedCatalogue,
-  ] = await Promise.all([
-    getPublishedWorks({ sortBy: 'updated', limit: 10 }),
+  const [allWorks, recentChapters, genres, authorList] = await Promise.all([
+    // One bounded catalogue read replaces six overlapping works queries. The
+    // homepage sections are derived in memory from this shared snapshot.
+    getPublishedWorks({ sortBy: 'newest', limit: 60 }),
     getRecentChapters(8),
-    getPublishedWorks({ isFeatured: true, limit: 6 }),
-    getPublishedWorks({ type: 'serialized_story', limit: 8 }),
-    getPublishedWorks({ sortBy: 'popular', limit: 10 }),
-    getPublishedWorks({ accessType: 'free', limit: 8 }),
     getActiveGenres(),
     supabase
       .from('author_profiles')
@@ -57,15 +45,26 @@ export default async function HomePage() {
       `)
       .eq('status', 'approved')
       .limit(6),
-    getPaginatedCatalogue({
-      page: 1,
-      pageSize: 5,
-      isTranslation: true,
-      sortBy: 'newest',
-    }),
   ]);
 
   const authors = (authorList.data || []) as any[];
+  const byNewest = (a: Work, b: Work) =>
+    new Date(b.published_at || b.created_at || 0).getTime() -
+    new Date(a.published_at || a.created_at || 0).getTime();
+  const byUpdated = (a: Work, b: Work) =>
+    new Date(b.updated_at || b.published_at || 0).getTime() -
+    new Date(a.updated_at || a.published_at || 0).getTime();
+  const byPopular = (a: Work, b: Work) =>
+    Number(b.view_count || 0) - Number(a.view_count || 0) ||
+    Number(b.average_rating || 0) - Number(a.average_rating || 0);
+
+  const originalWorks = allWorks.filter((work) => !work.is_translation);
+  const recentUpdatedWorks = [...originalWorks].sort(byUpdated).slice(0, 10);
+  const featuredWorks = originalWorks.filter((work) => work.is_featured).sort(byUpdated).slice(0, 6);
+  const storyWorks = originalWorks.filter((work) => work.type === 'serialized_story').sort(byNewest).slice(0, 8);
+  const popularWorks = [...originalWorks].sort(byPopular).slice(0, 10);
+  const freeWorks = originalWorks.filter((work) => work.access_type === 'free').sort(byNewest).slice(0, 8);
+  const translatedWorks = allWorks.filter((work) => work.is_translation).sort(byNewest).slice(0, 5);
 
   // Hero carousel candidates
   const heroRecent =
@@ -79,7 +78,6 @@ export default async function HomePage() {
   const shownWorkIds = new Set<string>();
 
   // Give translated works their own prominent section and avoid repeating them below.
-  const translatedWorks = translatedCatalogue.works;
   translatedWorks.forEach((work) => shownWorkIds.add(work.id));
 
   const getDeduplicatedSlice = (candidateWorks: Work[], maxCount = 5): Work[] => {

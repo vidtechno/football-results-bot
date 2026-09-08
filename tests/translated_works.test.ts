@@ -39,7 +39,7 @@ describe('admin-curated translated works', () => {
 
   it('promotes translated works on the homepage without showing an empty section', () => {
     const home = read('src/app/page.tsx');
-    expect(home).toContain('isTranslation: true');
+    expect(home).toContain('work.is_translation');
     expect(home).toContain('Dunyo adabiyoti o‘zbek tilida');
     expect(home).toContain('href="/tarjima-asarlar"');
     expect(home).toContain('translatedWorks.length > 0');

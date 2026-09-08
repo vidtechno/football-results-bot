@@ -121,17 +121,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    let lastSessionKey: string | null = null;
+
+    const hydrateSession = (session: any | null) => {
+      if (!isMounted) return;
+      const sessionKey = session
+        ? `${session.user?.id || ''}:${session.access_token || ''}`
+        : 'anonymous';
+      // Supabase commonly emits INITIAL_SESSION while getSession() is resolving.
+      // Deduplicate those events so first load does not issue profile/wallet/author
+      // requests twice.
+      if (sessionKey === lastSessionKey) return;
+      lastSessionKey = sessionKey;
+      void fetchUserData(session?.user || null, session?.access_token);
+    };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (isMounted) {
-        fetchUserData(session?.user || null, session?.access_token);
-      }
+      hydrateSession(session);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted) {
-        fetchUserData(session?.user || null, session?.access_token);
-      }
+      hydrateSession(session);
     });
 
     return () => {

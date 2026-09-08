@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import {
   canReadChapter,
@@ -20,6 +21,10 @@ import type {
 } from '@/lib/types/platform';
 
 import { getRelativeTimeString } from '@/lib/utils/formatters';
+
+const requestCache = typeof (React as any).cache === 'function'
+  ? (React as any).cache
+  : (<T extends (...args: any[]) => any>(fn: T): T => fn);
 
 /**
  * Fetch active genres sorted by order.
@@ -260,29 +265,52 @@ export interface ChapterReadingData {
   } | null;
 }
 
+/**
+ * Shared request-level reader lookup. generateMetadata and the page render run in
+ * the same request; caching this pair prevents both from independently fetching
+ * the same work and chapter list from Supabase.
+ */
+const getReaderWorkAndChapters = requestCache(async function getReaderWorkAndChapters(
+  workSlug: string,
+): Promise<{ work: Work | null; chapters: Chapter[] }> {
+  const supabase = createAdminClient();
+  const { data: work } = await supabase
+    .from('works')
+    .select(`
+      *,
+      author:author_profiles (
+        user_id,
+        pen_name,
+        biography,
+        profile:profiles(id, display_name, username, avatar_url)
+      )
+    `)
+    .eq('slug', workSlug)
+    .maybeSingle();
+
+  if (!work) return { work: null, chapters: [] };
+
+  const { data: chaptersData } = await supabase
+    .from('chapters')
+    .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
+    .eq('work_id', work.id)
+    .eq('status', 'published')
+    .order('chapter_number', { ascending: true });
+
+  return {
+    work: work as unknown as Work,
+    chapters: (chaptersData as Chapter[]) || [],
+  };
+});
+
 export async function getChapterMetadata(workSlug: string, chapterSlug: string): Promise<{
   work: Work | null;
   chapter: Pick<Chapter, 'title' | 'chapter_number' | 'slug'> | null;
 }> {
-  const supabase = createAdminClient();
-  const { data: work } = await supabase
-    .from('works')
-    .select('id, title, slug, cover_url, is_translation, original_author_name, author:author_profiles(pen_name)')
-    .eq('slug', workSlug)
-    .eq('status', 'published')
-    .maybeSingle();
-
-  if (!work) return { work: null, chapter: null };
-
-  const { data: chapter } = await supabase
-    .from('chapters')
-    .select('title, chapter_number, slug')
-    .eq('work_id', work.id)
-    .eq('slug', chapterSlug)
-    .eq('status', 'published')
-    .maybeSingle();
-
-  return { work: work as unknown as Work, chapter };
+  const { work, chapters } = await getReaderWorkAndChapters(workSlug);
+  if (!work || work.status !== 'published') return { work: null, chapter: null };
+  const chapter = chapters.find((item: Chapter) => item.slug === chapterSlug) || null;
+  return { work, chapter };
 }
 
 /**
@@ -366,24 +394,12 @@ export async function getChapterForReading(
   workSlug: string,
   chapterSlug: string,
   userId?: string | null,
-  options?: { isAdminRoute?: boolean },
+  options?: { isAdmin?: boolean },
 ): Promise<ChapterReadingData> {
   const supabase = createAdminClient();
 
-  // 1. Fetch work once
-  const { data: work } = await supabase
-    .from('works')
-    .select(`
-      *,
-      author:author_profiles (
-        user_id,
-        pen_name,
-        biography,
-        profile:profiles(id, display_name, username, avatar_url)
-      )
-    `)
-    .eq('slug', workSlug)
-    .maybeSingle();
+  // Shared with generateMetadata during this request, avoiding duplicate reads.
+  const { work, chapters: allChapters } = await getReaderWorkAndChapters(workSlug);
 
   if (!work) {
     return {
@@ -398,18 +414,8 @@ export async function getChapterForReading(
     };
   }
 
-  // 2. Fetch all published chapter metadata once (never query chapters again)
-  const { data: chaptersData } = await supabase
-    .from('chapters')
-    .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
-    .eq('work_id', work.id)
-    .eq('status', 'published')
-    .order('chapter_number', { ascending: true });
-
-  const allChapters = (chaptersData as Chapter[]) || [];
-
-  // 3. Find current chapter locally from already-fetched chapters
-  const currentChapter = allChapters.find((c) => c.slug === chapterSlug) || null;
+  // Find current chapter locally from already-fetched chapters.
+  const currentChapter = allChapters.find((c: Chapter) => c.slug === chapterSlug) || null;
 
   if (!currentChapter) {
     return {
@@ -438,18 +444,13 @@ export async function getChapterForReading(
   if (userId) {
     isAuthor = work.author_id === userId;
 
-    // Parallel fetch of all required authenticated reader state
-    const [profileRes, entRes, purRes, walletRes, progRes] = await Promise.all([
-      supabase.from('profiles').select('is_admin').eq('id', userId).maybeSingle(),
+    // Parallel fetch of authenticated reader state. The already-resolved profile
+    // supplies admin state, so this path does not query profiles a second time.
+    const [entRes, walletRes, progRes] = await Promise.all([
       supabase
         .from('entitlements')
         .select('entitlement_type, chapter_id')
         .eq('user_id', userId)
-        .eq('work_id', work.id),
-      supabase
-        .from('purchases')
-        .select('purchase_type, chapter_id, status')
-        .eq('buyer_id', userId)
         .eq('work_id', work.id),
       supabase
         .from('wallet_accounts')
@@ -465,10 +466,20 @@ export async function getChapterForReading(
         .maybeSingle(),
     ]);
 
-    isAdmin = Boolean(options?.isAdminRoute && profileRes.data?.is_admin);
+    isAdmin = Boolean(options?.isAdmin);
 
     const entitlements = entRes.data || [];
-    const rawPurchases = purRes.data || [];
+    // Entitlements are canonical after migration 032. Query legacy purchases only
+    // when no entitlement exists, preserving old accounts without taxing every read.
+    let rawPurchases: any[] = [];
+    if (entitlements.length === 0) {
+      const purRes = await supabase
+        .from('purchases')
+        .select('purchase_type, chapter_id, status')
+        .eq('buyer_id', userId)
+        .eq('work_id', work.id);
+      rawPurchases = purRes.data || [];
+    }
     const activePurchases = rawPurchases.filter((p: any) =>
       ['active', 'completed', 'paid'].includes(p.status),
     );

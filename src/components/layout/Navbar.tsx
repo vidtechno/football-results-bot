@@ -20,7 +20,6 @@ import { formatUZS } from '@/lib/utils/currency';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { TopupModal } from '@/components/wallet/TopupModal';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
-import { OnlineUsersBadge } from '@/components/analytics/OnlineUsersBadge';
 
 export function Navbar() {
   const router = useRouter();
@@ -110,7 +109,6 @@ export function Navbar() {
 
         {/* Right Section: Notification, Wallet Balance, User Menu or Guest Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          <div className="hidden sm:block"><OnlineUsersBadge /></div>
           {/* Quick Search Trigger on Mobile */}
           <Link
             href="/qidiruv"

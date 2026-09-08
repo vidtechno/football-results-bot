@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Search, Bookmark, Bell, User } from 'lucide-react';
+import { BookOpen, Search, Bookmark, Bell, User, PenTool, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
@@ -11,14 +11,9 @@ import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, author } = useAuth();
   const { unreadCount } = useNotifications();
-
-  // Reader exception: if on chapter reading page (/asarlar/[slug]/[chapterSlug]), hide bottom navigation!
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments[0] === 'asarlar' && segments.length >= 3) {
-    return null;
-  }
+  const isAuthor = Boolean(author && author.status === 'approved');
 
   // Also hide inside admin panel (/diyoration)
   if (pathname.startsWith('/diyoration')) {
@@ -59,6 +54,13 @@ export function MobileBottomNav() {
         ]
       : []),
     {
+      href: isAuthor ? '/muallif' : '/muallif-boling',
+      label: isAuthor ? 'Muallif kabineti' : 'Muallif bo‘lish',
+      icon: isAuthor ? PenTool : Sparkles,
+      exact: false,
+      activePattern: '/muallif',
+    },
+    {
       href: user ? '/kabinet' : '/kirish',
       label: 'Profil',
       icon: User,
@@ -73,7 +75,10 @@ export function MobileBottomNav() {
       style={{ paddingBottom: 'max(0.35rem, env(safe-area-inset-bottom))' }}
       aria-label="Mobil pastki menyu"
     >
-      <div className="grid grid-cols-5 items-center h-14 max-w-md mx-auto px-1">
+      <div
+        className="grid items-center h-14 max-w-lg mx-auto px-1"
+        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      >
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = tab.exact

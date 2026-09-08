@@ -11,7 +11,7 @@ import { GenreOnboardingModal } from '@/components/onboarding/GenreOnboardingMod
 export function PublicAppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // 1. Reader layout: keep desktop navigation visible; omit mobile bottom navigation.
+  // 1. Reader layout: keep desktop navigation and mobile bottom navigation visible.
   const segments = pathname.split('/').filter(Boolean);
   const isReaderPage = segments[0] === 'asarlar' && segments.length >= 3;
 
@@ -19,7 +19,8 @@ export function PublicAppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen w-full flex bg-[#FAF8F5]">
         <Sidebar readerMode />
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="min-w-0 flex-1 pb-20 lg:pb-0">{children}</div>
+        <MobileBottomNav />
       </div>
     );
   }

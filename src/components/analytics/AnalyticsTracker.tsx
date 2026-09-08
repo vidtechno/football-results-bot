@@ -31,48 +31,11 @@ export function AnalyticsTracker() {
       timerHandle = setTimeout(scheduleTracking, 300);
     }
 
-    let lastUserActivity = Date.now();
-    let lastPresenceSent = Date.now();
-
-    const onUserActivity = () => {
-      lastUserActivity = Date.now();
-    };
-
-    window.addEventListener('mousemove', onUserActivity, { passive: true });
-    window.addEventListener('keydown', onUserActivity, { passive: true });
-    window.addEventListener('touchstart', onUserActivity, { passive: true });
-    window.addEventListener('scroll', onUserActivity, { passive: true });
-
-    // Activity & visibility-aware presence tracking (every 6 minutes)
-    const heartbeat = setInterval(() => {
-      const isVisible = typeof document !== 'undefined' && document.visibilityState === 'visible';
-      const wasActiveRecently = Date.now() - lastUserActivity < 360000;
-      if (isVisible && wasActiveRecently) {
-        lastPresenceSent = Date.now();
-        void send('presence');
-      }
-    }, 360000);
-
-    // Send presence on tab return if inactive for a while
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && Date.now() - lastPresenceSent > 360000) {
-        lastPresenceSent = Date.now();
-        void send('presence');
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
     return () => {
       if (idleHandle && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
         (window as any).cancelIdleCallback(idleHandle);
       }
       if (timerHandle) clearTimeout(timerHandle);
-      clearInterval(heartbeat);
-      window.removeEventListener('mousemove', onUserActivity);
-      window.removeEventListener('keydown', onUserActivity);
-      window.removeEventListener('touchstart', onUserActivity);
-      window.removeEventListener('scroll', onUserActivity);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [pathname]);
   return null;

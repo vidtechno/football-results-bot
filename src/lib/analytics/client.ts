@@ -1,6 +1,6 @@
 'use client';
 
-export type AnalyticsEvent = 'page_view' | 'work_view' | 'chapter_start' | 'chapter_complete' | 'signup_gate' | 'presence';
+export type AnalyticsEvent = 'page_view' | 'work_view' | 'chapter_start' | 'chapter_complete' | 'signup_gate';
 
 function getSessionId() {
   let id = sessionStorage.getItem('manbora_analytics_session');

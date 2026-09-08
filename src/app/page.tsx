@@ -65,6 +65,10 @@ export default async function HomePage() {
   const popularWorks = [...originalWorks].sort(byPopular).slice(0, 10);
   const freeWorks = originalWorks.filter((work) => work.access_type === 'free').sort(byNewest).slice(0, 8);
   const translatedWorks = allWorks.filter((work) => work.is_translation).sort(byNewest).slice(0, 5);
+  const discoveryNewWorks = [
+    ...recentUpdatedWorks,
+    ...allWorks.filter((work) => !recentUpdatedWorks.some((recent) => recent.id === work.id)),
+  ].slice(0, 10);
 
   // Hero carousel candidates
   const heroRecent =
@@ -154,7 +158,7 @@ export default async function HomePage() {
 
       {/* 2. Horizontal Discovery Tabs (Yangi, Siz uchun, Ommabop, Kuzatayotganlarim) */}
       <HomeDiscoveryTabs
-        initialWorks={recentUpdatedWorks}
+        initialWorks={discoveryNewWorks}
         popularWorks={popularWorks}
       />
 

@@ -21,7 +21,6 @@ import {
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
-import { OnlineUsersBadge } from '@/components/analytics/OnlineUsersBadge';
 import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
@@ -218,7 +217,6 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
 
       {/* Bottom Compact Author CTA Card */}
       <div className="pt-4 border-t border-[#EAE5DD]">
-        <div className="px-2 pb-3"><OnlineUsersBadge /></div>
         <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#FAF8F5] via-emerald-50/40 to-emerald-100/30 border border-emerald-200/80 shadow-2xs space-y-2">
           <div className="flex items-center gap-1.5 text-emerald-900">
             <Sparkles className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
@@ -231,10 +229,10 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
             Asaringizni nashr qiling, auditoriya to‘plang va daromad qiling.
           </p>
           <Link
-            href={isAuthor ? '/muallif/asar/yangi' : '/muallif-boling'}
+            href={isAuthor ? '/muallif' : '/muallif-boling'}
             className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[11px] transition-colors shadow-2xs group"
           >
-            <span>{isAuthor ? 'Yangi asar yaratish' : 'Muallif bo‘lish'}</span>
+            <span>{isAuthor ? 'Muallif kabineti' : 'Muallif bo‘lish'}</span>
             <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>

@@ -174,12 +174,12 @@ describe('PRODUCTION OPTIMIZATION SUITE — Tasks 1 to 10', () => {
     expect(progressApi).toContain('Eski progress e’tiborsiz qoldirildi');
   });
 
-  it('Task 4: analytics presence heartbeat is throttled to 6 minutes and is activity/visibility aware', () => {
+  it('Task 4: analytics avoids presence heartbeats and preserves unique authenticated work views', () => {
     const analytics = read('src/components/analytics/AnalyticsTracker.tsx');
     const trackApi = read('src/app/api/analytics/track/route.ts');
 
-    expect(analytics).toContain('360000');
-    expect(analytics).toContain('visibilitychange');
+    expect(analytics).not.toContain("send('presence')");
+    expect(trackApi).not.toContain("from('analytics_presence')");
     expect(trackApi).toContain("onConflict: 'work_id,user_id'");
   });
 
@@ -189,4 +189,3 @@ describe('PRODUCTION OPTIMIZATION SUITE — Tasks 1 to 10', () => {
     expect(mig030).toContain('CREATE INDEX IF NOT EXISTS idx_reading_bookmarks_work_id');
   });
 });
-

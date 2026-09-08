@@ -62,11 +62,37 @@ export async function getPublishedWorks(options?: {
   let q = supabase
     .from('works')
     .select(`
-      *,
+      id,
+      author_id,
+      title,
+      slug,
+      description,
+      cover_url,
+      type,
+      status,
+      access_type,
+      full_work_price,
+      age_rating,
+      completion_status,
+      language,
+      is_translation,
+      original_title,
+      original_author_name,
+      source_language,
+      translator_name,
+      translation_rights_basis,
+      is_archived,
+      is_featured,
+      total_words,
+      average_rating,
+      rating_count,
+      view_count,
+      published_at,
+      created_at,
+      updated_at,
       author:author_profiles (
         user_id,
         pen_name,
-        biography,
         status,
         profile:profiles (
           id,
@@ -76,7 +102,7 @@ export async function getPublishedWorks(options?: {
         )
       ),
       work_genres (
-        genre:genres (*)
+        genre:genres (id, name, slug)
       )
     `)
     .eq('status', 'published');
@@ -126,11 +152,37 @@ export async function getPublishedWorks(options?: {
     let fallbackQ = supabase
       .from('works')
       .select(`
-        *,
+        id,
+        author_id,
+        title,
+        slug,
+        description,
+        cover_url,
+        type,
+        status,
+        access_type,
+        full_work_price,
+        age_rating,
+        completion_status,
+        language,
+        is_translation,
+        original_title,
+        original_author_name,
+        source_language,
+        translator_name,
+        translation_rights_basis,
+        is_archived,
+        is_featured,
+        total_words,
+        average_rating,
+        rating_count,
+        view_count,
+        published_at,
+        created_at,
+        updated_at,
         author:author_profiles (
           user_id,
           pen_name,
-          biography,
           status,
           profile:profiles (
             id,
@@ -140,7 +192,7 @@ export async function getPublishedWorks(options?: {
           )
         ),
         work_genres (
-          genre:genres (*)
+          genre:genres (id, name, slug)
         )
       `)
       .eq('status', 'published')

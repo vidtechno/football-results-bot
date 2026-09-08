@@ -250,7 +250,14 @@ export interface ChapterReadingData {
   userBalance: number;
   allChapters: Chapter[];
   chapterAccessMap: Record<string, ChapterAccessStatus>;
-  savedProgress: { pageIndex: number; percentage: number; chapterId: string } | null;
+  savedProgress: {
+    pageIndex: number;
+    percentage: number;
+    chapterId: string;
+    lastReadAt?: string | null;
+    last_read_at?: string | null;
+    timestamp?: number;
+  } | null;
 }
 
 export async function getChapterMetadata(workSlug: string, chapterSlug: string): Promise<{
@@ -424,7 +431,7 @@ export async function getChapterForReading(
   let hasFullWorkEntitlement = false;
   const purchasedChapterIds = new Set<string>();
   let userBalance = 0;
-  let savedProgress: { pageIndex: number; percentage: number; chapterId: string } | null = null;
+  let savedProgress: ChapterReadingData['savedProgress'] = null;
   let isAuthor = false;
   let isAdmin = false;
 
@@ -452,7 +459,7 @@ export async function getChapterForReading(
         .maybeSingle(),
       supabase
         .from('reading_progress')
-        .select('page_index, percentage, chapter_id')
+        .select('page_index, percentage, chapter_id, last_read_at')
         .eq('user_id', userId)
         .eq('work_id', work.id)
         .maybeSingle(),
@@ -485,6 +492,8 @@ export async function getChapterForReading(
         pageIndex: Number(prog.page_index || 1),
         percentage: Number(prog.percentage || 0),
         chapterId: prog.chapter_id,
+        lastReadAt: prog.last_read_at || null,
+        last_read_at: prog.last_read_at || null,
       };
     }
   }

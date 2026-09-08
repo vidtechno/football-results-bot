@@ -41,8 +41,106 @@ interface ReaderViewProps {
   userBalance?: number;
   isLoggedIn: boolean;
   chapterAccessMap?: Record<string, ChapterAccessStatus>;
-  savedProgress?: { pageIndex: number; percentage: number; chapterId: string } | null;
+  savedProgress?: {
+    pageIndex: number;
+    percentage: number;
+    chapterId: string;
+    lastReadAt?: string | null;
+    last_read_at?: string | null;
+    timestamp?: number;
+  } | null;
   initialPage?: number;
+}
+
+/**
+ * Resolves the freshest valid reading page according to platform precedence:
+ * 1. Explicit URL ?page= always has highest priority
+ * 2. Compare local timestamp and server progress timestamp if available
+ * 3. If local progress is newer for the same chapter, use local progress
+ * 4. Otherwise use server progress
+ * 5. Never reset a valid local restored page to 1 immediately after mount
+ * 6. Clamp restored page to paginated totalPages
+ */
+export function resolveReadingPage({
+  initialPage,
+  localProgress,
+  savedProgress,
+  chapterId,
+  totalPages,
+}: {
+  initialPage?: number;
+  localProgress?: { chapterId?: string; pageIndex?: number; timestamp?: number } | null;
+  savedProgress?: {
+    chapterId?: string;
+    pageIndex?: number;
+    timestamp?: number;
+    lastReadAt?: string | null;
+    last_read_at?: string | null;
+  } | null;
+  chapterId: string;
+  totalPages: number;
+}): number {
+  const maxPage = Math.max(1, totalPages || 1);
+
+  // 1. Explicit URL initialPage always has highest priority
+  if (typeof initialPage === 'number' && !isNaN(initialPage) && initialPage >= 1) {
+    return Math.min(Math.floor(initialPage), maxPage);
+  }
+
+  const localMatches =
+    Boolean(localProgress) &&
+    localProgress!.chapterId === chapterId &&
+    typeof localProgress!.pageIndex === 'number' &&
+    !isNaN(localProgress!.pageIndex!) &&
+    localProgress!.pageIndex! >= 1;
+
+  const serverMatches =
+    Boolean(savedProgress) &&
+    savedProgress!.chapterId === chapterId &&
+    typeof savedProgress!.pageIndex === 'number' &&
+    !isNaN(savedProgress!.pageIndex!) &&
+    savedProgress!.pageIndex! >= 1;
+
+  if (localMatches && serverMatches) {
+    const localTime = Number(localProgress!.timestamp || 0);
+    const serverTime = savedProgress!.timestamp
+      ? Number(savedProgress!.timestamp)
+      : (savedProgress!.lastReadAt || savedProgress!.last_read_at)
+      ? new Date(savedProgress!.lastReadAt || savedProgress!.last_read_at!).getTime()
+      : 0;
+
+    if (localTime >= serverTime) {
+      return Math.min(Math.floor(localProgress!.pageIndex!), maxPage);
+    } else {
+      return Math.min(Math.floor(savedProgress!.pageIndex!), maxPage);
+    }
+  }
+
+  if (localMatches) {
+    return Math.min(Math.floor(localProgress!.pageIndex!), maxPage);
+  }
+
+  if (serverMatches) {
+    return Math.min(Math.floor(savedProgress!.pageIndex!), maxPage);
+  }
+
+  return 1;
+}
+
+function getStoredLocalProgress(workId: string): {
+  chapterId?: string;
+  pageIndex?: number;
+  timestamp?: number;
+  totalPages?: number;
+} | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(`manbora:progress:${workId}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 type ReaderTheme = 'light' | 'sepia' | 'dark';
@@ -119,38 +217,64 @@ export function ReaderView({
     return paginateChapterContent(currentChapter.content, 200);
   }, [hasAccess, currentChapter.content]);
 
-  // Current page state (1-indexed)
+  // Current page state (1-indexed) initialized using freshest progress
   const [currentPage, setCurrentPage] = useState<number>(() => {
-    if (typeof initialPage === 'number' && initialPage >= 1) {
-      return initialPage;
-    }
-    if (typeof window !== 'undefined') {
-      try {
-        const local = localStorage.getItem(`manbora:progress:${work.id}`);
-        if (local) {
-          const parsed = JSON.parse(local);
-          if (parsed.chapterId === currentChapter.id && parsed.pageIndex >= 1) {
-            return parsed.pageIndex;
-          }
-        }
-      } catch {}
-    }
-    if (savedProgress?.chapterId === currentChapter.id && savedProgress.pageIndex >= 1) {
-      return savedProgress.pageIndex;
-    }
-    return 1;
+    const local = getStoredLocalProgress(work.id);
+    return resolveReadingPage({
+      initialPage,
+      localProgress: local,
+      savedProgress,
+      chapterId: currentChapter.id,
+      totalPages: paginated.totalPages,
+    });
   });
 
-  // Sync current page if initialPage, savedProgress, or totalPages update
+  const prevChapterIdRef = useRef(currentChapter.id);
+  const prevInitialPageRef = useRef(initialPage);
+
+  // Client-side hydration sync: restore freshest local storage progress on mount without wiping
   useEffect(() => {
-    if (typeof initialPage === 'number' && initialPage >= 1) {
-      setCurrentPage(Math.min(initialPage, paginated.totalPages));
-    } else if (savedProgress?.chapterId === currentChapter.id && savedProgress.pageIndex >= 1) {
-      setCurrentPage(Math.min(savedProgress.pageIndex, paginated.totalPages));
-    } else {
-      setCurrentPage(1);
+    const local = getStoredLocalProgress(work.id);
+    if (local && local.chapterId === currentChapter.id) {
+      const resolved = resolveReadingPage({
+        initialPage,
+        localProgress: local,
+        savedProgress,
+        chapterId: currentChapter.id,
+        totalPages: paginated.totalPages,
+      });
+      setCurrentPage((prev) => (prev !== resolved ? resolved : prev));
     }
-  }, [currentChapter.id, initialPage, savedProgress, paginated.totalPages]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync current page when chapter, explicit URL initialPage, or totalPages changes
+  useEffect(() => {
+    const chapterChanged = currentChapter.id !== prevChapterIdRef.current;
+    const initialPageChanged = initialPage !== prevInitialPageRef.current;
+    prevChapterIdRef.current = currentChapter.id;
+    prevInitialPageRef.current = initialPage;
+
+    if (initialPageChanged && typeof initialPage === 'number' && initialPage >= 1) {
+      setCurrentPage(Math.min(initialPage, paginated.totalPages));
+      return;
+    }
+
+    if (chapterChanged) {
+      const local = getStoredLocalProgress(work.id);
+      const resolved = resolveReadingPage({
+        initialPage,
+        localProgress: local,
+        savedProgress,
+        chapterId: currentChapter.id,
+        totalPages: paginated.totalPages,
+      });
+      setCurrentPage(resolved);
+      return;
+    }
+
+    // Clamp restored page to paginated.totalPages without resetting valid page to 1
+    setCurrentPage((prev) => Math.min(prev, Math.max(1, paginated.totalPages)));
+  }, [currentChapter.id, initialPage, paginated.totalPages, work.id, savedProgress]);
 
   // Load saved preferences from localStorage on mount
   useEffect(() => {
@@ -321,6 +445,28 @@ export function ReaderView({
     }
   };
 
+  // Refs to always keep freshest values for callbacks and event handlers without stale closures
+  const currentPageRef = useRef<number>(currentPage);
+  currentPageRef.current = currentPage;
+
+  const currentChapterRef = useRef<Chapter>(currentChapter);
+  currentChapterRef.current = currentChapter;
+
+  const paginatedRef = useRef(paginated);
+  paginatedRef.current = paginated;
+
+  const allChaptersRef = useRef<Chapter[]>(allChapters);
+  allChaptersRef.current = allChapters;
+
+  const isLoggedInRef = useRef(isLoggedIn);
+  isLoggedInRef.current = isLoggedIn;
+
+  const hasAccessRef = useRef(hasAccess);
+  hasAccessRef.current = hasAccess;
+
+  const workRef = useRef(work);
+  workRef.current = work;
+
   // Throttled & local-first progress persistence
   const lastSavedTimeRef = useRef<number>(0);
   const lastSavedPageRef = useRef<number>(currentPage);
@@ -329,22 +475,31 @@ export function ReaderView({
 
   // Authoritative progress persistence to PostgreSQL server
   const saveProgressToServer = useCallback(
-    (page: number, options?: { force?: boolean }) => {
-      if (!isLoggedIn || !hasAccess) return;
+    (
+      page: number,
+      options?: {
+        force?: boolean;
+        chapter?: Chapter;
+        totalPages?: number;
+      },
+    ) => {
+      if (!isLoggedInRef.current || !hasAccessRef.current) return;
+      const targetChapter = options?.chapter || currentChapterRef.current;
+      const totalPages = options?.totalPages ?? paginatedRef.current.totalPages;
       const force = options?.force || false;
       const now = Date.now();
 
-      // If not forced: throttle server writes to at most once per 45s or if >= 5 pages turned
       const timeSinceLast = now - lastSavedTimeRef.current;
       const pagesSinceLast = Math.abs(page - lastSavedPageRef.current);
-      const chapterChanged = currentChapter.id !== lastSavedChapterRef.current;
+      const chapterChanged = targetChapter.id !== lastSavedChapterRef.current;
 
+      // If not forced: throttle server writes to at most once per 45s or if >= 5 pages turned
       if (!force && !chapterChanged && timeSinceLast < 45000 && pagesSinceLast < 5) {
         if (!serverSaveTimerRef.current) {
           const delay = Math.max(1000, 45000 - timeSinceLast);
           serverSaveTimerRef.current = setTimeout(() => {
             serverSaveTimerRef.current = null;
-            saveProgressToServer(page, { force: true });
+            saveProgressToServer(currentPageRef.current, { force: true });
           }, delay);
         }
         return;
@@ -357,26 +512,34 @@ export function ReaderView({
 
       lastSavedTimeRef.current = now;
       lastSavedPageRef.current = page;
-      lastSavedChapterRef.current = currentChapter.id;
+      lastSavedChapterRef.current = targetChapter.id;
 
-      const totalWorkChapters = Math.max(1, allChapters.length);
-      const chapterFraction = paginated.totalPages > 0 ? (page / paginated.totalPages) : 0;
+      const chaptersList = allChaptersRef.current;
+      const targetIndex = chaptersList.findIndex((c) => c.id === targetChapter.id);
+      const totalWorkChapters = Math.max(1, chaptersList.length);
+      const safeTotalPages = Math.max(1, totalPages);
+      const chapterFraction = safeTotalPages > 0 ? page / safeTotalPages : 0;
+      const safeIndex = targetIndex >= 0 ? targetIndex : 0;
       const percentage = Math.min(
         100,
-        Math.max(0, Math.round(((currentIndex + chapterFraction) / totalWorkChapters) * 100))
+        Math.max(0, Math.round(((safeIndex + chapterFraction) / totalWorkChapters) * 100)),
       );
 
       const payload = JSON.stringify({
-        workId: work.id,
-        chapterId: currentChapter.id,
+        workId: workRef.current.id,
+        chapterId: targetChapter.id,
         pageIndex: page,
-        totalPages: paginated.totalPages,
+        totalPages: safeTotalPages,
         percentage,
-        isCompleted: page >= paginated.totalPages && currentIndex === allChapters.length - 1,
+        isCompleted: page >= safeTotalPages && safeIndex === chaptersList.length - 1,
         timestamp: now,
       });
 
-      if (typeof navigator !== 'undefined' && navigator.sendBeacon && (force || document.visibilityState === 'hidden')) {
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.sendBeacon &&
+        (force || document.visibilityState === 'hidden')
+      ) {
         const blob = new Blob([payload], { type: 'application/json' });
         navigator.sendBeacon('/api/library/progress', blob);
       } else {
@@ -388,15 +551,7 @@ export function ReaderView({
         }).catch(() => {});
       }
     },
-    [
-      isLoggedIn,
-      hasAccess,
-      paginated.totalPages,
-      work.id,
-      currentChapter.id,
-      currentIndex,
-      allChapters.length,
-    ],
+    [],
   );
 
   // 1. Immediate localStorage persistence on every page turn + schedule throttled server write
@@ -411,23 +566,40 @@ export function ReaderView({
             pageIndex: currentPage,
             totalPages: paginated.totalPages,
             timestamp: Date.now(),
-          })
+          }),
         );
       } catch {}
     }
+    // Normal page turns do NOT force server writes (force: false)
     saveProgressToServer(currentPage, { force: false });
   }, [work.id, currentChapter.id, currentPage, paginated.totalPages, saveProgressToServer]);
 
-  // 2. Immediate server flush when chapter changes, tab hides, or before unload
+  // 2. Immediate server flush when chapter changes while mounted
+  const prevChapterFlushRef = useRef(currentChapter);
+  const prevPageFlushRef = useRef(currentPage);
+
+  useEffect(() => {
+    if (prevChapterFlushRef.current.id !== currentChapter.id) {
+      // Genuinely changing chapter while mounted: force flush progress for previous chapter
+      saveProgressToServer(prevPageFlushRef.current, {
+        force: true,
+        chapter: prevChapterFlushRef.current,
+      });
+      prevChapterFlushRef.current = currentChapter;
+    }
+    prevPageFlushRef.current = currentPage;
+  }, [currentChapter, currentPage, saveProgressToServer]);
+
+  // 3. Lifecycle listeners: tab hidden, pagehide, beforeunload, and genuine unmount
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        saveProgressToServer(currentPage, { force: true });
+        saveProgressToServer(currentPageRef.current, { force: true });
       }
     };
 
     const handleBeforeUnload = () => {
-      saveProgressToServer(currentPage, { force: true });
+      saveProgressToServer(currentPageRef.current, { force: true });
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -438,9 +610,10 @@ export function ReaderView({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
-      saveProgressToServer(currentPage, { force: true });
+      // Genuinely unmounting the reader component: force final flush
+      saveProgressToServer(currentPageRef.current, { force: true });
     };
-  }, [currentPage, saveProgressToServer]);
+  }, [saveProgressToServer]);
 
   const contentTopRef = useRef<HTMLDivElement | null>(null);
   const isInitialMount = useRef(true);

@@ -1,6 +1,5 @@
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Send, ShieldCheck, Heart } from 'lucide-react';
 
 export function Footer() {
@@ -8,19 +7,10 @@ export function Footer() {
     <footer className="mt-auto border-t border-[#EAE5DD] bg-white/70 text-stone-600 text-xs py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          {/* Logo & Platform Mission */}
+          {/* Text-only brand & platform mission */}
           <div className="space-y-2 max-w-md">
-            <Link href="/" className="flex items-center gap-2.5 font-black text-stone-900 text-base">
-              <div className="w-8 h-8 rounded-xl bg-[#FAF8F5] border border-[#E7E2D9] flex items-center justify-center p-1.5 shadow-2xs">
-                <Image
-                  src="/brand/manbora-mark.svg"
-                  alt="Manbora"
-                  width={22}
-                  height={22}
-                  className="w-5 h-5 object-contain"
-                />
-              </div>
-              <span className="text-lg font-black tracking-tight">Manbora</span>
+            <Link href="/" className="inline-flex font-serif text-2xl font-black italic tracking-[-0.035em] text-stone-900 transition-colors hover:text-emerald-800">
+              Manbora
             </Link>
             <p className="text-stone-500 leading-relaxed text-xs font-medium">
               Manbora — O‘zbek tilidagi kitoblar va davomli asarlar platformasi. Mualliflar o‘z asarlarini keng kitobxonlar ommasiga taqdim etadi va daromad topadi. Kitobxonlar esa erkin mutolaadan bahramand bo‘ladi.

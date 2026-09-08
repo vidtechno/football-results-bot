@@ -117,8 +117,27 @@ export function isUserAllowlistedAdmin(user: any): boolean {
 export const getCurrentProfile = requestCache(async function getCurrentProfile(
   authHeader?: string | null
 ): Promise<Profile | null> {
-  const adminClient = createAdminClient();
   let authenticatedUser: any = null;
+
+  // Anonymous traffic is the common path. Avoid two remote auth/profile calls when
+  // the request has neither a bearer token nor any Supabase session cookie.
+  if (!authHeader?.startsWith('Bearer ')) {
+    try {
+      const hasAuthCookie = cookies().getAll().some(({ name, value }) => {
+        const isSsrToken = /^sb-[a-z0-9_-]+-auth-token(?:\.\d+)?$/i.test(name);
+        const isLegacyToken =
+          name === 'sb-access-token' ||
+          name === 'supabase-auth-token' ||
+          name === 'sb-auth-token';
+        return (isSsrToken || isLegacyToken) && Boolean(value?.trim());
+      });
+      if (!hasAuthCookie) return null;
+    } catch {
+      // Some test/non-request contexts do not expose cookies(); continue safely.
+    }
+  }
+
+  const adminClient = createAdminClient();
 
   // 1. If Bearer token is provided (API route authorization), validate via adminClient
   if (authHeader && authHeader.startsWith('Bearer ')) {

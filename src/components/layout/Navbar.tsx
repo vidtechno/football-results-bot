@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Search,
@@ -73,24 +72,14 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 h-[72px] glass-header border-b border-[#EAE5DD]/90 bg-[#FAF8F5]/95 backdrop-blur-md transition-all">
       <div className="w-full h-full px-3.5 sm:px-6 lg:px-8 max-w-7xl mx-auto flex items-center justify-between gap-3 sm:gap-6">
-        {/* Brand Logo & Wordmark */}
+        {/* Text-only brand wordmark */}
         <Link
           href="/"
-          className="flex items-center gap-2.5 group shrink-0 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-xl"
+          className="group shrink-0 select-none rounded-xl px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
           aria-label="Manbora Bosh Sahifa"
         >
-          <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white border border-[#E7E2D9] flex items-center justify-center p-1.5 shadow-2xs group-hover:scale-102 group-hover:border-emerald-600/60 transition-all duration-200 shrink-0">
-            <Image
-              src="/brand/manbora-mark.svg"
-              alt="Manbora"
-              width={26}
-              height={26}
-              className="w-6 h-6 object-contain"
-              priority
-            />
-          </div>
           <div className="flex flex-col justify-center">
-            <span className="text-lg sm:text-xl font-black text-[#1C1917] tracking-tight leading-none">
+            <span className="font-serif text-2xl sm:text-[1.7rem] font-black italic text-[#1C1917] tracking-[-0.035em] leading-none transition-colors group-hover:text-emerald-800">
               Manbora
             </span>
             <span className="hidden sm:block text-[9px] text-emerald-800 font-bold tracking-wider uppercase leading-tight pt-0.5">

@@ -33,9 +33,20 @@ export async function POST(request: Request) {
     }
 
     const adminClient = createAdminClient();
-    const nowIso = new Date().toISOString();
+    const serverNow = Date.now();
+    const nowIso = new Date(serverNow).toISOString();
 
-    // Prevent stale progress from overwriting newer progress (e.g. from an older inactive tab)
+    // Validate and normalize incoming timestamp
+    let incomingTime = body.timestamp ? Number(body.timestamp) : serverNow;
+    if (isNaN(incomingTime) || incomingTime < 1577836800000) {
+      // Absurd or missing timestamp (< 2020-01-01) -> default to server time
+      incomingTime = serverNow;
+    } else if (incomingTime > serverNow + 60000) {
+      // Future timestamp beyond 1 min clock skew -> clamp to server time
+      incomingTime = serverNow;
+    }
+
+    // Prevent stale progress from overwriting newer progress (e.g. from an older inactive tab on same or different chapter)
     const { data: existingProgress } = await adminClient
       .from('reading_progress')
       .select('last_read_at, chapter_id, percentage')
@@ -44,12 +55,18 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existingProgress && existingProgress.last_read_at) {
-      const incomingTime = body.timestamp ? Number(body.timestamp) : Date.now();
       const existingTime = new Date(existingProgress.last_read_at).getTime();
-      if (incomingTime < existingTime - 30000 && existingProgress.chapter_id !== chapterId) {
-        return NextResponse.json({ success: true, ignored: true, reason: 'Eski progress e’tiborsiz qoldirildi' });
+      // If incoming timestamp is demonstrably older than existing server progress, reject it
+      if (!isNaN(existingTime) && incomingTime < existingTime - 1000) {
+        return NextResponse.json({
+          success: true,
+          ignored: true,
+          reason: 'Eski progress e’tiborsiz qoldirildi (newer server progress exists)',
+        });
       }
     }
+
+    const lastReadAtIso = new Date(incomingTime).toISOString();
 
     // 1. Authoritative Reading Progress update (user_id + work_id unique constraint)
     const { error: progressError } = await adminClient
@@ -64,7 +81,7 @@ export async function POST(request: Request) {
           paragraph_offset: paragraphOffset,
           percentage,
           is_completed: isCompleted,
-          last_read_at: nowIso,
+          last_read_at: lastReadAtIso,
           updated_at: nowIso,
         },
         {

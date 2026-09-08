@@ -125,6 +125,28 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-10 sm:space-y-14">
+      {/* Semantic H1 for platform primary hierarchy & SEO accessibility */}
+      <h1 className="sr-only">Manbora — o‘zbek kitoblari va asarlar platformasi</h1>
+
+      {/* Structured Data (Schema.org WebSite) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: 'Manbora',
+            url: 'https://manbora.uz',
+            inLanguage: 'uz',
+            potentialAction: {
+              '@type': 'SearchAction',
+              target: 'https://manbora.uz/qidiruv?q={search_term_string}',
+              'query-input': 'required name=search_term_string',
+            },
+          }),
+        }}
+      />
+
       {/* 1. Dynamic Hero Carousel (up to 4 slides with Continue Reading, Recently Updated, Editor's Choice, Author CTA) */}
       <HomeHeroCarousel
         recentlyUpdatedWork={heroRecent}

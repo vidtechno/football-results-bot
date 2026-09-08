@@ -577,18 +577,21 @@ export function ReaderView({
   // 2. Immediate server flush when chapter changes while mounted
   const prevChapterFlushRef = useRef(currentChapter);
   const prevPageFlushRef = useRef(currentPage);
+  const prevTotalPagesFlushRef = useRef(paginated.totalPages);
 
   useEffect(() => {
     if (prevChapterFlushRef.current.id !== currentChapter.id) {
-      // Genuinely changing chapter while mounted: force flush progress for previous chapter
+      // Genuinely changing chapter while mounted: force flush progress for previous chapter using its own totalPages
       saveProgressToServer(prevPageFlushRef.current, {
         force: true,
         chapter: prevChapterFlushRef.current,
+        totalPages: prevTotalPagesFlushRef.current,
       });
       prevChapterFlushRef.current = currentChapter;
     }
     prevPageFlushRef.current = currentPage;
-  }, [currentChapter, currentPage, saveProgressToServer]);
+    prevTotalPagesFlushRef.current = paginated.totalPages;
+  }, [currentChapter, currentPage, paginated.totalPages, saveProgressToServer]);
 
   // 3. Lifecycle listeners: tab hidden, pagehide, beforeunload, and genuine unmount
   useEffect(() => {

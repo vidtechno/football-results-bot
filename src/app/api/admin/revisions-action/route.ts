@@ -138,7 +138,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { revisionId, action, rejectionReason } = body;
-    let type = body.type;
+    let type = body.type || body.itemType;
 
     if (!revisionId || !type || !action) {
       return NextResponse.json(

@@ -1,28 +1,25 @@
 -- ============================================================================
--- Migration 025: Comprehensive Production QA Fixes
+-- Migration 031: Fix purchase_content Platform Revenue Account
 -- ============================================================================
 -- Description:
--- 1. Enforce canonical access rules in purchase_content RPC:
---    - Reject purchases on works with access_type = 'free'.
---    - Reject chapter-level purchases on works with access_type IN ('paid_full_work', 'paid_book').
---    - Reject full-work purchases on works with access_type = 'paid_by_chapter'.
--- 2. Consistency trigger for free works:
---    - Auto-normalize chapters to is_free = true, price = 0 when work is free.
--- 3. Social integrity:
---    - Prevent self-follow on author_follows and work_follows.
+-- Fix critical bug in purchase_content RPC where platform fee was querying/inserting
+-- account_type = 'platform_commission', violating wallet_accounts_account_type_check.
+-- The valid account_type is 'platform_revenue' and target ID is '00000000-0000-0000-0000-000000000001'.
 --
 -- Safety:
--- Forward-only, idempotent, non-destructive.
--- Never deletes or rewrites existing financial ledger records.
+-- Forward-only, atomic, non-destructive.
+-- Preserves financial semantics:
+-- - Exact 1-time reader debit
+-- - Author 80% revenue credit
+-- - Platform 20% commission credit into platform_revenue account
+-- - Immutable double-entry transaction ledger
+-- - Idempotency guards against duplicate charges
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- 1. ENHANCED purchase_content RPC WITH ACCESS TYPE GUARDS
--- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.purchase_content(
   p_work_id UUID,
-  p_chapter_id UUID,
-  p_idempotency_key TEXT,
+  p_chapter_id UUID DEFAULT NULL,
+  p_idempotency_key TEXT DEFAULT NULL,
   p_user_id UUID DEFAULT NULL
 )
 RETURNS JSONB
@@ -193,7 +190,7 @@ BEGIN
     RETURNING id, balance INTO v_author_acc_id, v_author_current_bal;
   END IF;
 
-  -- Find or initialize platform fee account
+  -- Find or initialize platform fee account (using platform_revenue)
   SELECT id, balance INTO v_platform_acc_id, v_platform_current_bal
   FROM public.wallet_accounts
   WHERE id = '00000000-0000-0000-0000-000000000001' OR (user_id IS NULL AND account_type = 'platform_revenue')
@@ -343,108 +340,3 @@ BEGIN
   );
 END;
 $$;
-
--- ----------------------------------------------------------------------------
--- 2. AUTOMATIC CHAPTER CONSISTENCY TRIGGERS FOR FREE WORKS
--- ----------------------------------------------------------------------------
--- When work access_type changes to 'free', immediately normalize existing chapter prices to 0 and is_free = true
-CREATE OR REPLACE FUNCTION public.sync_work_chapters_free_access()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  IF NEW.access_type = 'free' THEN
-    UPDATE public.chapters
-    SET is_free = true, price = 0, updated_at = now()
-    WHERE work_id = NEW.id AND (is_free = false OR price > 0);
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_sync_work_chapters_free_access ON public.works;
-CREATE TRIGGER trg_sync_work_chapters_free_access
-  AFTER INSERT OR UPDATE OF access_type ON public.works
-  FOR EACH ROW
-  EXECUTE FUNCTION public.sync_work_chapters_free_access();
-
--- When inserting or updating chapters under a free work, ensure is_free = true and price = 0
-CREATE OR REPLACE FUNCTION public.enforce_chapter_free_under_free_work()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_work_access TEXT;
-BEGIN
-  SELECT access_type INTO v_work_access
-  FROM public.works
-  WHERE id = NEW.work_id;
-
-  IF v_work_access = 'free' THEN
-    NEW.is_free := true;
-    NEW.price := 0;
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_enforce_chapter_free_under_free_work ON public.chapters;
-CREATE TRIGGER trg_enforce_chapter_free_under_free_work
-  BEFORE INSERT OR UPDATE OF is_free, price ON public.chapters
-  FOR EACH ROW
-  EXECUTE FUNCTION public.enforce_chapter_free_under_free_work();
-
--- ----------------------------------------------------------------------------
--- 3. SOCIAL INTEGRITY: PREVENT SELF-FOLLOW AT DATABASE LEVEL
--- ----------------------------------------------------------------------------
-DO $$ BEGIN
-  IF to_regclass('public.author_follows') IS NOT NULL THEN
-    ALTER TABLE public.author_follows
-      DROP CONSTRAINT IF EXISTS chk_author_follows_no_self;
-    ALTER TABLE public.author_follows
-      ADD CONSTRAINT chk_author_follows_no_self CHECK (user_id != author_id);
-  END IF;
-END $$;
-
-CREATE OR REPLACE FUNCTION public.prevent_self_work_follow()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_author_id UUID;
-BEGIN
-  SELECT author_id INTO v_author_id
-  FROM public.works
-  WHERE id = NEW.work_id;
-
-  IF v_author_id = NEW.user_id THEN
-    RAISE EXCEPTION 'Muallif o‘z asarini kuzata olmaydi';
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_prevent_self_work_follow ON public.work_follows;
-CREATE TRIGGER trg_prevent_self_work_follow
-  BEFORE INSERT ON public.work_follows
-  FOR EACH ROW
-  EXECUTE FUNCTION public.prevent_self_work_follow();
-
--- ----------------------------------------------------------------------------
--- 4. ONE-TIME SAFE NORMALIZATION FOR EXISTING FREE WORKS
--- ----------------------------------------------------------------------------
--- Normalize stale chapter prices for any existing work marked 'free'
-UPDATE public.chapters c
-SET is_free = true, price = 0, updated_at = now()
-FROM public.works w
-WHERE c.work_id = w.id
-  AND w.access_type = 'free'
-  AND (c.is_free = false OR c.price > 0);

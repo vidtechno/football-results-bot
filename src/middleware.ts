@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export async function middleware(request: NextRequest) {
   const host = request.headers.get('host') || '';
@@ -38,6 +39,21 @@ export async function middleware(request: NextRequest) {
       c.name === 'sb-auth-token';
     return (isSsrToken || isLegacyToken) && Boolean(c.value?.trim());
   });
+
+  // Direct /bildirishnomalar navigation: clean 1-hop redirect before rendering
+  if (pathname === '/bildirishnomalar' || pathname.startsWith('/bildirishnomalar/')) {
+    if (!NOTIFICATIONS_ENABLED) {
+      if (!hasAuthCookie) {
+        return NextResponse.redirect(new URL('/kirish', request.url));
+      }
+      return NextResponse.redirect(new URL('/kabinet', request.url));
+    }
+    if (!hasAuthCookie) {
+      const loginUrl = new URL('/kirish', request.url);
+      loginUrl.searchParams.set('returnUrl', pathname + request.nextUrl.search);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
 
   const isProtectedPath =
     pathname === '/kabinet' ||

@@ -87,42 +87,83 @@ export async function POST(request: Request) {
           .eq('status', 'pending_review')
           .maybeSingle();
 
+        const revisionPayload: Record<string, any> = {
+          title,
+          description,
+          cover_url: coverUrl,
+          type,
+          access_type: accessType,
+          full_work_price: accessType === 'paid_full_work' ? Math.max(0, Math.floor(fullWorkPrice)) : 0,
+          completion_status: completionStatus,
+          age_rating: ageRating,
+          genre_ids: genreIds.length > 0 ? genreIds : null,
+        };
+
         let revisionResult;
+        let revError;
         if (existingRev) {
-          const { data } = await supabase
+          const res = await supabase
             .from('work_revisions')
             .update({
-              title,
-              description,
-              cover_url: coverUrl,
-              type,
-              access_type: accessType,
-              full_work_price: accessType === 'paid_full_work' ? Math.max(0, Math.floor(fullWorkPrice)) : 0,
-              age_rating: ageRating,
+              ...revisionPayload,
               updated_at: new Date().toISOString(),
             })
             .eq('id', existingRev.id)
             .select()
             .single();
-          revisionResult = data;
+
+          if (res.error && res.error.code === '42703') {
+            // Fallback if schema doesn't have completion_status or genre_ids column yet
+            const { completion_status, genre_ids, ...compatPayload } = revisionPayload;
+            const fallbackRes = await supabase
+              .from('work_revisions')
+              .update({
+                ...compatPayload,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingRev.id)
+              .select()
+              .single();
+            revisionResult = fallbackRes.data;
+            revError = fallbackRes.error;
+          } else {
+            revisionResult = res.data;
+            revError = res.error;
+          }
         } else {
-          const { data } = await supabase
+          const res = await supabase
             .from('work_revisions')
             .insert({
               work_id: id,
               author_id: profile.id,
-              title,
-              description,
-              cover_url: coverUrl,
-              type,
-              access_type: accessType,
-              full_work_price: accessType === 'paid_full_work' ? Math.max(0, Math.floor(fullWorkPrice)) : 0,
-              age_rating: ageRating,
+              ...revisionPayload,
               status: 'pending_review',
             })
             .select()
             .single();
-          revisionResult = data;
+
+          if (res.error && res.error.code === '42703') {
+            const { completion_status, genre_ids, ...compatPayload } = revisionPayload;
+            const fallbackRes = await supabase
+              .from('work_revisions')
+              .insert({
+                work_id: id,
+                author_id: profile.id,
+                ...compatPayload,
+                status: 'pending_review',
+              })
+              .select()
+              .single();
+            revisionResult = fallbackRes.data;
+            revError = fallbackRes.error;
+          } else {
+            revisionResult = res.data;
+            revError = res.error;
+          }
+        }
+
+        if (revError) {
+          return NextResponse.json({ success: false, error: revError.message }, { status: 500 });
         }
 
         return NextResponse.json({
@@ -130,7 +171,15 @@ export async function POST(request: Request) {
           isRevision: true,
           message: 'Nashr qilingan asarga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
           revision: revisionResult,
-          work: { ...existing, title, description, cover_url: coverUrl, type, access_type: accessType },
+          work: {
+            ...existing,
+            title,
+            description,
+            cover_url: coverUrl,
+            type,
+            access_type: accessType,
+            completion_status: completionStatus,
+          },
         });
       }
 

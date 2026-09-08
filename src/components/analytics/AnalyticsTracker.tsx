@@ -16,12 +16,29 @@ export function AnalyticsTracker() {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
       body: JSON.stringify({ sessionId, eventType, path: pathname, referrerHost: document.referrer ? new URL(document.referrer).hostname : null, deviceType: innerWidth < 640 ? 'mobile' : innerWidth < 1024 ? 'tablet' : 'desktop' }),
     }).catch(() => {});
-    if (!sessionStorage.getItem(key)) {
-      sessionStorage.setItem(key, '1');
-      void send('page_view');
+    const scheduleTracking = () => {
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        void send('page_view');
+      }
+    };
+
+    let idleHandle: any;
+    let timerHandle: any;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleHandle = (window as any).requestIdleCallback(scheduleTracking, { timeout: 1500 });
+    } else {
+      timerHandle = setTimeout(scheduleTracking, 300);
     }
+
     const heartbeat = setInterval(() => void send('presence'), 120000);
-    return () => clearInterval(heartbeat);
+    return () => {
+      if (idleHandle && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        (window as any).cancelIdleCallback(idleHandle);
+      }
+      if (timerHandle) clearTimeout(timerHandle);
+      clearInterval(heartbeat);
+    };
   }, [pathname]);
   return null;
 }

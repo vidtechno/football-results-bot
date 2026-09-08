@@ -14,7 +14,7 @@ import {
   Clock,
   Languages,
 } from 'lucide-react';
-import { getWorkBySlug } from '@/lib/db/queries';
+import { getWorkBySlug, getWorkMetadataBySlug } from '@/lib/db/queries';
 import { getCurrentProfile, createServerClient } from '@/lib/supabase/server';
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
@@ -33,12 +33,12 @@ interface WorkDetailPageProps {
 }
 
 export async function generateMetadata({ params }: WorkDetailPageProps): Promise<Metadata> {
-  const { work } = await getWorkBySlug(params.slug, null);
+  const { work } = await getWorkMetadataBySlug(params.slug);
   if (!work || work.status === 'archived') {
     return { title: 'Asar topilmadi' };
   }
 
-  const authorName = getPublicWorkAuthorName(work);
+  const authorName = work.authorName;
 
   return {
     title: `${work.title} — ${authorName}`,
@@ -353,13 +353,18 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
             '@context': 'https://schema.org',
             '@type': 'Book',
             name: work.title,
+            url: `https://manbora.uz/asarlar/${work.slug}`,
             description: work.description || undefined,
             image: work.cover_url || undefined,
+            datePublished: work.published_at || work.created_at || undefined,
+            dateModified: work.updated_at || undefined,
+            genre: (work.genres || []).map((g: any) => g.name).filter(Boolean).join(', ') || undefined,
             author: {
               '@type': 'Person',
               name: authorName,
+              url: authorUsername ? `https://manbora.uz/mualliflar/${authorUsername}` : undefined,
             },
-            inLanguage: 'uz',
+            inLanguage: work.language || 'uz',
             aggregateRating:
               Number(work.rating_count || 0) > 0
                 ? {

@@ -97,7 +97,28 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setError(null);
       setLoading(false);
     } else {
-      fetchNotifications();
+      let cancelled = false;
+      const run = () => {
+        if (!cancelled) {
+          fetchNotifications();
+        }
+      };
+
+      let idleHandle: any;
+      let timerHandle: any;
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        idleHandle = (window as any).requestIdleCallback(run, { timeout: 1500 });
+      } else {
+        timerHandle = setTimeout(run, 300);
+      }
+
+      return () => {
+        cancelled = true;
+        if (idleHandle && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+          (window as any).cancelIdleCallback(idleHandle);
+        }
+        if (timerHandle) clearTimeout(timerHandle);
+      };
     }
   }, [user, fetchNotifications]);
 

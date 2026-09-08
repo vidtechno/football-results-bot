@@ -13,21 +13,43 @@ if (typeof window !== 'undefined') {
   throw new Error('Ushbu modul faqat server tomonida ishlatilishi shart (server-only)!');
 }
 
+function getValidatedSupabaseEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  const isInvalidUrl = !url || url.includes('placeholder.supabase.co');
+  const isInvalidAnonKey = !anonKey || anonKey === 'placeholder_anon_key';
+
+  if (process.env.NODE_ENV === 'production' && (isInvalidUrl || isInvalidAnonKey)) {
+    throw new Error(
+      'Ishlab chiqarish (production) muhitida NEXT_PUBLIC_SUPABASE_URL va NEXT_PUBLIC_SUPABASE_ANON_KEY to‘g‘ri o‘rnatilishi shart!'
+    );
+  }
+
+  return {
+    supabaseUrl: url || 'https://placeholder.supabase.co',
+    supabaseAnonKey: anonKey || 'placeholder_anon_key',
+  };
+}
+
 /**
  * Creates a server-side admin client with service_role key.
  * Used strictly for internal operations (bypasses RLS for permission sync and ledger balance updates).
  */
 export function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+  const { supabaseUrl, supabaseAnonKey } = getValidatedSupabaseEnv();
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseServiceKey && process.env.NODE_ENV === 'production') {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY muhit o‘zgaruvchisi o‘rnatilmagan!');
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (!supabaseServiceKey || supabaseServiceKey.includes('placeholder'))
+  ) {
+    throw new Error('Ishlab chiqarish (production) muhitida SUPABASE_SERVICE_ROLE_KEY to‘g‘ri o‘rnatilishi shart!');
   }
 
   return createSupabaseClient(
     supabaseUrl,
-    supabaseServiceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_key',
+    supabaseServiceKey || supabaseAnonKey,
     {
       auth: {
         persistSession: false,
@@ -43,8 +65,7 @@ export function createAdminClient() {
  */
 export function createServerSupabaseClient() {
   const cookieStore = cookies();
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_anon_key';
+  const { supabaseUrl, supabaseAnonKey } = getValidatedSupabaseEnv();
 
   return createSSRServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {

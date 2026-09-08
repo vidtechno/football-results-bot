@@ -2,6 +2,7 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import {
   canReadChapter,
   getWorkChaptersAccessMap,
+  evaluateCanonicalChapterAccess,
   type ChapterAccessReason,
   type ChapterAccessStatus,
 } from '@/lib/security/access';
@@ -278,9 +279,81 @@ export async function getChapterMetadata(workSlug: string, chapterSlug: string):
 }
 
 /**
- * Fetch chapter reading content with access validation.
- * Full content is returned ONLY if canReadChapter evaluates to true.
- * Otherwise, content is strictly empty string, returning only safe public metadata.
+ * Lightweight metadata lookup for SEO and header generation.
+ * Fetches only what <title> and openGraph need without loading chapters or access maps.
+ */
+export async function getWorkMetadataBySlug(slug: string): Promise<{
+  work: {
+    id: string;
+    title: string;
+    slug: string;
+    description: string | null;
+    cover_url: string | null;
+    status: string;
+    language: string | null;
+    is_translation: boolean;
+    original_title: string | null;
+    original_author_name: string | null;
+    translator_name: string | null;
+    authorName: string;
+    authorUsername?: string;
+  } | null;
+}> {
+  const supabase = createAdminClient();
+  const { data: work } = await supabase
+    .from('works')
+    .select(`
+      id,
+      title,
+      slug,
+      description,
+      cover_url,
+      status,
+      language,
+      is_translation,
+      original_title,
+      original_author_name,
+      translator_name,
+      author:author_profiles (
+        pen_name,
+        profile:profiles(username)
+      )
+    `)
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (!work) return { work: null };
+
+  const authorProfile = Array.isArray(work.author) ? work.author[0] : work.author;
+  const authorName =
+    authorProfile?.pen_name ||
+    (work.is_translation ? work.original_author_name : 'Muallif') ||
+    'Muallif';
+  const authorUsername = (authorProfile?.profile as any)?.username;
+
+  return {
+    work: {
+      id: work.id,
+      title: work.title,
+      slug: work.slug,
+      description: work.description,
+      cover_url: work.cover_url,
+      status: work.status,
+      language: work.language,
+      is_translation: Boolean(work.is_translation),
+      original_title: work.original_title,
+      original_author_name: work.original_author_name,
+      translator_name: work.translator_name,
+      authorName,
+      authorUsername,
+    },
+  };
+}
+
+/**
+ * Fetch chapter reading content with optimized access validation.
+ * Queries work and chapters once, determines access and access map in-memory,
+ * and queries chapter_contents.content ONLY if the reader is fully authorized.
  */
 export async function getChapterForReading(
   workSlug: string,
@@ -290,6 +363,7 @@ export async function getChapterForReading(
 ): Promise<ChapterReadingData> {
   const supabase = createAdminClient();
 
+  // 1. Fetch work once
   const { data: work } = await supabase
     .from('works')
     .select(`
@@ -302,7 +376,7 @@ export async function getChapterForReading(
       )
     `)
     .eq('slug', workSlug)
-    .single();
+    .maybeSingle();
 
   if (!work) {
     return {
@@ -317,76 +391,176 @@ export async function getChapterForReading(
     };
   }
 
-  const [{ data: allChapters }, { data: chapter }] = await Promise.all([
-    supabase
-      .from('chapters')
-      .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
-      .eq('work_id', work.id)
-      .eq('status', 'published')
-      .order('chapter_number', { ascending: true }),
-    supabase
-      .from('chapters')
-      .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
-      .eq('work_id', work.id)
-      .eq('slug', chapterSlug)
-      .single(),
-  ]);
+  // 2. Fetch all published chapter metadata once (never query chapters again)
+  const { data: chaptersData } = await supabase
+    .from('chapters')
+    .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
+    .eq('work_id', work.id)
+    .eq('status', 'published')
+    .order('chapter_number', { ascending: true });
 
-  const chaptersList = (allChapters as Chapter[]) || [];
+  const allChapters = (chaptersData as Chapter[]) || [];
 
-  if (!chapter) {
+  // 3. Find current chapter locally from already-fetched chapters
+  const currentChapter = allChapters.find((c) => c.slug === chapterSlug) || null;
+
+  if (!currentChapter) {
     return {
       work,
       chapter: null,
       hasAccess: false,
       accessReason: 'locked',
       userBalance: 0,
-      allChapters: chaptersList,
+      allChapters,
       chapterAccessMap: {},
       savedProgress: null,
     };
   }
 
-  const [accessResult, chapterAccessMap, walletResult, progressResult] = await Promise.all([
-    canReadChapter(userId, chapter.id, { isAdminRoute: options?.isAdminRoute }),
-    getWorkChaptersAccessMap(userId, work.id, chaptersList, {
-      authorId: work.author_id,
-      workAccessType: work.access_type,
-      fullWorkPrice: Number(work.full_work_price || 0),
-    }),
-    userId
-      ? supabase.from('wallet_accounts').select('balance').eq('user_id', userId).eq('account_type', 'reader_credit').maybeSingle()
-      : Promise.resolve({ data: null }),
-    userId
-      ? supabase.from('reading_progress').select('page_index, percentage, chapter_id').eq('user_id', userId).eq('work_id', work.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  // 4. Determine user entitlements and authorization
+  const isWorkPublished = work.status === 'published';
+  const isCurrentChapterPublished = currentChapter.status === 'published';
 
-  const userBalance = Number(walletResult.data?.balance || 0);
-  const prog = progressResult.data;
-  const savedProgress = prog
-    ? {
+  let hasFullWorkEntitlement = false;
+  const purchasedChapterIds = new Set<string>();
+  let userBalance = 0;
+  let savedProgress: { pageIndex: number; percentage: number; chapterId: string } | null = null;
+  let isAuthor = false;
+  let isAdmin = false;
+
+  if (userId) {
+    isAuthor = work.author_id === userId;
+
+    // Parallel fetch of all required authenticated reader state
+    const [profileRes, entRes, purRes, walletRes, progRes] = await Promise.all([
+      supabase.from('profiles').select('is_admin').eq('id', userId).maybeSingle(),
+      supabase
+        .from('entitlements')
+        .select('entitlement_type, chapter_id')
+        .eq('user_id', userId)
+        .eq('work_id', work.id),
+      supabase
+        .from('purchases')
+        .select('purchase_type, chapter_id, status')
+        .eq('buyer_id', userId)
+        .eq('work_id', work.id),
+      supabase
+        .from('wallet_accounts')
+        .select('balance')
+        .eq('user_id', userId)
+        .eq('account_type', 'reader_credit')
+        .maybeSingle(),
+      supabase
+        .from('reading_progress')
+        .select('page_index, percentage, chapter_id')
+        .eq('user_id', userId)
+        .eq('work_id', work.id)
+        .maybeSingle(),
+    ]);
+
+    isAdmin = Boolean(options?.isAdminRoute && profileRes.data?.is_admin);
+
+    const entitlements = entRes.data || [];
+    const rawPurchases = purRes.data || [];
+    const activePurchases = rawPurchases.filter((p: any) =>
+      ['active', 'completed', 'paid'].includes(p.status),
+    );
+
+    hasFullWorkEntitlement =
+      entitlements.some((e: any) => e.entitlement_type === 'full_work') ||
+      activePurchases.some((p: any) => p.purchase_type === 'full_work');
+
+    for (const e of entitlements) {
+      if (e.chapter_id) purchasedChapterIds.add(e.chapter_id);
+    }
+    for (const p of activePurchases) {
+      if (p.chapter_id) purchasedChapterIds.add(p.chapter_id);
+    }
+
+    userBalance = Number(walletRes.data?.balance || 0);
+
+    const prog = progRes.data;
+    if (prog) {
+      savedProgress = {
         pageIndex: Number(prog.page_index || 1),
         percentage: Number(prog.percentage || 0),
         chapterId: prog.chapter_id,
-      }
-    : null;
+      };
+    }
+  }
 
-  // Strictly sanitized chapter:
-  // If accessResult.canRead is false, content is EMPTY STRING ("").
-  // Full text is NEVER passed down to client components or RSC props!
+  // 5. Evaluate canonical access for requested chapter in-memory
+  const accessEval = evaluateCanonicalChapterAccess({
+    workAccessType: work.access_type,
+    fullWorkPrice: Number(work.full_work_price || 0),
+    chapterIsFree: currentChapter.is_free,
+    chapterPrice: Number(currentChapter.price || 0),
+    isWorkPublished,
+    isChapterPublished: isCurrentChapterPublished,
+    isAuthor,
+    isAdmin,
+    hasFullWorkEntitlement,
+    hasChapterEntitlement: purchasedChapterIds.has(currentChapter.id),
+  });
+
+  // 6. Compute chapter access map for all chapters entirely in-memory (0 extra queries)
+  const chapterAccessMap: Record<string, ChapterAccessStatus> = {};
+  for (const ch of allChapters) {
+    const chEval = evaluateCanonicalChapterAccess({
+      workAccessType: work.access_type,
+      fullWorkPrice: Number(work.full_work_price || 0),
+      chapterIsFree: ch.is_free,
+      chapterPrice: Number(ch.price || 0),
+      isWorkPublished,
+      isChapterPublished: ch.status === 'published',
+      isAuthor,
+      isAdmin,
+      hasFullWorkEntitlement,
+      hasChapterEntitlement: purchasedChapterIds.has(ch.id),
+    });
+
+    let accessReason: ChapterAccessStatus['accessReason'] = 'locked';
+    if (chEval.reason === 'free') accessReason = 'free';
+    else if (chEval.reason === 'author') accessReason = 'author';
+    else if (chEval.reason === 'admin_preview') accessReason = 'admin';
+    else if (chEval.reason === 'purchased_chapter' || chEval.reason === 'purchased_full_work') accessReason = 'purchased';
+
+    chapterAccessMap[ch.id] = {
+      isFree: chEval.isFree,
+      isPurchased:
+        chEval.reason === 'purchased_chapter' || chEval.reason === 'purchased_full_work',
+      isLocked: chEval.isLocked,
+      price: chEval.price,
+      accessReason,
+    };
+  }
+
+  // 7. CRITICAL CONTENT AUTHORIZATION SECURITY:
+  // ONLY query chapter_contents.content IF accessEval.canRead evaluates to true.
+  // Locked paid chapter content is NEVER selected, serialized in HTML or returned in RSC props!
+  let content = '';
+  if (accessEval.canRead) {
+    const { data: contentData } = await supabase
+      .from('chapter_contents')
+      .select('content')
+      .eq('chapter_id', currentChapter.id)
+      .maybeSingle();
+
+    content = contentData?.content || '';
+  }
+
   const sanitizedChapter: Chapter = {
-    ...chapter,
-    content: accessResult.canRead ? accessResult.content : '',
+    ...currentChapter,
+    content,
   };
 
   return {
     work,
     chapter: sanitizedChapter,
-    hasAccess: accessResult.canRead,
-    accessReason: accessResult.reason,
+    hasAccess: accessEval.canRead,
+    accessReason: accessEval.reason,
     userBalance,
-    allChapters: chaptersList,
+    allChapters,
     chapterAccessMap,
     savedProgress,
   };

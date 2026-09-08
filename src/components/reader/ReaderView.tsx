@@ -209,21 +209,34 @@ export function ReaderView({
   useEffect(() => {
     if (!isLoggedIn) return;
     let isMounted = true;
-    fetch(`/api/bookmarks?workId=${work.id}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (isMounted && data.success && data.bookmark) {
-          setBookmark({
-            id: data.bookmark.id,
-            chapterId: data.bookmark.chapter_id,
-            pageNumber: data.bookmark.page_number,
-          });
-        }
-      })
-      .catch(() => {});
-    return () => {
-      isMounted = false;
+    const fetchBookmark = () => {
+      fetch(`/api/bookmarks?workId=${work.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (isMounted && data.success && data.bookmark) {
+            setBookmark({
+              id: data.bookmark.id,
+              chapterId: data.bookmark.chapter_id,
+              pageNumber: data.bookmark.page_number,
+            });
+          }
+        })
+        .catch(() => {});
     };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const handle = (window as any).requestIdleCallback(fetchBookmark, { timeout: 2000 });
+      return () => {
+        isMounted = false;
+        (window as any).cancelIdleCallback(handle);
+      };
+    } else {
+      const timer = setTimeout(fetchBookmark, 200);
+      return () => {
+        isMounted = false;
+        clearTimeout(timer);
+      };
+    }
   }, [isLoggedIn, work.id]);
 
   const isCurrentPageBookmarked =
@@ -483,7 +496,7 @@ export function ReaderView({
       </div>
 
       {/* Sticky Reader Header Toolbar */}
-      <header className="sticky top-0 z-40 reader-bar glass-header border-b px-4 py-2.5 transition-colors duration-200">
+      <header className="sticky top-0 z-40 reader-bar glass-header border-b px-4 py-2.5 transition-colors duration-200 xl:pr-[280px]">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
           {/* Back to Work Detail */}
           <Link
@@ -976,8 +989,9 @@ export function ReaderView({
         </div>
       )}
 
-      {/* Main Reading Content Container */}
-      <main className={clsx('mx-auto px-4 sm:px-8 py-8 sm:py-14', widthClasses)}>
+      {/* Main Reading Content Container with Desktop Right Tools Gutter */}
+      <div className="w-full xl:pr-[280px] min-w-0">
+        <main className={clsx('mx-auto px-4 sm:px-8 py-8 sm:py-14', widthClasses)}>
         <div ref={contentTopRef} tabIndex={-1} className="focus:outline-hidden" aria-hidden="true" />
         {/* Author Preview Banner */}
         {accessReason === 'author' && (
@@ -1161,6 +1175,7 @@ export function ReaderView({
           </div>
         )}
       </main>
+      </div>
 
       {/* Visual Toast Feedback */}
       {readerToast && (

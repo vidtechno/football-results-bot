@@ -1,13 +1,24 @@
 import { MetadataRoute } from 'next';
-import { getPublishedWorks, getActiveGenres, getApprovedAuthors } from '@/lib/db/queries';
+import { getActiveGenres, getApprovedAuthors } from '@/lib/db/queries';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://manbora.uz';
 
+  const db = createAdminClient();
+
+  // Efficiently fetch all published works without heavy relation joins
+  const fetchWorksPromise = db
+    .from('works')
+    .select('slug, updated_at, created_at')
+    .eq('status', 'published')
+    .order('updated_at', { ascending: false })
+    .then(({ data }) => data || []);
+
   const [works, genres, authors] = await Promise.all([
-    getPublishedWorks({ limit: 500 }),
+    fetchWorksPromise,
     getActiveGenres(),
-    getApprovedAuthors(100),
+    getApprovedAuthors(500),
   ]);
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -52,12 +63,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/muallif`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.6,
     },
   ];
 

@@ -163,34 +163,64 @@ export async function POST(request: Request) {
 
     if (action === 'approve') {
       if (type === 'work_revision') {
+        // Fetch current live work before approval to detect status transitions
+        const { data: revBefore } = await adminClient
+          .from('work_revisions')
+          .select('*')
+          .eq('id', revisionId)
+          .maybeSingle();
+
+        if (!revBefore) {
+          return NextResponse.json({ success: false, error: 'Tahrir topilmadi' }, { status: 404 });
+        }
+
+        const { data: liveBefore } = await adminClient
+          .from('works')
+          .select('id, slug, completion_status, is_translation')
+          .eq('id', revBefore.work_id)
+          .maybeSingle();
+
         // Try atomic RPC
         const { data: rpcData, error: rpcErr } = await adminClient.rpc('approve_work_revision', {
           p_revision_id: revisionId,
         });
 
+        let targetWorkId = revBefore.work_id;
+        let workSlug = liveBefore?.slug;
+        let isTranslation = liveBefore?.is_translation;
+        let transitionOccurred = false;
+
         if (rpcErr) {
           // Direct fallback if RPC is not available or fails
-          const { data: rev } = await adminClient
-            .from('work_revisions')
-            .select('*')
-            .eq('id', revisionId)
-            .single();
+          const updateData: Record<string, any> = {
+            title: revBefore.title,
+            description: revBefore.description,
+            cover_url: revBefore.cover_url,
+            type: revBefore.type,
+            access_type: revBefore.access_type,
+            full_work_price: revBefore.full_work_price,
+            age_rating: revBefore.age_rating,
+            updated_at: new Date().toISOString(),
+          };
 
-          if (!rev) return NextResponse.json({ success: false, error: 'Tahrir topilmadi' }, { status: 404 });
+          if (revBefore.completion_status) {
+            updateData.completion_status = revBefore.completion_status;
+          }
 
           await adminClient
             .from('works')
-            .update({
-              title: rev.title,
-              description: rev.description,
-              cover_url: rev.cover_url,
-              type: rev.type,
-              access_type: rev.access_type,
-              full_work_price: rev.full_work_price,
-              age_rating: rev.age_rating,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', rev.work_id);
+            .update(updateData)
+            .eq('id', revBefore.work_id);
+
+          // Apply proposed genres if present
+          if (revBefore.genre_ids && Array.isArray(revBefore.genre_ids) && revBefore.genre_ids.length > 0) {
+            await adminClient.from('work_genres').delete().eq('work_id', revBefore.work_id);
+            const joins = revBefore.genre_ids.map((gId: string) => ({
+              work_id: revBefore.work_id,
+              genre_id: gId,
+            }));
+            await adminClient.from('work_genres').insert(joins);
+          }
 
           await adminClient
             .from('work_revisions')
@@ -202,76 +232,108 @@ export async function POST(request: Request) {
             })
             .eq('id', revisionId);
 
-          try {
-            revalidatePath('/diyoration/tahrirlar');
-            revalidatePath('/diyoration/dashboard');
-            revalidatePath('/asarlar');
-            revalidatePath(`/muallif/asar/${rev.work_id}`);
-          } catch {
-            // ignore
-          }
-
-          return NextResponse.json({ success: true, message: 'Asar tahriri tasdiqlandi va jonli nashr yangilandi' });
+          const wasOngoing = liveBefore?.completion_status === 'ongoing';
+          const isNowCompleted = (revBefore.completion_status || liveBefore?.completion_status) === 'completed';
+          transitionOccurred = wasOngoing && isNowCompleted;
+        } else {
+          targetWorkId = rpcData?.work_id || targetWorkId;
+          workSlug = rpcData?.slug || workSlug;
+          const prevStatus = rpcData?.prev_completion_status || liveBefore?.completion_status || 'ongoing';
+          const newStatus = rpcData?.new_completion_status || revBefore.completion_status || 'ongoing';
+          transitionOccurred = prevStatus === 'ongoing' && newStatus === 'completed';
         }
 
+        // Send work completion notifications exactly once when transitioning ongoing -> completed
+        if (transitionOccurred) {
+          try {
+            const { dispatchWorkCompletionNotifications } = await import('@/lib/notifications/inSite');
+            await dispatchWorkCompletionNotifications(targetWorkId);
+          } catch (notifErr) {
+            console.error('Error dispatching completion notifications:', notifErr);
+          }
+        }
+
+        // Revalidate exact affected public paths
         try {
           revalidatePath('/diyoration/tahrirlar');
           revalidatePath('/diyoration/dashboard');
           revalidatePath('/asarlar');
+          if (workSlug) {
+            revalidatePath(`/asarlar/${workSlug}`);
+          }
+          if (isTranslation) {
+            revalidatePath('/tarjima-asarlar');
+          }
+          revalidatePath(`/muallif/asar/${targetWorkId}`);
         } catch {
           // ignore
         }
 
         // Notify author of work revision approval
         try {
-          const { data: revData } = await adminClient.from('work_revisions').select('author_id, work_id, title').eq('id', revisionId).maybeSingle();
-          if (revData?.author_id) {
+          if (revBefore.author_id) {
             const { createInSiteNotification } = await import('@/lib/notifications/inSite');
             await createInSiteNotification({
-              userId: revData.author_id,
+              userId: revBefore.author_id,
               type: 'revision_approved',
               title: 'Asar tahriri tasdiqlandi',
-              body: `«${revData.title || 'Asar'}» asariga kiritgan tahriringiz tasdiqlandi va jonli nashr yangilandi.`,
-              linkUrl: `/muallif/asar/${revData.work_id}`,
-              data: { revisionId, workId: revData.work_id },
+              body: `«${revBefore.title || 'Asar'}» asariga kiritgan tahriringiz tasdiqlandi va jonli nashr yangilandi.`,
+              linkUrl: `/muallif/asar/${targetWorkId}`,
+              data: { revisionId, workId: targetWorkId },
             });
           }
         } catch {
           // ignore
         }
 
-        return NextResponse.json({ success: true, message: 'Asar tahriri tasdiqlandi va yangilandi', data: rpcData });
+        return NextResponse.json({
+          success: true,
+          message: 'Asar tahriri tasdiqlandi va jonli nashr yangilandi',
+          data: rpcData || { work_id: targetWorkId, revision_id: revisionId },
+        });
       } else {
         // Chapter revision
+        const { data: revBefore } = await adminClient
+          .from('chapter_revisions')
+          .select('*')
+          .eq('id', revisionId)
+          .maybeSingle();
+
+        if (!revBefore) {
+          return NextResponse.json({ success: false, error: 'Bob tahriri topilmadi' }, { status: 404 });
+        }
+
+        const { data: liveChap } = await adminClient
+          .from('chapters')
+          .select('id, slug, work_id, work:works(slug, is_translation)')
+          .eq('id', revBefore.chapter_id)
+          .maybeSingle();
+
+        const workSlug = (liveChap?.work as any)?.slug;
+        const chapterSlug = liveChap?.slug;
+        const isTranslation = (liveChap?.work as any)?.is_translation;
+
         const { data: rpcData, error: rpcErr } = await adminClient.rpc('approve_chapter_revision', {
           p_revision_id: revisionId,
         });
 
         if (rpcErr) {
           // Direct fallback
-          const { data: rev } = await adminClient
-            .from('chapter_revisions')
-            .select('*')
-            .eq('id', revisionId)
-            .single();
-
-          if (!rev) return NextResponse.json({ success: false, error: 'Bob tahriri topilmadi' }, { status: 404 });
-
           await adminClient
             .from('chapters')
             .update({
-              title: rev.title,
-              is_free: rev.is_free,
-              price: rev.price,
+              title: revBefore.title,
+              is_free: revBefore.is_free,
+              price: revBefore.price,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', rev.chapter_id);
+            .eq('id', revBefore.chapter_id);
 
           await adminClient
             .from('chapter_contents')
             .upsert({
-              chapter_id: rev.chapter_id,
-              content: rev.content,
+              chapter_id: revBefore.chapter_id,
+              content: revBefore.content,
               updated_at: new Date().toISOString(),
             });
 
@@ -284,46 +346,51 @@ export async function POST(request: Request) {
               updated_at: new Date().toISOString(),
             })
             .eq('id', revisionId);
-
-          try {
-            revalidatePath('/diyoration/tahrirlar');
-            revalidatePath('/diyoration/dashboard');
-            revalidatePath('/asarlar');
-            revalidatePath(`/muallif/asar/${rev.work_id}`);
-          } catch {
-            // ignore
-          }
-
-          return NextResponse.json({ success: true, message: 'Bob tahriri tasdiqlandi va jonli nashr yangilandi' });
         }
 
+        // Revalidate exact affected public paths
         try {
           revalidatePath('/diyoration/tahrirlar');
           revalidatePath('/diyoration/dashboard');
           revalidatePath('/asarlar');
+          if (workSlug) {
+            revalidatePath(`/asarlar/${workSlug}`);
+            if (chapterSlug) {
+              revalidatePath(`/asarlar/${workSlug}/${chapterSlug}`);
+            }
+          }
+          if (isTranslation) {
+            revalidatePath('/tarjima-asarlar');
+          }
+          if (revBefore.work_id) {
+            revalidatePath(`/muallif/asar/${revBefore.work_id}`);
+          }
         } catch {
           // ignore
         }
 
         // Notify author of approval
         try {
-          const { data: revData } = await adminClient.from('chapter_revisions').select('author_id, work_id, title').eq('id', revisionId).maybeSingle();
-          if (revData?.author_id) {
+          if (revBefore.author_id) {
             const { createInSiteNotification } = await import('@/lib/notifications/inSite');
             await createInSiteNotification({
-              userId: revData.author_id,
+              userId: revBefore.author_id,
               type: 'revision_approved',
               title: 'Bob tahriri tasdiqlandi',
-              body: `«${revData.title || 'Bob'}» bobiga kiritgan tahriringiz tasdiqlandi va jonli nashr yangilandi.`,
-              linkUrl: `/muallif/asar/${revData.work_id}`,
-              data: { revisionId, workId: revData.work_id },
+              body: `«${revBefore.title || 'Bob'}» bobiga kiritgan tahriringiz tasdiqlandi va jonli nashr yangilandi.`,
+              linkUrl: `/muallif/asar/${revBefore.work_id}`,
+              data: { revisionId, workId: revBefore.work_id },
             });
           }
         } catch {
           // ignore
         }
 
-        return NextResponse.json({ success: true, message: 'Bob tahriri tasdiqlandi va jonli nashr yangilandi', data: rpcData });
+        return NextResponse.json({
+          success: true,
+          message: 'Bob tahriri tasdiqlandi va jonli nashr yangilandi',
+          data: rpcData || { revision_id: revisionId },
+        });
       }
     } else {
       // Rejection action - Requires a mandatory reason

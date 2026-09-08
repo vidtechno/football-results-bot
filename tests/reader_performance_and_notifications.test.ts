@@ -11,7 +11,7 @@ describe('reader performance and visible controls', () => {
     const queries = read('src/lib/db/queries.ts');
     expect(page).toContain('getChapterMetadata(params.slug, params.chapterSlug)');
     expect(queries).toContain('export async function getChapterMetadata');
-    expect(queries).toContain('const [accessResult, chapterAccessMap, walletResult, progressResult] = await Promise.all');
+    expect(queries).toContain('await Promise.all');
   });
 
   it('provides immediate route loading feedback', () => {

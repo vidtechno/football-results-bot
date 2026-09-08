@@ -283,23 +283,33 @@ const getReaderWorkAndChapters = requestCache(async function getReaderWorkAndCha
         pen_name,
         biography,
         profile:profiles(id, display_name, username, avatar_url)
+      ),
+      chapters (
+        id,
+        work_id,
+        chapter_number,
+        title,
+        slug,
+        is_free,
+        price,
+        status,
+        published_at,
+        created_at,
+        updated_at
       )
     `)
     .eq('slug', workSlug)
+    .eq('chapters.status', 'published')
+    .order('chapter_number', { referencedTable: 'chapters', ascending: true })
     .maybeSingle();
 
   if (!work) return { work: null, chapters: [] };
 
-  const { data: chaptersData } = await supabase
-    .from('chapters')
-    .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
-    .eq('work_id', work.id)
-    .eq('status', 'published')
-    .order('chapter_number', { ascending: true });
+  const { chapters = [], ...workWithoutChapters } = work as any;
 
   return {
-    work: work as unknown as Work,
-    chapters: (chaptersData as Chapter[]) || [],
+    work: workWithoutChapters as Work,
+    chapters: chapters as Chapter[],
   };
 });
 

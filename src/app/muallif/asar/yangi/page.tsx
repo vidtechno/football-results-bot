@@ -18,6 +18,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
 import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
 import type { Genre } from '@/lib/types/platform';
+import { GENRE_GROUPS } from '@/lib/config/genreGroups';
 
 export default function YangiAsarPage() {
   const router = useRouter();
@@ -277,11 +278,23 @@ export default function YangiAsarPage() {
               onChange={(e) => setSelectedGenreId(e.target.value)}
               className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 text-stone-900 text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
             >
-              {genres.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
+              {GENRE_GROUPS.map((group) => {
+                const options = group.slugs
+                  .map((slug) => genres.find((genre) => genre.slug === slug))
+                  .filter(Boolean);
+                return options.length > 0 ? (
+                  <optgroup key={group.id} label={group.title}>
+                    {options.map(
+                      (genre) =>
+                        genre && (
+                          <option key={genre.id} value={genre.id}>
+                            {genre.name}
+                          </option>
+                        ),
+                    )}
+                  </optgroup>
+                ) : null;
+              })}
             </select>
           </div>
         </div>

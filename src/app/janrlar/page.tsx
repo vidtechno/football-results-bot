@@ -1,14 +1,24 @@
 import React from 'react';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { Tag, BookOpen, ChevronRight, Layers } from 'lucide-react';
+import {
+  Tag,
+  ChevronRight,
+  Layers,
+  BookHeart,
+  BriefcaseBusiness,
+  GraduationCap,
+  Shapes,
+} from 'lucide-react';
 import { getGenresWithCounts } from '@/lib/db/queries';
+import { GENRE_GROUPS } from '@/lib/config/genreGroups';
 
 export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'Janrlar katalogi',
-  description: 'O‘zbek adabiyoti va jahon asarlari janrlar bo‘yicha: Roman, Qissa, Detektiv, Fantastika, Tarixiy, Biznes va boshqalar.',
+  description:
+    'O‘zbek adabiyoti va jahon asarlari janrlar bo‘yicha: Roman, Qissa, Detektiv, Fantastika, Tarixiy, Biznes va boshqalar.',
   alternates: {
     canonical: '/janrlar',
   },
@@ -16,56 +26,109 @@ export const metadata: Metadata = {
 
 export default async function JanrlarPage() {
   const genres = await getGenresWithCounts();
+  const genreBySlug = new Map(genres.map((genre) => [genre.slug, genre]));
+  const groupStyles = {
+    fiction: {
+      icon: BookHeart,
+      surface: 'from-rose-50 to-amber-50/50',
+      iconClass: 'bg-rose-100 text-rose-700',
+      accent: 'group-hover:border-rose-300',
+    },
+    business: {
+      icon: BriefcaseBusiness,
+      surface: 'from-emerald-50 to-teal-50/50',
+      iconClass: 'bg-emerald-100 text-emerald-700',
+      accent: 'group-hover:border-emerald-300',
+    },
+    education: {
+      icon: GraduationCap,
+      surface: 'from-sky-50 to-indigo-50/50',
+      iconClass: 'bg-sky-100 text-sky-700',
+      accent: 'group-hover:border-sky-300',
+    },
+    formats: {
+      icon: Shapes,
+      surface: 'from-violet-50 to-fuchsia-50/40',
+      iconClass: 'bg-violet-100 text-violet-700',
+      accent: 'group-hover:border-violet-300',
+    },
+  } as const;
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-16">
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight flex items-center gap-2.5">
-          <Layers className="w-7 h-7 text-amber-600" />
-          <span>Barcha janrlar</span>
-        </h1>
-        <p className="text-xs sm:text-sm text-[#78716C] font-medium">
-          O‘zingiz qiziqqan yo‘nalishdagi sara asarlar, romanlar va qissalarni toping
-        </p>
+      <div className="genre-hero relative overflow-hidden rounded-3xl border border-stone-200 bg-white px-6 py-8 sm:px-10 sm:py-10">
+        <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-amber-100/70 blur-3xl" />
+        <div className="relative space-y-2 max-w-2xl">
+          <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight flex items-center gap-2.5">
+            <Layers className="w-7 h-7 text-amber-600" />
+            <span>O‘zingizga mos mutolaani toping</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-[#78716C] font-medium">
+            Badiiy asarlardan biznes va texnologiyagacha — barcha janrlar tushunarli yo‘nalishlarga
+            ajratilgan.
+          </p>
+        </div>
       </div>
 
-      {/* Genres Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4.5">
-        {genres.map((genre) => (
-          <Link
-            key={genre.id}
-            href={`/janrlar/${genre.slug}`}
-            className="group bg-white p-5 rounded-3xl border border-[#EAE5DD] hover:border-amber-400 hover:shadow-md transition-all flex flex-col justify-between"
-          >
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-amber-700 flex items-center justify-center transition-colors">
-                  <Tag className="w-5 h-5" />
+      <div className="space-y-8">
+        {GENRE_GROUPS.map((group) => {
+          const style = groupStyles[group.id];
+          const GroupIcon = style.icon;
+          const groupGenres = group.slugs.map((slug) => genreBySlug.get(slug)).filter(Boolean);
+          return (
+            <section
+              key={group.id}
+              className={`genre-group rounded-[2rem] border border-stone-200 bg-gradient-to-br ${style.surface} p-5 sm:p-7`}
+            >
+              <div className="mb-5 flex items-center gap-3">
+                <div
+                  className={`flex h-11 w-11 items-center justify-center rounded-2xl ${style.iconClass}`}
+                >
+                  <GroupIcon className="h-5 w-5" />
                 </div>
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#FAF8F5] text-stone-600 border border-[#EAE5DD]">
-                  {genre.works_count} ta asar
-                </span>
+                <div>
+                  <h2 className="font-serif text-xl font-black text-stone-900 sm:text-2xl">
+                    {group.title}
+                  </h2>
+                  <p className="text-xs text-stone-500">{group.description}</p>
+                </div>
               </div>
-
-              <div>
-                <h3 className="text-base font-bold font-serif text-stone-900 group-hover:text-amber-700 transition-colors">
-                  {genre.name}
-                </h3>
-                {genre.description && (
-                  <p className="text-xs text-stone-500 line-clamp-2 mt-1 leading-relaxed">
-                    {genre.description}
-                  </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {groupGenres.map(
+                  (genre) =>
+                    genre && (
+                      <Link
+                        key={genre.id}
+                        href={`/janrlar/${genre.slug}`}
+                        className={`genre-card group flex min-h-28 flex-col justify-between rounded-2xl border border-white/90 bg-white/90 p-4 shadow-xs transition-all ${style.accent}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-600">
+                            <Tag className="h-4 w-4" />
+                          </div>
+                          <span className="rounded-full bg-stone-100 px-2 py-1 text-[10px] font-bold text-stone-500">
+                            {genre.works_count} ta asar
+                          </span>
+                        </div>
+                        <div className="mt-3 flex items-end justify-between gap-3">
+                          <div>
+                            <h3 className="font-serif text-base font-bold text-stone-900">
+                              {genre.name}
+                            </h3>
+                            <p className="mt-0.5 line-clamp-1 text-[11px] text-stone-500">
+                              {genre.description}
+                            </p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-stone-400 transition-transform group-hover:translate-x-1" />
+                        </div>
+                      </Link>
+                    ),
                 )}
               </div>
-            </div>
-
-            <div className="pt-4 mt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-amber-700 group-hover:text-amber-800">
-              <span>Asarlarni ko‘rish</span>
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
-        ))}
+            </section>
+          );
+        })}
       </div>
     </div>
   );

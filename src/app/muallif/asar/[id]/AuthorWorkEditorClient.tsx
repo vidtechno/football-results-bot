@@ -36,6 +36,7 @@ import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/components/providers/AuthProvider';
 import type { Work, Chapter, Genre, WorkRevision } from '@/lib/types/platform';
+import { GENRE_GROUPS } from '@/lib/config/genreGroups';
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then((mod) => mod.RichTextEditor),
@@ -1056,28 +1057,38 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
             {/* Genres Selection */}
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-2">Janrlar</label>
-              <div className="flex flex-wrap gap-2">
-                {genres.map((g) => {
-                  const isChecked = selectedGenreIds.includes(g.id);
-                  return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedGenreIds((prev) =>
-                          isChecked ? prev.filter((id) => id !== g.id) : [...prev, g.id],
-                        );
-                      }}
-                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
-                        isChecked
-                          ? 'bg-amber-600 border-amber-600 text-stone-950 shadow-xs'
-                          : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
-                      }`}
-                    >
-                      {g.name}
-                    </button>
-                  );
-                })}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {GENRE_GROUPS.map((group) => (
+                  <div
+                    key={group.id}
+                    className="rounded-2xl border border-stone-200 bg-stone-50/70 p-3"
+                  >
+                    <p className="mb-2 text-[11px] font-black text-stone-800">{group.title}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.slugs
+                        .map((slug) => genres.find((genre) => genre.slug === slug))
+                        .filter(Boolean)
+                        .map((g) => {
+                          if (!g) return null;
+                          const isChecked = selectedGenreIds.includes(g.id);
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() =>
+                                setSelectedGenreIds((prev) =>
+                                  isChecked ? prev.filter((id) => id !== g.id) : [...prev, g.id],
+                                )
+                              }
+                              className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${isChecked ? 'bg-amber-600 border-amber-600 text-stone-950 shadow-xs' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-100'}`}
+                            >
+                              {g.name}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 

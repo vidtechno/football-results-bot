@@ -337,6 +337,34 @@ h6 {
   }
 }
 
+.genre-hero {
+  box-shadow: 0 20px 50px -34px rgba(28, 25, 23, 0.28);
+}
+.genre-group {
+  animation: section-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.genre-group:nth-child(2) {
+  animation-delay: 70ms;
+}
+.genre-group:nth-child(3) {
+  animation-delay: 140ms;
+}
+.genre-group:nth-child(4) {
+  animation-delay: 210ms;
+}
+.genre-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px -24px rgba(28, 25, 23, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .genre-group {
+    animation: none;
+  }
+  .genre-card:hover {
+    transform: none;
+  }
+}
+
 /* Author acquisition landing page */
 .author-landing > section {
   animation: section-reveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;

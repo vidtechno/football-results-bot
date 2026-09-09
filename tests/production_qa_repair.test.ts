@@ -200,3 +200,23 @@ describe('TASK 8 — Registration CTA', () => {
     expect(navbar).toContain('Kirish');
   });
 });
+
+describe('TASK 9 — Chapter scheduling and published-revision safety', () => {
+  it('accepts the editor scheduled_at payload as well as scheduledAt', () => {
+    const route = read('src/app/api/chapters/save/route.ts');
+    expect(route).toContain('body.scheduledAt || body.scheduled_at');
+  });
+
+  it('does not report success when a published chapter revision fails to save', () => {
+    const route = read('src/app/api/chapters/save/route.ts');
+    expect(route).toContain('if (revisionError || !revisionResult)');
+    expect(route).toContain("revisionError?.message || 'Tahrirni saqlab bo‘lmadi'");
+  });
+
+  it('adds the canonical preview flag to chapter revisions and preserves old values', () => {
+    const migration = read('supabase/migrations/035_preview_chapter_revision_column.sql');
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS is_preview_free BOOLEAN NOT NULL DEFAULT FALSE');
+    expect(migration).toContain('WHERE cr.is_free = TRUE');
+    expect(migration).toContain("w.access_type = 'paid_full_work'");
+  });
+});

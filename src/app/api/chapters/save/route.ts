@@ -23,7 +23,9 @@ export async function POST(request: Request) {
     const rawContent = String(body.content || '').trim();
     const content = sanitizeRichText(rawContent);
     const isFree = Boolean(body.isFree);
-    const scheduledAt = body.scheduledAt ? String(body.scheduledAt) : null;
+    const scheduledAt = body.scheduledAt || body.scheduled_at
+      ? String(body.scheduledAt || body.scheduled_at)
+      : null;
     let status: 'draft' | 'scheduled' | 'published' = 'draft';
     if (body.status === 'published') {
       status = 'published';
@@ -85,8 +87,9 @@ export async function POST(request: Request) {
           .maybeSingle();
 
         let revisionResult;
+        let revisionError;
         if (existingRev) {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('chapter_revisions')
             .update({
               title,
@@ -100,8 +103,9 @@ export async function POST(request: Request) {
             .select()
             .single();
           revisionResult = data;
+          revisionError = error;
         } else {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('chapter_revisions')
             .insert({
               chapter_id: id,
@@ -117,6 +121,14 @@ export async function POST(request: Request) {
             .select()
             .single();
           revisionResult = data;
+          revisionError = error;
+        }
+
+        if (revisionError || !revisionResult) {
+          return NextResponse.json(
+            { success: false, error: revisionError?.message || 'Tahrirni saqlab bo‘lmadi' },
+            { status: 500 },
+          );
         }
 
         return NextResponse.json({

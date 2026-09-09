@@ -13,6 +13,10 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const workId = searchParams.get('workId');
+    const requestedLimit = Number(searchParams.get('limit'));
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(50, Math.max(1, Math.floor(requestedLimit)))
+      : null;
 
     const adminClient = createAdminClient();
 
@@ -60,6 +64,8 @@ export async function GET(request: Request) {
       }
       return NextResponse.json({ success: true, bookmark: data });
     }
+
+    if (limit) query = query.limit(limit);
 
     const { data, error } = await query;
     if (error) {

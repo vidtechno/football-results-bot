@@ -64,4 +64,19 @@ describe('Supabase load optimization', () => {
     expect(page).toContain('Promise.all([profilePromise, publicWorkPromise])');
     expect(page).toContain('Promise.all([accessPromise, followPromise])');
   });
+
+  it('renders the cabinet shell without blocking on duplicate server-side user queries', () => {
+    const page = read('src/app/kabinet/page.tsx');
+    expect(page).not.toContain('getCurrentProfile');
+    expect(page).not.toContain('getRecentReadingProgress');
+    expect(page).toContain('<KabinetClient />');
+  });
+
+  it('loads cabinet data by visible tab and bounds large history queries', () => {
+    const cabinet = read('src/app/kabinet/KabinetClient.tsx');
+    expect(cabinet).toContain("tab === 'finances' ? 'finances'");
+    expect(cabinet).toContain('loadedTabsRef.current.has(dataGroup)');
+    expect(cabinet).not.toContain(".from('library_items')");
+    expect(cabinet).toContain("fetch('/api/bookmarks?limit=6'");
+  });
 });

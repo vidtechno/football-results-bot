@@ -50,12 +50,7 @@ import { ReadingStreakCard } from '@/components/cabinet/ReadingStreakCard';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
 import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
-import type {
-  TopupRequest,
-  WalletTransaction,
-  Purchase,
-  LibraryItem,
-} from '@/lib/types/platform';
+import type { TopupRequest, WalletTransaction, Purchase } from '@/lib/types/platform';
 
 type KabinetTab =
   | 'overview'
@@ -82,7 +77,6 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
   const [topups, setTopups] = useState<TopupRequest[]>([]);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [library, setLibrary] = useState<LibraryItem[]>([]);
   const [progressList, setProgressList] = useState<any[]>(initialProgress);
   const [progressMap, setProgressMap] = useState<Record<string, any>>(() => {
     const pMap: Record<string, any> = {};
@@ -111,6 +105,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
   const [profileError, setProfileError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const loadedTabsRef = useRef<Set<string>>(new Set());
 
   // Notification preferences state
   const [notifPrefs, setNotifPrefs] = useState({
@@ -184,13 +179,16 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       setProgressMap({});
       setBookmarks([]);
       setPurchases([]);
-      setLibrary([]);
       setTopups([]);
     }
   }, [user]);
 
-  // Parallel data loading function
-  const loadTabUserData = useCallback(async (userId: string) => {
+  // Load only the data required by the visible tab. This keeps the first
+  // cabinet visit from issuing every finance and library query at once.
+  const loadTabUserData = useCallback(async (userId: string, tab: KabinetTab, force = false) => {
+    const dataGroup = tab === 'finances' ? 'finances' : tab === 'overview' ? 'overview' : null;
+    if (!dataGroup || (!force && loadedTabsRef.current.has(dataGroup))) return;
+
     setLoadingData(true);
     setDataError(null);
     try {
@@ -205,63 +203,23 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
         .eq('account_type', 'reader_credit')
         .maybeSingle();
 
-      const topupPromise = supabase
-        .from('topup_requests')
-        .select('*')
-        .eq('reader_id', userId)
-        .order('created_at', { ascending: false });
-
-      const purchasePromise = supabase
-        .from('purchases')
-        .select(`
-          *,
-          work:works (id, title, slug, cover_url),
-          chapter:chapters (id, chapter_number, title, slug)
-        `)
-        .eq('buyer_id', userId)
-        .order('created_at', { ascending: false });
-
-      const libraryPromise = supabase
-        .from('library_items')
-        .select(`
-          *,
-          work:works (
-            id, title, slug, cover_url, access_type, type,
-            author:author_profiles (pen_name)
-          )
-        `)
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false });
-
-      const progressPromise = fetch('/api/library/continue-reading', { headers })
-        .then(async (res) => {
+      if (dataGroup === 'overview') {
+        const progressPromise = fetch('/api/library/continue-reading', { headers }).then(async (res) => {
           if (!res.ok) throw new Error('Mutolaa ma‘lumotlarini yuklashda xatolik yuz berdi');
           return res.json();
         });
-
-      const bookmarksPromise = fetch('/api/bookmarks', { headers })
-        .then(async (res) => {
+        const bookmarksPromise = fetch('/api/bookmarks?limit=6', { headers }).then(async (res) => {
           if (!res.ok) throw new Error('Xatcho‘plarni yuklashda xatolik yuz berdi');
           return res.json();
         });
+        const [walletRes, progressRes, bmRes] = await Promise.all([
+          walletPromise,
+          progressPromise,
+          bookmarksPromise,
+        ]);
 
-      const [walletRes, topupRes, purchaseRes, libraryRes, progressRes, bmRes] = await Promise.all([
-        walletPromise,
-        topupPromise,
-        purchasePromise,
-        libraryPromise,
-        progressPromise,
-        bookmarksPromise,
-      ]);
-
-      if (topupRes.data) setTopups(topupRes.data as TopupRequest[]);
-      if (purchaseRes.data) setPurchases(purchaseRes.data as Purchase[]);
-      if (libraryRes.data) setLibrary(libraryRes.data as LibraryItem[]);
-      if (bmRes?.success && Array.isArray(bmRes.bookmarks)) {
-        setBookmarks(bmRes.bookmarks);
-      }
-      if (Array.isArray(progressRes?.items)) {
-        if (progressRes.items.length > 0 || initialProgress.length === 0) {
+        if (bmRes?.success && Array.isArray(bmRes.bookmarks)) setBookmarks(bmRes.bookmarks);
+        if (Array.isArray(progressRes?.items)) {
           setProgressList(progressRes.items);
           const pMap: Record<string, any> = {};
           progressRes.items.forEach((p: any) => {
@@ -269,26 +227,53 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           });
           setProgressMap(pMap);
         }
-      }
-
-      // Fetch transactions if wallet exists
-      if (walletRes.data?.id) {
-        const { data: txData } = await supabase
-          .from('wallet_transactions')
+        if (walletRes.data?.id) {
+          const { data: txData } = await supabase
+            .from('wallet_transactions')
+            .select('*')
+            .eq('account_id', walletRes.data.id)
+            .order('created_at', { ascending: false })
+            .limit(4);
+          if (txData) setTransactions(txData as WalletTransaction[]);
+        }
+      } else {
+        const topupPromise = supabase
+          .from('topup_requests')
           .select('*')
-          .eq('account_id', walletRes.data.id)
+          .eq('reader_id', userId)
           .order('created_at', { ascending: false })
           .limit(50);
-
-        if (txData) setTransactions(txData as WalletTransaction[]);
+        const purchasePromise = supabase
+          .from('purchases')
+          .select(`*, work:works (id, title, slug, cover_url), chapter:chapters (id, chapter_number, title, slug)`)
+          .eq('buyer_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        const [walletRes, topupRes, purchaseRes] = await Promise.all([
+          walletPromise,
+          topupPromise,
+          purchasePromise,
+        ]);
+        if (topupRes.data) setTopups(topupRes.data as TopupRequest[]);
+        if (purchaseRes.data) setPurchases(purchaseRes.data as Purchase[]);
+        if (walletRes.data?.id) {
+          const { data: txData } = await supabase
+            .from('wallet_transactions')
+            .select('*')
+            .eq('account_id', walletRes.data.id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+          if (txData) setTransactions(txData as WalletTransaction[]);
+        }
       }
+      loadedTabsRef.current.add(dataGroup);
     } catch (err: any) {
       console.error('Kabinet ma‘lumotlarini yuklashda xatolik:', err);
       setDataError(err?.message || 'Ma’lumotlarni yuklashda xatolik yuz berdi');
     } finally {
       setLoadingData(false);
     }
-  }, [initialProgress]);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -297,13 +282,12 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       setProgressMap({});
       setPurchases([]);
       setTopups([]);
-      setLibrary([]);
       setTransactions([]);
       router.push('/kirish?returnUrl=/kabinet');
     } else if (user?.id) {
-      loadTabUserData(user.id);
+      loadTabUserData(user.id, activeTab);
     }
-  }, [user, authLoading, router, loadTabUserData]);
+  }, [user, authLoading, router, activeTab, loadTabUserData]);
 
   async function handleSignOut() {
     setBookmarks([]);
@@ -311,7 +295,6 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
     setProgressMap({});
     setPurchases([]);
     setTopups([]);
-    setLibrary([]);
     setTransactions([]);
     await signOut();
     router.push('/');
@@ -684,7 +667,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                 </div>
                 <button
                   type="button"
-                  onClick={() => user?.id && loadTabUserData(user.id)}
+                  onClick={() => user?.id && loadTabUserData(user.id, activeTab, true)}
                   className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shrink-0 transition-colors"
                 >
                   Qayta urinish

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calculator, Sparkles, TrendingUp, DollarSign } from 'lucide-react';
+import { Calculator, Sparkles, TrendingUp } from 'lucide-react';
 import { formatUZS } from '@/lib/utils/currency';
 
 interface AuthorEarningsCalculatorProps {
@@ -28,7 +28,7 @@ export function AuthorEarningsCalculator({ commissionPercentage = 20 }: AuthorEa
         <div>
           <h3 className="font-serif font-black text-xl text-stone-900">Daromad kalkulyatori</h3>
           <p className="text-xs text-stone-500">
-            Asaringiz narxi va o‘quvchilar soniga qarab oylik taxminiy daromadingizni hisoblang
+            Asaringiz narxi va xaridlar soniga qarab taxminiy daromadingizni hisoblang
           </p>
         </div>
       </div>
@@ -39,7 +39,7 @@ export function AuthorEarningsCalculator({ commissionPercentage = 20 }: AuthorEa
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="text-xs font-bold uppercase tracking-wider text-stone-600">
-                Asar yoki bob narxi:
+                Asarning umumiy narxi:
               </label>
               <span className="font-mono font-bold text-amber-800 text-sm">
                 {formatUZS(price)}
@@ -75,7 +75,7 @@ export function AuthorEarningsCalculator({ commissionPercentage = 20 }: AuthorEa
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="text-xs font-bold uppercase tracking-wider text-stone-600">
-                Oylik xaridlar (o‘quvchilar soni):
+                Muvaffaqiyatli xaridlar soni:
               </label>
               <span className="font-mono font-bold text-stone-900 text-sm">
                 {readersCount.toLocaleString()} ta
@@ -114,7 +114,7 @@ export function AuthorEarningsCalculator({ commissionPercentage = 20 }: AuthorEa
         <div className="bg-stone-900 text-white p-6 rounded-3xl flex flex-col justify-between space-y-6 shadow-inner">
           <div className="space-y-4">
             <span className="text-[11px] font-bold uppercase tracking-widest text-amber-400">
-              Taxminiy oylik natija
+              Taxminiy natija
             </span>
 
             <div className="space-y-1">
@@ -138,7 +138,7 @@ export function AuthorEarningsCalculator({ commissionPercentage = 20 }: AuthorEa
 
           <div className="p-3 rounded-xl bg-stone-800/80 border border-stone-700/60 text-[11px] text-stone-300 flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Har oy to‘lovlar to‘g‘ridan-to‘g‘ri bank kartangizga o‘tkazib beriladi.</span>
+            <span>Daromad 100 000 so‘mga yetgach, muallif studiyasidan yechish so‘rovini yuborasiz.</span>
           </div>
         </div>
       </div>

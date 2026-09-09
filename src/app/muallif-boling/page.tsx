@@ -15,6 +15,10 @@ import {
   Award,
   Zap,
   Lock,
+  FileText,
+  BarChart3,
+  WalletCards,
+  Eye,
 } from 'lucide-react';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { AuthorEarningsCalculator } from '@/components/author/AuthorEarningsCalculator';
@@ -38,14 +42,15 @@ export const metadata: Metadata = {
 };
 
 export default async function MuallifBolingPage() {
-  const profile = await getCurrentProfile();
-
   const admin = createAdminClient();
-  const { data: setting } = await admin
-    .from('platform_settings')
-    .select('value')
-    .eq('key', 'commission_percentage')
-    .maybeSingle();
+  const [profile, { data: setting }] = await Promise.all([
+    getCurrentProfile(),
+    admin
+      .from('platform_settings')
+      .select('value')
+      .eq('key', 'commission_percentage')
+      .maybeSingle(),
+  ]);
 
   const commissionPercentage = Number(setting?.value || 20);
   const authorPercentage = 100 - commissionPercentage;
@@ -71,45 +76,98 @@ export default async function MuallifBolingPage() {
   }
 
   return (
-    <div className="space-y-16 sm:space-y-24 pb-20">
+    <div className="author-landing space-y-16 sm:space-y-24 pb-20">
       {/* 1. Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl sm:rounded-4xl bg-gradient-to-b from-stone-900 via-stone-900 to-stone-950 text-white p-8 sm:p-14 lg:p-20 shadow-2xl border border-stone-800">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(217,119,6,0.18),transparent_50%)] pointer-events-none" />
-        <div className="relative z-10 max-w-3xl space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Mualliflar uchun yangi imkoniyat</span>
-          </div>
+      <section className="author-hero relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#132a23] via-[#173d31] to-[#0d1f1a] text-white p-7 sm:p-12 lg:p-16 shadow-2xl border border-emerald-800/30">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(251,191,36,0.18),transparent_34%)] pointer-events-none" />
+        <div className="absolute -right-20 -bottom-28 h-80 w-80 rounded-full border border-white/10" />
+        <div className="absolute -right-6 -bottom-16 h-56 w-56 rounded-full border border-amber-300/15" />
+        <div className="relative z-10 grid lg:grid-cols-[1fr_340px] gap-10 lg:gap-16 items-center">
+          <div className="max-w-3xl space-y-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Hikoyangiz o‘quvchisini kutmoqda</span>
+            </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black font-serif tracking-tight leading-[1.15]">
-            Asarlaringizni o‘quvchilarga yetkazing va <span className="text-amber-400">erkin daromad</span> oling.
-          </h1>
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black font-serif tracking-tight leading-[1.15]">
+              Yozganingizni javonda emas, <span className="text-amber-300">minglab qalblarda</span>{' '}
+              saqlang.
+            </h1>
 
-          <p className="text-sm sm:text-base lg:text-lg text-stone-300 leading-relaxed max-w-2xl font-normal">
-            Manbora — o‘zbek yozuvchilari va ijodkorlari uchun yaratilgan milliy adabiy platforma. Kitob yoki
-            davomli hikoyalaringizni nashr eting, intellektual mulkingizni himoyalang va daromadning{' '}
-            <strong className="text-white font-bold">{authorPercentage}%</strong> qismini to‘g‘ridan-to‘g‘ri kartangizga oling.
-          </p>
+            <p className="text-sm sm:text-base lg:text-lg text-stone-300 leading-relaxed max-w-2xl font-normal">
+              Manbora kitob va hikoyangizni nashr qilish, o‘quvchi topish va ijodingizdan daromad
+              olishni bir joyga jamlaydi. Narxni siz belgilaysiz, ayrim boblarni bepul ochasiz va
+              har bir sotuvning{' '}
+              <strong className="text-amber-200 font-bold">{authorPercentage}% ulushini</strong>{' '}
+              olasiz.
+            </p>
 
-          <div className="flex flex-wrap items-center gap-3.5 pt-4">
-            <Link
-              href={primaryCtaUrl}
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-black text-xs sm:text-sm transition-all shadow-lg active:scale-95"
-            >
-              <span>{primaryCtaLabel}</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-
-            {secondaryCtaUrl && (
+            <div className="flex flex-wrap items-center gap-3.5 pt-4">
               <Link
-                href={secondaryCtaUrl}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-stone-800/80 hover:bg-stone-800 text-stone-200 border border-stone-700/80 font-bold text-xs sm:text-sm transition-colors"
+                href={primaryCtaUrl}
+                className="author-primary-cta inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-emerald-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-black/20 active:scale-95"
               >
-                <span>{secondaryCtaLabel}</span>
+                <span>{primaryCtaLabel}</span>
+                <ArrowRight className="w-4 h-4" />
               </Link>
-            )}
+
+              {secondaryCtaUrl && (
+                <Link
+                  href={secondaryCtaUrl}
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-stone-800/80 hover:bg-stone-800 text-stone-200 border border-stone-700/80 font-bold text-xs sm:text-sm transition-colors"
+                >
+                  <span>{secondaryCtaLabel}</span>
+                </Link>
+              )}
+            </div>
+          </div>
+          <div className="author-proof-card relative hidden lg:block rounded-3xl border border-white/15 bg-white/10 backdrop-blur-xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
+                  Muallif ulushi
+                </p>
+                <p className="mt-1 font-serif text-5xl font-black text-white">
+                  {authorPercentage}%
+                </p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400 text-emerald-950">
+                <TrendingUp className="h-6 w-6" />
+              </div>
+            </div>
+            <div className="mt-5 space-y-3 text-xs text-emerald-50">
+              {[
+                ['Narx', 'Muallif belgilaydi'],
+                ['Bepul boblar', 'Muallif tanlaydi'],
+                ['Nashr formati', 'Kitob yoki hikoya'],
+                ['Hisobot', 'Shaffof analitika'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-4">
+                  <span className="text-emerald-200/75">{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+      </section>
+
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { icon: PenTool, title: 'Qulay muharrir', text: 'Boblarni yozing va tahrirlang' },
+          { icon: BarChart3, title: 'Aniq statistika', text: 'O‘qish va sotuvlarni kuzating' },
+          { icon: ShieldCheck, title: 'Sizning asaringiz', text: 'Huquq va boshqaruv sizda' },
+          { icon: WalletCards, title: 'Shaffof daromad', text: 'Har bir xarid hisobda ko‘rinadi' },
+        ].map(({ icon: Icon, title, text }) => (
+          <div
+            key={title}
+            className="author-mini-card rounded-2xl border border-stone-200 bg-white p-4 sm:p-5"
+          >
+            <Icon className="h-5 w-5 text-emerald-700" />
+            <h3 className="mt-3 text-xs sm:text-sm font-black text-stone-900">{title}</h3>
+            <p className="mt-1 text-[10px] sm:text-xs leading-relaxed text-stone-500">{text}</p>
+          </div>
+        ))}
       </section>
 
       {/* 2. Platform Advantages / Features */}
@@ -130,7 +188,8 @@ export default async function MuallifBolingPage() {
             </div>
             <h3 className="font-serif font-bold text-base text-stone-900">Format erkinligi</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Tugallangan qissa, roman yoki haftalik yangi boblar bilan to‘ldiriladigan davomli hikoyalarni chop eting.
+              Kitob yoki hikoya nashr eting. Ikkalasida ham bitta yoki bir nechta bob bilan
+              ishlashingiz mumkin.
             </p>
           </div>
 
@@ -138,9 +197,12 @@ export default async function MuallifBolingPage() {
             <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700">
               <DollarSign className="w-6 h-6" />
             </div>
-            <h3 className="font-serif font-bold text-base text-stone-900">Moslashuvchan narxlash</h3>
+            <h3 className="font-serif font-bold text-base text-stone-900">
+              Narx sizning qo‘lingizda
+            </h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Butun kitob uchun bitta narx belgilang yoki har bir bobni alohida (masalan, dastlabki boblar bepul, keyingilari pullik) soting.
+              Asarga bitta umumiy narx belgilang. O‘quvchi tanishishi uchun xohlagan boblaringizni
+              bepul oching.
             </p>
           </div>
 
@@ -148,9 +210,10 @@ export default async function MuallifBolingPage() {
             <div className="w-12 h-12 rounded-2xl bg-sky-100 flex items-center justify-center text-sky-700">
               <TrendingUp className="w-6 h-6" />
             </div>
-            <h3 className="font-serif font-bold text-base text-stone-900">Real-vaqt statistikasi</h3>
+            <h3 className="font-serif font-bold text-base text-stone-900">O‘quvchini tushuning</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              O‘quvchilar soni, mutolaa sahifalari, kitobxonlar fikrlari va tushumlarni shaxsiy studiyangizda jonli kuzating.
+              O‘qishlar, tugatish ko‘rsatkichi, kitobxonlar fikri, sotuv va tushumlarni studiyada
+              kuzating.
             </p>
           </div>
 
@@ -158,9 +221,10 @@ export default async function MuallifBolingPage() {
             <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700">
               <Zap className="w-6 h-6" />
             </div>
-            <h3 className="font-serif font-bold text-base text-stone-900">Kafolatlangan to‘lovlar</h3>
+            <h3 className="font-serif font-bold text-base text-stone-900">Shaffof hisob-kitob</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Har bir xarid avtomatik muallif balansiga tushadi. Uzcard va Humo kartalariga minimal chegarasiz oson yechib oling.
+              Har bir xarid va muallif ulushi tizimda qayd etiladi. Mablag‘ni yechish so‘rovini
+              studiyadan yuborasiz.
             </p>
           </div>
         </div>
@@ -171,7 +235,7 @@ export default async function MuallifBolingPage() {
         <div className="max-w-3xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
             <ShieldCheck className="w-4 h-4" />
-            <span>Mualliflik huquqi daxlsizligi</span>
+            <span>Ijodingiz ustidan nazorat o‘zingizda</span>
           </div>
 
           <h2 className="text-2xl sm:text-4xl font-serif font-black tracking-tight">
@@ -179,21 +243,21 @@ export default async function MuallifBolingPage() {
           </h2>
 
           <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
-            Biz no-eksklyuziv modelda ishlaymiz. Siz asaringizning yagona intellektual egasisiz. Manbora platformasi
-            faqat raqamli nashr va tarqatish vositasi sifatida xizmat qiladi.
+            Biz no-eksklyuziv modelda ishlaymiz. Siz asaringizning yagona intellektual egasisiz.
+            Manbora platformasi faqat raqamli nashr va tarqatish vositasi sifatida xizmat qiladi.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
             <div className="p-4 rounded-2xl bg-stone-800/80 border border-stone-700 space-y-1">
               <h4 className="font-bold text-stone-200 text-sm">Anti-pirat himoyasi</h4>
               <p className="text-[11px] text-stone-400">
-                Matn nusxa olishdan va skrinshotlardan texnik himoyalangan.
+                O‘qish interfeysi oddiy nusxa ko‘chirishni cheklashga yordam beradi.
               </p>
             </div>
             <div className="p-4 rounded-2xl bg-stone-800/80 border border-stone-700 space-y-1">
               <h4 className="font-bold text-stone-200 text-sm">Rasmiy ommaviy oferta</h4>
               <p className="text-[11px] text-stone-400">
-                O‘zbekiston Respublikasi qonunchiligiga to‘liq mos elektron shartnoma.
+                Platforma shartlari asarni nashr qilish va daromad taqsimotini belgilaydi.
               </p>
             </div>
             <div className="p-4 rounded-2xl bg-stone-800/80 border border-stone-700 space-y-1">
@@ -213,7 +277,8 @@ export default async function MuallifBolingPage() {
             Daromad taqsimoti va kalkulyator
           </h2>
           <p className="text-xs sm:text-sm text-stone-600">
-            Platforma komissiyasi atigi {commissionPercentage}%. Qolgan barcha daromad bevosita muallifga tegishli.
+            Platforma komissiyasi atigi {commissionPercentage}%. Qolgan barcha daromad bevosita
+            muallifga tegishli.
           </p>
         </div>
 
@@ -227,7 +292,7 @@ export default async function MuallifBolingPage() {
             Nashr jarayoni: 4 oddiy qadam
           </h2>
           <p className="text-xs sm:text-sm text-stone-600">
-            Bir necha daqiqa ichida birinchi kitobingizni o‘quvchilar bilan bo‘lishing
+            Arizadan ilk o‘quvchigacha bo‘lgan yo‘l tushunarli va boshqariladigan
           </p>
         </div>
 
@@ -238,7 +303,7 @@ export default async function MuallifBolingPage() {
             </span>
             <h3 className="font-serif font-bold text-base text-stone-900">Profil oching</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Mualliflikka ro‘yxatdan o‘ting, taxallusingiz va qisqacha biografiyangizni kiriting.
+              Taxallus, qisqacha biografiya va ijodingiz haqida ma’lumot bilan ariza yuboring.
             </p>
           </div>
 
@@ -248,7 +313,7 @@ export default async function MuallifBolingPage() {
             </span>
             <h3 className="font-serif font-bold text-base text-stone-900">Asarni yuklang</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Asar muqovasi, tavsifi va dastlabki boblar matnini qulay muharririmiz orqali joylang.
+              Kitob yoki hikoya turini tanlang, muqova, tavsif va boblarni qulay muharrirda joylang.
             </p>
           </div>
 
@@ -258,7 +323,8 @@ export default async function MuallifBolingPage() {
             </span>
             <h3 className="font-serif font-bold text-base text-stone-900">Narx belgilang</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Asarni bepul qiling yoki narxini o‘zingiz erkin belgilab, moderatsiyaga yuboring.
+              Asarni bepul qiling yoki umumiy narx belgilang. Qaysi boblar bepul bo‘lishini o‘zingiz
+              tanlang.
             </p>
           </div>
 
@@ -268,7 +334,8 @@ export default async function MuallifBolingPage() {
             </span>
             <h3 className="font-serif font-bold text-base text-stone-900">Daromad oling</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Asaringiz tasdiqlangach, minglab o‘quvchilar uni o‘qishni boshlaydi va har bir xarid sizga daromad keltiradi.
+              Moderatsiyadan so‘ng asar katalogga chiqadi. O‘qishlar, fikrlar va daromadni
+              studiyadan kuzatasiz.
             </p>
           </div>
         </div>
@@ -292,8 +359,8 @@ export default async function MuallifBolingPage() {
               <span>Qanday asarlar qabul qilinadi?</span>
             </h4>
             <p className="text-stone-600 leading-relaxed text-xs">
-              Badiiy, ilmiy-ommabop, she’riy, biznes, tarixiy va bolalar adabiyoti qabul qilinadi. Barcha janrlar
-              uchun eshiklarimiz ochiq.
+              Badiiy, ilmiy-ommabop, she’riy, biznes, tarixiy va bolalar adabiyoti qabul qilinadi.
+              Barcha janrlar uchun eshiklarimiz ochiq.
             </p>
           </div>
 
@@ -303,8 +370,8 @@ export default async function MuallifBolingPage() {
               <span>Moderatsiya qancha vaqt oladi?</span>
             </h4>
             <p className="text-stone-600 leading-relaxed text-xs">
-              Odatda 24 dan 48 soatgacha. Muharrirlarimiz asar formati, orfografiyasi va mualliflik huquqi tozaligini
-              tekshiradi.
+              Muddat navbat va asar hajmiga bog‘liq. Jamoa format, mazmun talablari va mualliflik
+              huquqi tozaligini tekshiradi.
             </p>
           </div>
 
@@ -314,8 +381,8 @@ export default async function MuallifBolingPage() {
               <span>Plagiat va ko‘chirmachilikka munosabat?</span>
             </h4>
             <p className="text-stone-600 leading-relaxed text-xs">
-              Boshqa muallif asarini uning ruxsatisiz yuklash qat’iyan man etiladi. Qoidabuzarlik aniqlansa, profil va
-              balans bloklanadi.
+              Boshqa muallif asarini uning ruxsatisiz yuklash qat’iyan man etiladi. Qoidabuzarlik
+              aniqlansa, profil va balans bloklanadi.
             </p>
           </div>
 
@@ -325,8 +392,8 @@ export default async function MuallifBolingPage() {
               <span>Pulni qachon va qanday yechish mumkin?</span>
             </h4>
             <p className="text-stone-600 leading-relaxed text-xs">
-              Balansingizda mablag‘ yig‘ilgach, istalgan paytda muallif kabinetidan o‘zbek kartalaringizga yechib olish
-              arizasi berasiz.
+              Muallif balansida kamida 100 000 so‘m yig‘ilgach, studiyadan pul yechish so‘rovini
+              yuborishingiz mumkin.
             </p>
           </div>
         </div>
@@ -338,10 +405,11 @@ export default async function MuallifBolingPage() {
           <PenTool className="w-6 h-6" />
         </div>
         <h3 className="font-serif font-black text-2xl sm:text-3xl text-stone-900">
-          O‘z kitobingizni bugunoq nashr eting
+          Keyingi o‘qiladigan asar sizniki bo‘lishi mumkin
         </h3>
         <p className="text-xs sm:text-sm text-stone-600 max-w-md mx-auto">
-          Minglab kitobxonlar yangi va qiziqarli asarlarni kutmoqda. Bizga qo‘shiling va ijodingizni qadrlang.
+          Qo‘lyozmangizni o‘quvchiga yetkazing, auditoriyangizni yarating va ijodingizni daromadga
+          aylantiring.
         </p>
         <div className="pt-2">
           <Link

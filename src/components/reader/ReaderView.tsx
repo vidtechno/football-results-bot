@@ -760,6 +760,18 @@ export function ReaderView({
     }
   }, [currentPage, paginated.totalPages, nextChapter, router, work.id, work.slug, isLoggedIn]);
 
+  // Bottom chapter navigation must never inherit the current page number.
+  // It intentionally bypasses within-chapter pagination and opens page 1.
+  const goToNextChapter = useCallback(() => {
+    if (!nextChapter) return;
+    if (!isLoggedIn) {
+      setShowSignupGate(true);
+      trackAnalytics('signup_gate', { workId: work.id, chapterId: nextChapter.id });
+      return;
+    }
+    router.push(`/asarlar/${work.slug}/${nextChapter.slug}`);
+  }, [isLoggedIn, nextChapter, router, work.id, work.slug]);
+
   // Keyboard navigation
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -1488,7 +1500,7 @@ export function ReaderView({
 
           {nextChapter ? (
             isNextLocked ? (
-              <button type="button" onClick={goToNextPage}
+              <button type="button" onClick={goToNextChapter}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 font-bold text-xs sm:text-sm shadow-xs hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-all active:scale-95"
               >
                 <Lock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
@@ -1499,7 +1511,7 @@ export function ReaderView({
                 <ChevronRight className="w-4 h-4" />
               </button>
             ) : (
-              <button type="button" onClick={goToNextPage}
+              <button type="button" onClick={goToNextChapter}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all"
               >
                 <span className="hidden sm:inline">Keyingi bob</span>

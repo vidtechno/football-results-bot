@@ -113,6 +113,153 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
+/* Homepage polish: lightweight, compositor-friendly motion only. */
+.home-page {
+  isolation: isolate;
+}
+
+.home-page > section {
+  position: relative;
+  z-index: 1;
+  animation: section-reveal 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.home-page > section:nth-of-type(2) { animation-delay: 70ms; }
+.home-page > section:nth-of-type(3) { animation-delay: 120ms; }
+.home-page > section:nth-of-type(4) { animation-delay: 170ms; }
+
+.home-page section h2 {
+  text-wrap: balance;
+}
+
+.home-page section h2 + p {
+  max-width: 52rem;
+}
+
+.home-page section > div:first-child > div:first-child > div:first-child {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+
+.home-page section:hover > div:first-child > div:first-child > div:first-child {
+  transform: rotate(-4deg) scale(1.06);
+  box-shadow: 0 8px 20px -10px rgba(6, 78, 59, 0.45);
+}
+
+.home-ambient {
+  position: absolute;
+  z-index: 0;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.home-ambient-one {
+  top: 23rem;
+  right: -7rem;
+  width: 20rem;
+  height: 20rem;
+  background: #34d399;
+}
+
+.home-ambient-two {
+  top: 75rem;
+  left: -9rem;
+  width: 24rem;
+  height: 24rem;
+  background: #f59e0b;
+}
+
+.literary-carousel {
+  box-shadow: 0 28px 70px -28px rgba(12, 28, 22, 0.65);
+}
+
+.literary-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+}
+
+.hero-orb {
+  position: absolute;
+  z-index: 2;
+  border-radius: 9999px;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.hero-orb-one {
+  width: 16rem;
+  height: 16rem;
+  right: 8%;
+  top: -42%;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.2), transparent 68%);
+  animation: orb-drift 8s ease-in-out infinite;
+}
+
+.hero-orb-two {
+  width: 12rem;
+  height: 12rem;
+  left: 42%;
+  bottom: -38%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.18), transparent 70%);
+  animation: orb-drift 10s ease-in-out -3s infinite reverse;
+}
+
+.hero-copy { animation: hero-copy-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.hero-book { animation: hero-book-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; perspective: 900px; }
+.hero-book > div { transform: rotateY(-7deg) rotateZ(1deg); transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.literary-carousel:hover .hero-book > div { transform: rotateY(-2deg) rotateZ(0deg) translateY(-4px); }
+.hero-cta:hover { transform: translateY(-2px); }
+
+.work-card { perspective: 900px; }
+.work-card > a { transform-origin: center bottom; }
+.work-card:hover > a { transform: translateY(-5px); }
+.work-card:hover .work-cover { transform: rotateX(1.5deg) rotateY(-1.5deg); }
+.work-cover-shine {
+  opacity: 0;
+  transform: translateX(-65%);
+  background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,.25) 48%, transparent 70%);
+  transition: opacity .35s ease, transform .75s cubic-bezier(.16,1,.3,1);
+}
+.work-card:hover .work-cover-shine { opacity: 1; transform: translateX(65%); }
+
+.chapter-card:hover { transform: translateY(-3px); }
+.nav-search:focus { transform: translateY(-1px); box-shadow: 0 10px 28px -16px rgba(6, 78, 59, .35); }
+
+@keyframes section-reveal {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hero-copy-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hero-book-in {
+  from { opacity: 0; transform: translate(22px, -46%); }
+  to { opacity: 1; transform: translate(0, -50%); }
+}
+
+@keyframes orb-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(12px, 10px, 0) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page > section,
+  .hero-copy,
+  .hero-book,
+  .hero-orb {
+    animation: none !important;
+  }
+  .work-card:hover > a,
+  .work-card:hover .work-cover,
+  .chapter-card:hover,
+  .hero-cta:hover {
+    transform: none;
+  }
+}
+
 /* Reading Mode Themes */
 .reader-theme-light {
   background-color: #FAF8F5 !important;

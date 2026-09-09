@@ -268,7 +268,7 @@ export function HomeHeroCarousel({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="relative w-full h-[320px] sm:h-[360px] lg:h-[400px] rounded-3xl overflow-hidden shadow-sm border border-[#EAE5DD] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 bg-stone-900 select-none"
+      className="literary-carousel relative w-full h-[340px] sm:h-[380px] lg:h-[420px] rounded-[2rem] overflow-hidden border border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 bg-stone-950 select-none"
       aria-roledescription="carousel"
       aria-label="Manbora asarlar karuseli"
     >
@@ -280,14 +280,18 @@ export function HomeHeroCarousel({
             alt={activeSlide.title}
             fill
             priority
-            className="object-cover object-center filter blur-xs scale-105 opacity-40 transition-all duration-700"
+            className="object-cover object-center blur-sm scale-110 opacity-35 transition-all duration-1000"
           />
           {/* Gradients ensuring high contrast text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/80 to-stone-950/40 lg:bg-gradient-to-r lg:from-stone-950 lg:via-stone-950/90 lg:to-stone-950/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/85 to-stone-950/40 lg:bg-gradient-to-r lg:from-stone-950 lg:via-stone-950/90 lg:to-emerald-950/30" />
         </div>
       ) : (
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-stone-950 via-emerald-950/80 to-stone-900" />
       )}
+
+      <div className="hero-orb hero-orb-one" aria-hidden="true" />
+      <div className="hero-orb hero-orb-two" aria-hidden="true" />
+      <div className="absolute inset-0 z-[1] opacity-[0.045] literary-grain" aria-hidden="true" />
 
       {/* Slide Content */}
       <div className="relative z-10 w-full h-full p-6 sm:p-8 lg:p-12 flex flex-col justify-between">
@@ -318,8 +322,8 @@ export function HomeHeroCarousel({
         </div>
 
         {/* Center Text and Actions */}
-        <div className="max-w-2xl space-y-2 sm:space-y-3 my-auto">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight line-clamp-2">
+        <div key={activeSlide.id} className="hero-copy max-w-2xl lg:max-w-[62%] space-y-2 sm:space-y-3 my-auto">
+          <h2 className="font-serif text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-[-0.035em] leading-[1.08] line-clamp-2 text-balance">
             {activeSlide.title}
           </h2>
 
@@ -347,13 +351,22 @@ export function HomeHeroCarousel({
           <div className="pt-3 flex items-center gap-3">
             <Link
               href={activeSlide.ctaHref}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs sm:text-sm transition-all duration-150 shadow-md group active:scale-98"
+              className="hero-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm transition-all duration-200 shadow-lg shadow-emerald-950/30 group active:scale-98"
             >
               <span>{activeSlide.ctaText}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
         </div>
+
+        {activeSlide.coverUrl && (
+          <div key={`${activeSlide.id}-cover`} className="hero-book absolute right-[8%] top-1/2 hidden lg:block h-[270px] w-[180px] -translate-y-1/2">
+            <div className="relative h-full w-full overflow-hidden rounded-[1.15rem] border border-white/20 bg-stone-800 shadow-2xl shadow-black/50">
+              <Image src={activeSlide.coverUrl} alt="" fill sizes="180px" className="object-cover" />
+              <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/35 to-transparent" />
+            </div>
+          </div>
+        )}
 
         {/* Bottom Carousel Controls: Prev/Next & Slide Indicators */}
         <div className="flex items-center justify-between pt-2">

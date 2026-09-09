@@ -127,7 +127,9 @@ export default async function HomePage() {
   const section8Works = getDeduplicatedSlice(freeWorks, 5);
 
   return (
-    <div className="space-y-10 sm:space-y-14">
+    <div className="home-page relative space-y-10 sm:space-y-14">
+      <div className="home-ambient home-ambient-one" aria-hidden="true" />
+      <div className="home-ambient home-ambient-two" aria-hidden="true" />
       {/* Semantic H1 for platform primary hierarchy & SEO accessibility */}
       <h1 className="sr-only">Manbora — o‘zbek kitoblari va asarlar platformasi</h1>
 

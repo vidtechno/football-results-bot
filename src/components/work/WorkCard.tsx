@@ -78,14 +78,14 @@ export function WorkCard({
   })();
 
   return (
-    <article className="group relative flex flex-col h-full select-none">
+    <article className="work-card group relative flex flex-col h-full select-none">
       <Link
         href={`/asarlar/${work.slug || work.id}`}
-        className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-2xl transition-transform duration-200"
+        className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-2xl transition-transform duration-300"
         aria-label={`${work.title} - ${authorName}`}
       >
         {/* Cover Container - Strict 2:3 Aspect Ratio */}
-        <div className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-[#ECE6DD] border border-[#E3DDD3] shadow-xs group-hover:shadow-md group-hover:border-emerald-600/50 transition-all duration-300">
+        <div className="work-cover relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-[#ECE6DD] border border-[#E3DDD3] shadow-xs group-hover:shadow-xl group-hover:border-emerald-600/40 transition-all duration-500">
           {work.cover_url && !imageError ? (
             <Image
               src={work.cover_url}
@@ -108,6 +108,8 @@ export function WorkCard({
               </span>
             </div>
           )}
+
+          <div className="work-cover-shine absolute inset-0 z-[2] pointer-events-none" aria-hidden="true" />
 
           {/* Floating Rating Pill (Upper-Left) */}
           {rating ? (

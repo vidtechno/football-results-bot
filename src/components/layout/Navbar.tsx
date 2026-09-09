@@ -97,7 +97,7 @@ export function Navbar() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Asar, muallif yoki janr qidirish..."
-              className="w-full pl-10 pr-16 py-2.5 rounded-2xl bg-white/90 border border-[#EAE5DD] focus:bg-white focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 outline-hidden text-xs text-[#1C1917] placeholder-stone-400 transition-all shadow-2xs"
+            className="nav-search w-full pl-10 pr-16 py-2.5 rounded-2xl bg-white/90 border border-[#EAE5DD] focus:bg-white focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100/70 outline-hidden text-xs text-[#1C1917] placeholder-stone-400 transition-all duration-300 shadow-2xs"
             />
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
               <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-[10px] font-bold text-stone-500">

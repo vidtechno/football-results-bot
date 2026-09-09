@@ -45,7 +45,7 @@ export function RecentChaptersSection({ chapters }: RecentChaptersSectionProps) 
             <Link
               key={item.id}
               href={chapterUrl}
-              className="group flex items-start gap-3 p-3 rounded-2xl bg-white border border-[#EAE5DD] hover:border-emerald-600/50 hover:shadow-sm transition-all duration-200"
+              className="chapter-card group flex items-start gap-3 p-3 rounded-2xl bg-white border border-[#EAE5DD] hover:border-emerald-600/40 hover:shadow-lg transition-all duration-300"
             >
               {/* Cover Thumbnail */}
               <div className="relative w-14 h-20 rounded-xl overflow-hidden bg-[#ECE6DD] border border-[#E3DDD3] shrink-0">

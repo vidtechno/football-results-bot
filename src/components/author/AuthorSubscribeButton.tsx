@@ -1,6 +1,0 @@
-'use client';
-import { useState } from 'react';
-import { Crown, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
-import { formatUZS } from '@/lib/utils/currency';
-export function AuthorSubscribeButton({authorId,price}:{authorId:string;price:number}){const[loading,setLoading]=useState(false);const[msg,setMsg]=useState('');const buy=async()=>{setLoading(true);setMsg('');const{data}=await supabase.auth.getSession();if(!data.session){location.href=`/kirish?returnUrl=${encodeURIComponent(location.pathname)}`;return;}const r=await fetch('/api/subscriptions/purchase',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${data.session.access_token}`},body:JSON.stringify({authorId,idempotencyKey:`sub_${authorId}_${crypto.randomUUID()}`})});const j=await r.json();setMsg(r.ok?'30 kunlik obuna faollashdi!':j.error||'Obuna amalga oshmadi');setLoading(false);};return <div><button type="button" disabled={loading} onClick={buy} className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-violet-700 px-4 py-2 text-xs font-bold text-white hover:bg-violet-800 disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<Crown className="h-4 w-4"/>}Barcha asarlariga obuna — {formatUZS(price)}/oy</button>{msg&&<p className="mt-2 text-xs font-semibold">{msg}</p>}</div>}

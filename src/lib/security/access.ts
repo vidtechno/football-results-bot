@@ -401,12 +401,6 @@ export async function canReadChapter(
 
   if (userId) {
     try {
-      const { data: subscription } = await supabase.from('author_subscriptions').select('id')
-        .eq('subscriber_id', userId).eq('author_id', authorId).eq('status', 'active')
-        .gt('current_period_end', new Date().toISOString()).limit(1).maybeSingle();
-      hasFullWorkEntitlement = Boolean(subscription);
-    } catch { /* migration 033 may not be installed yet */ }
-    try {
       let entQuery = supabase
         .from('entitlements')
         .select('id, entitlement_type, chapter_id, work_id')
@@ -641,17 +635,7 @@ export async function getWorkChaptersAccessMap(
     purchases = [];
   }
 
-  let hasSubscription = false;
-  if (options?.authorId) {
-    try {
-      const { data } = await supabase.from('author_subscriptions').select('id')
-        .eq('subscriber_id', userId).eq('author_id', options.authorId).eq('status', 'active')
-        .gt('current_period_end', new Date().toISOString()).limit(1).maybeSingle();
-      hasSubscription = Boolean(data);
-    } catch { /* optional until migration 033 */ }
-  }
-  const hasFullWork = hasSubscription ||
-    entitlements.some((e: any) => e.entitlement_type === 'full_work') ||
+  const hasFullWork = entitlements.some((e: any) => e.entitlement_type === 'full_work') ||
     purchases.some((p: any) => p.purchase_type === 'full_work');
 
   const purchasedChapterIds = new Set<string>([

@@ -11,6 +11,7 @@ import {
   Loader2,
   ShieldCheck,
   X,
+  BadgePercent,
 } from 'lucide-react';
 import { formatUZS } from '@/lib/utils/currency';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -49,9 +50,13 @@ export function PaywallUnlockCard({
   const [success, setSuccess] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showTopupModal, setShowTopupModal] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promo, setPromo] = useState<{ code: string; discount: number; finalPrice: number } | null>(null);
 
-  const hasEnoughBalance = currentBalance >= price;
-  const remainingBalance = Math.max(0, currentBalance - price);
+  const payablePrice = promo?.finalPrice ?? price;
+  const hasEnoughBalance = currentBalance >= payablePrice;
+  const remainingBalance = Math.max(0, currentBalance - payablePrice);
 
   const redirectUrl = currentPath
     ? `/kirish?redirect=${encodeURIComponent(currentPath)}`
@@ -72,6 +77,7 @@ export function PaywallUnlockCard({
           workId,
           chapterId: isFullWork ? null : chapterId,
           idempotencyKey,
+          promoCode: promo?.code || null,
         }),
       });
 
@@ -98,12 +104,62 @@ export function PaywallUnlockCard({
     }
   }
 
+  async function applyPromoCode() {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+    setPromoLoading(true);
+    setError(null);
+    setPromo(null);
+    try {
+      const res = await fetch('/api/promos/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, workId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) throw new Error(data.error || 'Promo-kod amal qilmaydi');
+      setPromo({ code, discount: Number(data.discount), finalPrice: Number(data.finalPrice) });
+      setPromoCode(code);
+    } catch (err: any) {
+      setError(err.message || 'Promo-kodni tekshirib bo‘lmadi');
+    } finally {
+      setPromoLoading(false);
+    }
+  }
+
   return (
     <>
       <div className="max-w-xl mx-auto my-8 p-6 sm:p-8 bg-white border border-amber-200/90 rounded-3xl shadow-sm text-center">
         <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-800 flex items-center justify-center mx-auto mb-4 border border-amber-200/80">
           <Lock className="w-7 h-7 text-amber-700" />
         </div>
+
+        {isLoggedIn && isFullWork && (
+          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-left">
+            <label htmlFor="promo-code" className="mb-2 flex items-center gap-2 text-xs font-bold text-emerald-900">
+              <BadgePercent className="h-4 w-4" /> Promo-kodingiz bormi?
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="promo-code"
+                value={promoCode}
+                onChange={(event) => { setPromoCode(event.target.value.toUpperCase()); setPromo(null); }}
+                onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void applyPromoCode(); } }}
+                maxLength={40}
+                placeholder="PROMOKOD"
+                className="min-w-0 flex-1 rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-sm font-bold uppercase outline-none focus:border-emerald-500"
+              />
+              <button type="button" onClick={applyPromoCode} disabled={promoLoading || !promoCode.trim()} className="min-h-11 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white disabled:opacity-50">
+                {promoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Qo‘llash'}
+              </button>
+            </div>
+            {promo && (
+              <p className="mt-2 text-xs font-bold text-emerald-800">
+                {formatUZS(promo.discount)} chegirma qo‘llandi. Yakuniy narx: {formatUZS(promo.finalPrice)}
+              </p>
+            )}
+          </div>
+        )}
 
         <h3 className="font-serif text-lg sm:text-xl font-bold text-stone-900 mb-2">
           {isFullWork ? 'Ushbu kitob to‘liq pullik asar hisoblanadi' : 'Ushbu bob pullik kontent hisoblanadi'}
@@ -181,7 +237,7 @@ export function PaywallUnlockCard({
               </div>
               <div className="flex justify-between">
                 <span>To‘lov summasi:</span>
-                <span className="font-bold text-amber-900">{formatUZS(price)}</span>
+                <span className="font-bold text-amber-900">{formatUZS(payablePrice)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Qoladigan balans:</span>
@@ -240,8 +296,8 @@ export function PaywallUnlockCard({
             >
               <span>
                 {isFullWork
-                  ? `Kitobni sotib olish — ${formatUZS(price)}`
-                  : `Balansdan ochish (${formatUZS(price)})`}
+                  ? `Kitobni sotib olish — ${formatUZS(payablePrice)}`
+                  : `Balansdan ochish (${formatUZS(payablePrice)})`}
               </span>
               <ArrowRight className="w-4 h-4" />
             </button>
@@ -250,7 +306,7 @@ export function PaywallUnlockCard({
           <div className="space-y-3">
             <div className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200/90 p-3.5 rounded-2xl text-left">
               Balansingizda mablag‘ yetarli emas (yetishmayotgan summa:{' '}
-              <strong className="font-bold">{formatUZS(price - currentBalance)}</strong>).
+              <strong className="font-bold">{formatUZS(payablePrice - currentBalance)}</strong>).
               Quyidagi tugma orqali hisobingizni to‘ldirishingiz mumkin.
             </div>
 
@@ -277,7 +333,7 @@ export function PaywallUnlockCard({
         userEmail={user?.email}
         targetItem={{
           title: isFullWork ? (workTitle || 'To‘liq kitob') : chapterTitle,
-          price,
+          price: payablePrice,
           type: isFullWork ? 'work' : 'chapter',
         }}
       />

@@ -46,6 +46,7 @@ export async function executePurchase(
   chapterId: string | null = null,
   customIdempotencyKey?: string,
   customClient?: any,
+  promoCode?: string | null,
 ): Promise<PurchaseResult> {
   const supabase = customClient || createAdminClient();
 
@@ -89,11 +90,12 @@ export async function executePurchase(
     customIdempotencyKey ||
     generateIdempotencyKey(`buy_${userId.slice(0, 8)}_${chapterId || workId}`);
 
-  const { data, error } = await supabase.rpc('purchase_content', {
+  const { data, error } = await supabase.rpc('purchase_content_with_promo', {
     p_work_id: workId,
     p_chapter_id: chapterId,
     p_idempotency_key: idempotencyKey,
     p_user_id: userId,
+    p_promo_code: promoCode?.trim().toUpperCase() || null,
   });
 
   if (error) {

@@ -26,7 +26,6 @@ import { PayoutModal } from '@/components/wallet/PayoutModal';
 import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { SubscriptionPlanSettings } from '@/components/author/SubscriptionPlanSettings';
 import { PromoCodeSettings } from '@/components/author/PromoCodeSettings';
 import type {
   AuthorProfile,
@@ -385,7 +384,6 @@ function MuallifStudioContent() {
         </div>
       </div>
 
-      <SubscriptionPlanSettings />
       <PromoCodeSettings works={works.map((work) => ({ id: work.id, title: work.title }))} />
 
       {/* Financial Summary Cards */}

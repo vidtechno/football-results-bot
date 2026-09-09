@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     const workId = String(body.workId || '');
     const chapterId = body.chapterId ? String(body.chapterId) : null;
     const idempotencyKey = body.idempotencyKey ? String(body.idempotencyKey) : undefined;
+    const promoCode = body.promoCode ? String(body.promoCode).trim().toUpperCase() : null;
 
     if (!workId) {
       return NextResponse.json(
@@ -43,6 +44,8 @@ export async function POST(request: Request) {
       workId,
       chapterId,
       idempotencyKey,
+      undefined,
+      promoCode,
     );
 
     if (!result.success) {

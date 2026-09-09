@@ -26,7 +26,11 @@ export async function POST(request: Request) {
     const totalPages = Math.max(1, Math.floor(Number(body.totalPages || 1)));
     const paragraphOffset = Math.max(0, Math.floor(Number(body.paragraphOffset || 0)));
     const percentage = Math.max(0, Math.min(100, Math.round(Number(body.percentage || body.progress || 0))));
+    const chapterPercentage = Math.max(0, Math.min(100, Math.round(Number(body.chapterPercentage ?? percentage))));
     const isCompleted = Boolean(body.isCompleted || percentage >= 98);
+    const activeSeconds = Math.max(0, Math.min(90, Math.floor(Number(body.activeSeconds || 0))));
+    const pageAdvanced = Boolean(body.pageAdvanced);
+    const bookCompleted = Boolean(body.bookCompleted);
 
     if (!workId || !chapterId) {
       return NextResponse.json({ success: false, error: 'Asar va bob talab qilinadi' }, { status: 400 });
@@ -109,6 +113,21 @@ export async function POST(request: Request) {
           onConflict: 'user_id,work_id',
         },
       );
+
+    // A single atomic database function keeps streak, XP and analytics counters cheap.
+    // Older databases can keep saving progress until migration 033 is applied.
+    const { error: activityError } = await adminClient.rpc('record_reading_activity', {
+      p_user_id: profile.id,
+      p_work_id: workId,
+      p_chapter_id: chapterId,
+      p_percentage: chapterPercentage,
+      p_active_seconds: activeSeconds,
+      p_page_advanced: pageAdvanced,
+      p_book_completed: bookCompleted,
+    });
+    if (activityError && !activityError.message.includes('record_reading_activity')) {
+      console.warn('reading activity warning:', activityError.message);
+    }
 
     return NextResponse.json({
       success: true,

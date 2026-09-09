@@ -26,6 +26,8 @@ import { PayoutModal } from '@/components/wallet/PayoutModal';
 import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { SubscriptionPlanSettings } from '@/components/author/SubscriptionPlanSettings';
+import { PromoCodeSettings } from '@/components/author/PromoCodeSettings';
 import type {
   AuthorProfile,
   Work,
@@ -68,7 +70,7 @@ function MuallifStudioContent() {
   const [newWorkDesc, setNewWorkDesc] = useState('');
   const [newWorkCover, setNewWorkCover] = useState('');
   const [newWorkType, setNewWorkType] = useState<'book' | 'serialized_story'>('book');
-  const [newWorkAccess, setNewWorkAccess] = useState<'free' | 'paid_full_work' | 'paid_by_chapter'>('free');
+  const [newWorkAccess, setNewWorkAccess] = useState<'free' | 'paid_full_work'>('free');
   const [newWorkPrice, setNewWorkPrice] = useState<string>('15000');
   const [newWorkGenre, setNewWorkGenre] = useState<string>('');
   const [savingWork, setSavingWork] = useState(false);
@@ -382,6 +384,9 @@ function MuallifStudioContent() {
           </button>
         </div>
       </div>
+
+      <SubscriptionPlanSettings />
+      <PromoCodeSettings works={works.map((work) => ({ id: work.id, title: work.title }))} />
 
       {/* Financial Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -719,7 +724,6 @@ function MuallifStudioContent() {
                 >
                   <option value="free">To‘liq bepul</option>
                   <option value="paid_full_work">To‘liq asar uchun bitta narx</option>
-                  <option value="paid_by_chapter">Bobma-bob to‘lov (har bir bobga alohida)</option>
                 </select>
               </div>
 

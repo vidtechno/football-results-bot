@@ -67,6 +67,7 @@ export function evaluateCanonicalChapterAccess({
   workAccessType,
   fullWorkPrice,
   chapterIsFree,
+  chapterIsPreviewFree = false,
   chapterPrice,
   isWorkPublished = true,
   isChapterPublished = true,
@@ -78,6 +79,7 @@ export function evaluateCanonicalChapterAccess({
   workAccessType?: string | null;
   fullWorkPrice?: number | null;
   chapterIsFree?: boolean | null;
+  chapterIsPreviewFree?: boolean | null;
   chapterPrice?: number | null;
   isWorkPublished?: boolean;
   isChapterPublished?: boolean;
@@ -132,6 +134,10 @@ export function evaluateCanonicalChapterAccess({
       isLocked: false,
       requiresWholeWork: false,
     };
+  }
+
+  if (chapterIsPreviewFree) {
+    return { canRead: true, reason: 'free', isFree: true, price: 0, isLocked: false, requiresWholeWork: false };
   }
 
   // CANONICAL RULE 2: Whole-work purchase model
@@ -252,6 +258,7 @@ export async function canReadChapter(
       title,
       slug,
       is_free,
+      is_preview_free,
       price,
       status,
       work:works (
@@ -394,6 +401,12 @@ export async function canReadChapter(
 
   if (userId) {
     try {
+      const { data: subscription } = await supabase.from('author_subscriptions').select('id')
+        .eq('subscriber_id', userId).eq('author_id', authorId).eq('status', 'active')
+        .gt('current_period_end', new Date().toISOString()).limit(1).maybeSingle();
+      hasFullWorkEntitlement = Boolean(subscription);
+    } catch { /* migration 033 may not be installed yet */ }
+    try {
       let entQuery = supabase
         .from('entitlements')
         .select('id, entitlement_type, chapter_id, work_id')
@@ -454,6 +467,7 @@ export async function canReadChapter(
     workAccessType: work.access_type,
     fullWorkPrice: work.full_work_price,
     chapterIsFree: chapter.is_free,
+    chapterIsPreviewFree: chapter.is_preview_free,
     chapterPrice: chapter.price,
     isWorkPublished,
     isChapterPublished,
@@ -503,7 +517,7 @@ export type ChapterAccessDetail = {
 export async function getWorkChaptersAccessMap(
   userId: string | null | undefined,
   workId: string,
-  chapters: Array<{ id: string; is_free?: boolean | null; price?: number | null }>,
+  chapters: Array<{ id: string; is_free?: boolean | null; is_preview_free?: boolean | null; price?: number | null }>,
   options?: {
     customClient?: any;
     authorId?: string;
@@ -551,7 +565,7 @@ export async function getWorkChaptersAccessMap(
 
   // Default guest evaluation
   chapters.forEach((ch) => {
-    const isFree = !isPaidFullWork && Boolean(ch.is_free);
+    const isFree = isPaidFullWork ? Boolean(ch.is_preview_free) : Boolean(ch.is_free);
     map[ch.id] = {
       isFree,
       isPurchased: false,
@@ -627,7 +641,16 @@ export async function getWorkChaptersAccessMap(
     purchases = [];
   }
 
-  const hasFullWork =
+  let hasSubscription = false;
+  if (options?.authorId) {
+    try {
+      const { data } = await supabase.from('author_subscriptions').select('id')
+        .eq('subscriber_id', userId).eq('author_id', options.authorId).eq('status', 'active')
+        .gt('current_period_end', new Date().toISOString()).limit(1).maybeSingle();
+      hasSubscription = Boolean(data);
+    } catch { /* optional until migration 033 */ }
+  }
+  const hasFullWork = hasSubscription ||
     entitlements.some((e: any) => e.entitlement_type === 'full_work') ||
     purchases.some((p: any) => p.purchase_type === 'full_work');
 

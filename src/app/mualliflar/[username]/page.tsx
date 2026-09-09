@@ -21,6 +21,7 @@ import { getPublicAuthor } from '@/lib/db/queries';
 import { WorkCard } from '@/components/work/WorkCard';
 import { FollowButton } from '@/components/social/FollowButton';
 import { AuthorProfileFeed } from '@/components/author/AuthorProfileFeed';
+import { AuthorSubscribeButton } from '@/components/author/AuthorSubscribeButton';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getCurrentProfile } from '@/lib/supabase/server';
 
@@ -88,6 +89,7 @@ export default async function AuthorPublicProfilePage({
     .eq('author_id', author.id)
     .order('pinned', { ascending: false })
     .order('created_at', { ascending: false });
+  const { data: subscriptionPlan } = await admin.from('author_subscription_plans').select('monthly_price,is_active').eq('author_id', author.user_id).eq('is_active', true).maybeSingle();
 
   // Fetch author's latest published chapters across all works
   const workIds = works.map((w) => w.id);
@@ -239,7 +241,7 @@ export default async function AuthorPublicProfilePage({
             </div>
 
             {/* Follow Action */}
-            <div className="pt-2 flex items-center justify-center sm:justify-start">
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               {isOwnProfile ? (
                 <Link
                   href="/muallif"
@@ -255,6 +257,7 @@ export default async function AuthorPublicProfilePage({
                   initialFollowerCount={followerCount}
                 />
               )}
+              {!isOwnProfile && subscriptionPlan?.is_active && <AuthorSubscribeButton authorId={author.user_id} price={Number(subscriptionPlan.monthly_price)} />}
             </div>
           </div>
         </div>

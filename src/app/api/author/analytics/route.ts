@@ -113,6 +113,9 @@ export async function GET(request: Request) {
       reviewsRes,
       followersRes,
       earningsRes,
+      milestonesRes,
+      purchasesRes,
+      newFollowersRes,
     ] = await Promise.all([
       progressQuery,
       admin
@@ -128,6 +131,9 @@ export async function GET(request: Request) {
       admin.from('work_reviews').select('id', { count: 'exact', head: true }).in('work_id', workIds),
       admin.from('author_follows').select('id', { count: 'exact', head: true }).eq('author_id', profile.id),
       admin.from('wallet_accounts').select('balance').eq('user_id', profile.id).eq('account_type', 'author_earnings_available').maybeSingle(),
+      admin.from('chapter_read_milestones').select('user_id,work_id,chapter_id,milestone,reached_at').in('work_id', workIds).gte('reached_at', cutoffIso || '1970-01-01'),
+      admin.from('purchases').select('author_net_amount,created_at').eq('author_id', profile.id).eq('status', 'active').gte('created_at', cutoffIso || '1970-01-01').order('created_at', { ascending: true }),
+      admin.from('author_follows').select('user_id,created_at').eq('author_id', profile.id).gte('created_at', cutoffIso || '1970-01-01'),
     ]);
 
     const progressRows = progressRes.data || [];
@@ -229,6 +235,17 @@ export async function GET(request: Request) {
     const reactionsTotal = reactionsRes.count || 0;
     const commentsTotal = commentsRes.count || 0;
     const reviewsTotal = reviewsRes.count || 0;
+    const milestones = milestonesRes.data || [];
+    const completedReaders = new Set(milestones.filter(m => m.milestone === 100).map(m => `${m.user_id}:${m.work_id}`));
+    const startedReaders = new Set(milestones.map(m => `${m.user_id}:${m.work_id}`));
+    const completionRate = startedReaders.size ? Math.round((completedReaders.size / startedReaders.size) * 100) : 0;
+    const activityByReader = new Map<string, number>();
+    milestones.forEach(m => activityByReader.set(m.user_id, (activityByReader.get(m.user_id) || 0) + 1));
+    const topIds = [...activityByReader.entries()].sort((a,b) => b[1] - a[1]).slice(0, 8).map(([id]) => id);
+    const { data: topProfiles } = topIds.length ? await admin.from('profiles').select('id,display_name,username,avatar_url').in('id', topIds) : { data: [] as any[] };
+    const activeReaders = topIds.map(id => ({ ...(topProfiles || []).find(p => p.id === id), milestones: activityByReader.get(id) || 0 }));
+    const earningsByDay = new Map<string, number>();
+    (purchasesRes.data || []).forEach(p => { const day = p.created_at.slice(0, 10); earningsByDay.set(day, (earningsByDay.get(day) || 0) + Number(p.author_net_amount)); });
 
     const unifiedMetrics = {
       totalReads,
@@ -245,6 +262,8 @@ export async function GET(request: Request) {
       totalReactions: reactionsTotal,
       reviewsCount: reviewsTotal,
       totalComments: commentsTotal,
+      newFollowers: (newFollowersRes.data || []).length,
+      completionRate,
     };
 
     return NextResponse.json({
@@ -258,6 +277,8 @@ export async function GET(request: Request) {
       dropOffAlert,
       works,
       worksList,
+      activeReaders,
+      earningsChart: [...earningsByDay.entries()].map(([date, amount]) => ({ date, amount })),
     });
   } catch (err: any) {
     console.error('Error fetching author analytics:', err);

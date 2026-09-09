@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const description = String(body.description || '').trim();
     const coverUrl = body.coverUrl ? String(body.coverUrl).trim() : null;
     const type = body.type === 'serialized_story' ? 'serialized_story' : 'book';
-    const accessType = ['free', 'paid_full_work', 'paid_by_chapter'].includes(body.accessType)
+    const accessType = ['free', 'paid_full_work'].includes(body.accessType)
       ? body.accessType
       : 'free';
     const fullWorkPrice = Number(body.fullWorkPrice || 0);

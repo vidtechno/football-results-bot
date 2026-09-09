@@ -68,7 +68,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
   const [description, setDescription] = useState('');
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [type, setType] = useState<'book' | 'serialized_story'>('book');
-  const [accessType, setAccessType] = useState<'free' | 'paid_full_work' | 'paid_by_chapter'>('free');
+  const [accessType, setAccessType] = useState<'free' | 'paid_full_work'>('free');
   const [fullWorkPrice, setFullWorkPrice] = useState<string>('15000');
   const [completionStatus, setCompletionStatus] = useState<'ongoing' | 'completed'>('ongoing');
   const [ageRating, setAgeRating] = useState<string>('all');
@@ -84,7 +84,6 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
   const [chapterTitle, setChapterTitle] = useState('');
   const [chapterContent, setChapterContent] = useState('');
   const [isFree, setIsFree] = useState(false);
-  const [chapterPrice, setChapterPrice] = useState('3000');
   const [savingChapter, setSavingChapter] = useState(false);
   const [chapterError, setChapterError] = useState<string | null>(null);
 
@@ -297,7 +296,6 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     setChapterTitle('');
     setChapterContent('');
     setIsFree(chapters.length === 0);
-    setChapterPrice('3000');
     setChapterStatus('published');
     setScheduledAt('');
     setAutosaveStatus('idle');
@@ -314,7 +312,6 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     setChapterTitle(chap.title);
     setChapterContent(rawContent);
     setIsFree(chap.is_free);
-    setChapterPrice(String(chap.price || 3000));
     setChapterStatus((chap.status as any) || 'published');
     setScheduledAt(chap.scheduled_at ? new Date(chap.scheduled_at).toISOString().slice(0, 16) : '');
     setAutosaveStatus('idle');
@@ -372,7 +369,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           title: currentTrimmedTitle,
           content: currentTrimmedContent,
           isFree,
-          price: isFree ? 0 : Number(chapterPrice),
+          price: 0,
           status: chapterStatus,
           scheduled_at: chapterStatus === 'scheduled' && scheduledAt ? new Date(scheduledAt).toISOString() : null,
         };
@@ -408,7 +405,6 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     chapterStatus,
     scheduledAt,
     isFree,
-    chapterPrice,
     isChapterModalOpen,
     editingChapterId,
     chapterNumber,
@@ -482,7 +478,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
         title: chapterTitle.trim(),
         content: chapterContent.trim(),
         isFree,
-        price: isFree ? 0 : Number(chapterPrice),
+        price: 0,
         status: chapterStatus,
         scheduled_at: chapterStatus === 'scheduled' && scheduledAt ? new Date(scheduledAt).toISOString() : null,
       };
@@ -972,7 +968,6 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                 >
                   <option value="free">To‘liq bepul</option>
                   <option value="paid_full_work">To‘liq asar uchun bitta narx</option>
-                  <option value="paid_by_chapter">Bobma-bob to‘lov</option>
                 </select>
               </div>
 
@@ -1313,8 +1308,8 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                 )}
               </div>
 
-              {/* Free vs Paid Toggle (when work is paid_by_chapter) */}
-              {work.access_type === 'paid_by_chapter' && (
+              {/* Paid books may expose selected preview chapters for free. */}
+              {work.access_type !== 'free' && (
                 <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-2.5">
                   <label className="flex items-center gap-2 cursor-pointer font-bold text-stone-800">
                     <input
@@ -1329,22 +1324,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     <span>Ushbu bobni bepul qilish (namuna sifatida)</span>
                   </label>
 
-                  {!isFree && (
-                    <div className="pt-1">
-                      <label className="block font-bold text-stone-700 mb-1">Bob narxi (so‘m):</label>
-                      <input
-                        type="number"
-                        step="1000"
-                        min="1000"
-                        value={chapterPrice}
-                        onChange={(e) => {
-                          setChapterPrice(e.target.value);
-                          setIsDirty(true);
-                        }}
-                        className="w-full max-w-xs px-3.5 py-2 rounded-xl border border-stone-200 font-bold text-stone-900"
-                      />
-                    </div>
-                  )}
+                  <p className="text-[11px] text-stone-500">Asarning qolgan boblari umumiy kitob narxiga kiradi; bobga alohida narx qo‘yilmaydi.</p>
                 </div>
               )}
 

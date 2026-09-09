@@ -21,6 +21,9 @@ import {
   Bookmark,
   AlertCircle,
   Loader2,
+  Highlighter,
+  StickyNote,
+  Trash2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Work, Chapter } from '@/lib/types/platform';
@@ -31,6 +34,7 @@ import { PaywallUnlockCard } from './PaywallUnlockCard';
 import { ChapterReactionsBar } from './ChapterReactionsBar';
 import { ChapterCommentsSection } from './ChapterCommentsSection';
 import { trackAnalytics } from '@/lib/analytics/client';
+import { CompletionCard } from './CompletionCard';
 
 interface ReaderViewProps {
   work: Work;
@@ -168,6 +172,7 @@ export function ReaderView({
   const [fontSize, setFontSize] = useState<number>(18);
   const [lineHeight, setLineHeight] = useState<LineHeight>('relaxed');
   const [contentWidth, setContentWidth] = useState<ContentWidth>('medium');
+  const [autoAdvance, setAutoAdvance] = useState(false);
 
   // UI Drawer & Settings state
   const [showSettings, setShowSettings] = useState(false);
@@ -287,6 +292,7 @@ export function ReaderView({
         if (parsed.fontSize) setFontSize(Number(parsed.fontSize));
         if (parsed.lineHeight) setLineHeight(parsed.lineHeight);
         if (parsed.contentWidth) setContentWidth(parsed.contentWidth);
+        if (typeof parsed.autoAdvance === 'boolean') setAutoAdvance(parsed.autoAdvance);
       }
     } catch {
       // ignore
@@ -302,6 +308,7 @@ export function ReaderView({
         fontSize: number;
         lineHeight: LineHeight;
         contentWidth: ContentWidth;
+        autoAdvance: boolean;
       }>,
     ) => {
       try {
@@ -311,6 +318,7 @@ export function ReaderView({
           fontSize,
           lineHeight,
           contentWidth,
+          autoAdvance,
           ...newPrefs,
         };
         localStorage.setItem('manbora_reader_prefs', JSON.stringify(current));
@@ -318,8 +326,57 @@ export function ReaderView({
         // ignore
       }
     },
-    [theme, fontFamily, fontSize, lineHeight, contentWidth],
+    [theme, fontFamily, fontSize, lineHeight, contentWidth, autoAdvance],
   );
+
+  type Annotation = { id: string; page_number: number; quote: string; note?: string | null; color: 'yellow' | 'green' | 'blue' | 'pink' };
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [showAnnotations, setShowAnnotations] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState('');
+  const [annotationNote, setAnnotationNote] = useState('');
+  const [annotationColor, setAnnotationColor] = useState<Annotation['color']>('yellow');
+  const [annotationSaving, setAnnotationSaving] = useState(false);
+  const articleRef = useRef<HTMLElement | null>(null);
+
+  const loadAnnotations = useCallback(() => {
+    if (!isLoggedIn) return;
+    fetch(`/api/reader/annotations?chapterId=${currentChapter.id}`).then(r => r.json()).then(j => {
+      if (Array.isArray(j.annotations)) setAnnotations(j.annotations);
+    }).catch(() => {});
+  }, [currentChapter.id, isLoggedIn]);
+
+  useEffect(() => { loadAnnotations(); }, [loadAnnotations]);
+
+  const captureSelection = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !articleRef.current) return;
+    const range = selection.getRangeAt(0);
+    if (!articleRef.current.contains(range.commonAncestorContainer)) return;
+    const quote = selection.toString().replace(/\s+/g, ' ').trim().slice(0, 2000);
+    if (quote.length >= 2) { setSelectedQuote(quote); setShowAnnotations(true); }
+  }, []);
+
+  const saveAnnotation = async () => {
+    if (!isLoggedIn) { router.push(`/kirish?returnUrl=${encodeURIComponent(location.pathname + location.search)}`); return; }
+    if (!selectedQuote || annotationSaving) return;
+    setAnnotationSaving(true);
+    try {
+      const res = await fetch('/api/reader/annotations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        workId: work.id, chapterId: currentChapter.id, pageNumber: currentPage,
+        quote: selectedQuote, note: annotationNote, color: annotationColor,
+      }) });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Qayd saqlanmadi');
+      setAnnotations(prev => [json.annotation, ...prev]); setSelectedQuote(''); setAnnotationNote('');
+      window.getSelection()?.removeAllRanges(); showReaderToast('Highlight va qayd saqlandi');
+    } catch (error) { showReaderToast(error instanceof Error ? error.message : 'Qayd saqlanmadi', 'error'); }
+    finally { setAnnotationSaving(false); }
+  };
+
+  const deleteAnnotation = async (id: string) => {
+    const res = await fetch(`/api/reader/annotations?id=${id}`, { method: 'DELETE' });
+    if (res.ok) setAnnotations(prev => prev.filter(a => a.id !== id));
+  };
 
   // Bookmark state (strictly 1 bookmark per work per reader)
   const [bookmark, setBookmark] = useState<{ id: string; chapterId: string; pageNumber: number } | null>(null);
@@ -492,6 +549,7 @@ export function ReaderView({
       const timeSinceLast = now - lastSavedTimeRef.current;
       const pagesSinceLast = Math.abs(page - lastSavedPageRef.current);
       const chapterChanged = targetChapter.id !== lastSavedChapterRef.current;
+      const pageAdvanced = pagesSinceLast > 0 || chapterChanged;
 
       // If not forced: throttle server writes to at most once per 45s or if >= 5 pages turned
       if (!force && !chapterChanged && timeSinceLast < 45000 && pagesSinceLast < 5) {
@@ -531,7 +589,11 @@ export function ReaderView({
         pageIndex: page,
         totalPages: safeTotalPages,
         percentage,
+        chapterPercentage: Math.round(chapterFraction * 100),
         isCompleted: page >= safeTotalPages && safeIndex === chaptersList.length - 1,
+        bookCompleted: page >= safeTotalPages && safeIndex === chaptersList.length - 1,
+        pageAdvanced,
+        activeSeconds: Math.min(90, Math.max(0, Math.round(timeSinceLast / 1000))),
         timestamp: now,
       });
 
@@ -723,6 +785,18 @@ export function ReaderView({
     Math.max(0, Math.round((currentPage / paginated.totalPages) * 100)),
   );
 
+  useEffect(() => {
+    if (nextChapter && !isNextLocked && chapterProgressPercent >= 70) {
+      router.prefetch(`/asarlar/${work.slug}/${nextChapter.slug}`);
+    }
+  }, [chapterProgressPercent, isNextLocked, nextChapter, router, work.slug]);
+
+  useEffect(() => {
+    if (!autoAdvance || currentPage < paginated.totalPages || !nextChapter || isNextLocked) return;
+    const timer = setTimeout(() => router.push(`/asarlar/${work.slug}/${nextChapter.slug}`), 5000);
+    return () => clearTimeout(timer);
+  }, [autoAdvance, currentPage, paginated.totalPages, nextChapter, isNextLocked, router, work.slug]);
+
   // Width container classes
   const widthClasses = {
     narrow: 'max-w-xl',
@@ -761,6 +835,12 @@ export function ReaderView({
 
           {/* Reader Controls */}
           <div className="flex items-center gap-1 sm:gap-2">
+            <button type="button" onClick={() => setShowAnnotations(v => !v)}
+              className="p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 opacity-85 hover:text-amber-700"
+              title="Highlight va qaydlar">
+              <Highlighter className="w-4 h-4" />
+              <span className="hidden sm:inline">Qaydlar</span>
+            </button>
             {/* Bookmark Button */}
             <button
               type="button"
@@ -889,6 +969,11 @@ export function ReaderView({
             </div>
 
             {/* Font Family */}
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 dark:border-stone-700 p-3 text-xs font-bold">
+              <span>Bob tugaganda avtomatik davom etish</span>
+              <input type="checkbox" checked={autoAdvance} onChange={(e) => { setAutoAdvance(e.target.checked); savePrefs({ autoAdvance: e.target.checked }); }} className="accent-amber-600" />
+            </label>
+
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-stone-400 block mb-2">
                 Shrift turi
@@ -1281,6 +1366,9 @@ export function ReaderView({
         {hasAccess ? (
           <div className="space-y-8">
             <article
+              ref={articleRef}
+              onMouseUp={captureSelection}
+              onTouchEnd={captureSelection}
               style={{
                 fontSize: `${fontSize}px`,
                 lineHeight:
@@ -1293,6 +1381,37 @@ export function ReaderView({
               className="reader-article selection:bg-amber-200 selection:text-amber-950 font-normal leading-relaxed space-y-6 min-h-[300px]"
               dangerouslySetInnerHTML={{ __html: paginated.pages[currentPage - 1] || '' }}
             />
+
+            {showAnnotations && (
+              <aside className="rounded-2xl border border-amber-200 bg-white/90 p-4 text-stone-900 shadow-lg dark:border-amber-900 dark:bg-stone-900 dark:text-stone-100">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 text-sm font-black"><StickyNote className="h-4 w-4 text-amber-600" /> Highlight va shaxsiy qaydlar</h2>
+                  <Link href="/qaydlar" className="text-xs font-bold text-amber-700">Barchasi</Link>
+                </div>
+                {selectedQuote && (
+                  <div className="mb-4 space-y-3 rounded-xl bg-amber-50 p-3 dark:bg-amber-950/30">
+                    <p className="line-clamp-3 border-l-4 border-amber-400 pl-3 text-sm italic">“{selectedQuote}”</p>
+                    <div className="flex gap-2">
+                      {(['yellow','green','blue','pink'] as const).map(color => <button key={color} type="button" aria-label={color} onClick={() => setAnnotationColor(color)} className={clsx('h-7 w-7 rounded-full border-2', color === 'yellow' && 'bg-yellow-300', color === 'green' && 'bg-emerald-300', color === 'blue' && 'bg-sky-300', color === 'pink' && 'bg-pink-300', annotationColor === color ? 'border-stone-900 dark:border-white' : 'border-transparent')} />)}
+                    </div>
+                    <textarea value={annotationNote} onChange={e => setAnnotationNote(e.target.value)} maxLength={4000} placeholder="Shaxsiy izoh (ixtiyoriy)" className="min-h-20 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm dark:border-stone-700 dark:bg-stone-950" />
+                    <button type="button" disabled={annotationSaving} onClick={saveAnnotation} className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-black text-stone-950 disabled:opacity-50">{annotationSaving ? 'Saqlanmoqda…' : 'Saqlash'}</button>
+                  </div>
+                )}
+                <div className="max-h-72 space-y-2 overflow-y-auto">
+                  {annotations.filter(a => a.page_number === currentPage).map(a => (
+                    <div key={a.id} className={clsx('rounded-xl border-l-4 bg-stone-50 p-3 dark:bg-stone-800', a.color === 'yellow' && 'border-yellow-400', a.color === 'green' && 'border-emerald-400', a.color === 'blue' && 'border-sky-400', a.color === 'pink' && 'border-pink-400')}>
+                      <div className="flex justify-between gap-3"><p className="text-sm italic">“{a.quote}”</p><button type="button" onClick={() => deleteAnnotation(a.id)} aria-label="Qaydni o‘chirish"><Trash2 className="h-4 w-4 text-stone-400 hover:text-red-600" /></button></div>
+                      {a.note && <p className="mt-2 text-xs text-stone-600 dark:text-stone-300">{a.note}</p>}
+                    </div>
+                  ))}
+                  {!selectedQuote && annotations.filter(a => a.page_number === currentPage).length === 0 && <p className="py-4 text-center text-xs text-stone-500">Matndan parcha belgilang — highlight oynasi ochiladi.</p>}
+                </div>
+              </aside>
+            )}
+            {!nextChapter && currentPage >= paginated.totalPages && (
+              <CompletionCard workTitle={work.title} authorName={(work as any).author?.pen_name} />
+            )}
 
             {/* Within-Chapter Pagination Controls (~200 words per page) */}
             {paginated.totalPages > 1 && (
@@ -1374,9 +1493,9 @@ export function ReaderView({
               >
                 <Lock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
                 <span className="hidden sm:inline">
-                  Keyingi bob — {formatUZS(nextChapter.price)}
+                  Keyingi bob — kitobni sotib olish
                 </span>
-                <span className="sm:hidden">Keyingi ({formatUZS(nextChapter.price)})</span>
+                <span className="sm:hidden">Kitob qulflangan</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             ) : (

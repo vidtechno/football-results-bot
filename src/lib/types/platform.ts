@@ -92,6 +92,7 @@ export interface ChapterRevision {
   title: string;
   content: string;
   is_free: boolean;
+  is_preview_free?: boolean;
   price: number;
   status: RevisionStatus;
   moderator_id?: string | null;

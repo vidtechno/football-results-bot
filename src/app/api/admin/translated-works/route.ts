@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       description: String(body.description || '').trim(),
       cover_url: String(body.coverUrl || '').trim() || null,
       type: body.type === 'serialized_story' ? 'serialized_story' : 'book',
-      access_type: ['paid_full_work', 'paid_by_chapter'].includes(body.accessType) ? body.accessType : 'free',
+      access_type: body.accessType === 'paid_full_work' ? 'paid_full_work' : 'free',
       full_work_price: Math.max(0, Math.floor(Number(body.fullWorkPrice || 0))),
       completion_status: body.completionStatus === 'completed' ? 'completed' : 'ongoing',
       age_rating: String(body.ageRating || 'all'),

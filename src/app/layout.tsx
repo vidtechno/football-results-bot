@@ -5,6 +5,7 @@ import { PublicAppShell } from '@/components/layout/PublicAppShell';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { NotificationProvider } from '@/components/providers/NotificationProvider';
 import { AnalyticsTracker } from '@/components/analytics/AnalyticsTracker';
+import { ServiceWorkerRegistration } from '@/components/providers/ServiceWorkerRegistration';
 
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
@@ -74,6 +75,7 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  manifest: '/manifest.webmanifest',
 };
 
 export default function RootLayout({
@@ -87,6 +89,7 @@ export default function RootLayout({
         <AuthProvider>
           <NotificationProvider>
             <AnalyticsTracker />
+            <ServiceWorkerRegistration />
             <PublicAppShell>{children}</PublicAppShell>
           </NotificationProvider>
         </AuthProvider>

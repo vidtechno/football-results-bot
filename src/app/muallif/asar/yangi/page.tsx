@@ -31,7 +31,7 @@ export default function YangiAsarPage() {
   const [description, setDescription] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [type, setType] = useState<'book' | 'serialized_story'>('book');
-  const [accessType, setAccessType] = useState<'free' | 'paid_full_work' | 'paid_by_chapter'>('free');
+  const [accessType, setAccessType] = useState<'free' | 'paid_full_work'>('free');
   const [fullWorkPrice, setFullWorkPrice] = useState<string>('15000');
   const [selectedGenreId, setSelectedGenreId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
@@ -292,10 +292,9 @@ export default function YangiAsarPage() {
           <label className="block text-xs font-bold text-stone-700 mb-2">
             Monetizatsiya modeli
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { id: 'free', label: 'To‘liq bepul', desc: 'Barcha boblar ochiq' },
-              { id: 'paid_by_chapter', label: 'Bobma-bob to‘lov', desc: 'Har bir bob alohida sotiladi' },
               { id: 'paid_full_work', label: 'Butun asar to‘lovi', desc: 'Kitob to‘liq bir narxda sotiladi' },
             ].map((opt) => (
               <button

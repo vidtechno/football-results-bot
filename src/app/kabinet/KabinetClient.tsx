@@ -46,6 +46,7 @@ import { TopupModal } from '@/components/wallet/TopupModal';
 import { TransactionHistoryTable } from '@/components/wallet/TransactionHistoryTable';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { CabinetGenrePreferences } from '@/components/cabinet/CabinetGenrePreferences';
+import { ReadingStreakCard } from '@/components/cabinet/ReadingStreakCard';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
 import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
@@ -645,6 +646,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          <ReadingStreakCard />
           {/* Continue Reading Quick List */}
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">

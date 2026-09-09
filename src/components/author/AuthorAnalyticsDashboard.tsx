@@ -36,6 +36,8 @@ interface AnalyticsSummary {
   reviewsCount?: number;
   totalEarningsUzs: number;
   totalEarnings?: number;
+  newFollowers?: number;
+  completionRate?: number;
 }
 
 interface ChapterFunnelItem {
@@ -373,6 +375,15 @@ export default function AuthorAnalyticsDashboard() {
             </div>
 
             {/* Chapter Funnel Section */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-[#E5E0D8] bg-white p-5"><p className="text-xs font-semibold text-[#8A847C]">Asarni tugatish ko‘rsatkichi</p><p className="mt-2 text-3xl font-extrabold text-emerald-600">{summary.completionRate || 0}%</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-100"><div className="h-full bg-emerald-500" style={{width: `${summary.completionRate || 0}%`}} /></div></div>
+              <div className="rounded-xl border border-[#E5E0D8] bg-white p-5"><p className="text-xs font-semibold text-[#8A847C]">Tanlangan davrdagi yangi obunachilar</p><p className="mt-2 text-3xl font-extrabold text-indigo-600">+{summary.newFollowers || 0}</p><p className="mt-2 text-xs text-[#8A847C]">Jami: {summary.totalFollowers || 0}</p></div>
+            </div>
+
+            {Array.isArray((data as any)?.activeReaders) && (data as any).activeReaders.length > 0 && <div className="rounded-xl border border-[#E5E0D8] bg-white p-5"><h3 className="font-bold">Eng faol kitobxonlar</h3><div className="mt-4 grid gap-2 sm:grid-cols-2">{(data as any).activeReaders.map((reader: any, index: number) => <div key={reader.id} className="flex items-center justify-between rounded-lg bg-stone-50 p-3 text-xs"><span className="font-semibold">{index + 1}. {reader.display_name || reader.username || 'Kitobxon'}</span><span className="font-bold text-amber-700">{reader.milestones} bosqich</span></div>)}</div></div>}
+
+            {Array.isArray((data as any)?.earningsChart) && (data as any).earningsChart.length > 0 && <div className="rounded-xl border border-[#E5E0D8] bg-white p-5"><h3 className="font-bold">Sotuv va daromad dinamikasi</h3><div className="mt-5 flex h-40 items-end gap-2">{(data as any).earningsChart.slice(-30).map((point: any) => { const max = Math.max(...(data as any).earningsChart.map((p: any) => p.amount), 1); return <div key={point.date} title={`${point.date}: ${point.amount.toLocaleString()} so‘m`} className="min-w-1 flex-1 rounded-t bg-amber-500" style={{height: `${Math.max(4, point.amount / max * 100)}%`}} />; })}</div></div>}
+
             <div className="rounded-xl border border-[#E5E0D8] bg-white p-5 shadow-xs sm:p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div>

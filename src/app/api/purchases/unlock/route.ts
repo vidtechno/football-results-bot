@@ -27,6 +27,17 @@ export async function POST(request: Request) {
       );
     }
 
+    const adminForRisk = createAdminClient();
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+    const { count: recentPurchases } = await adminForRisk.from('purchases')
+      .select('id', { count: 'exact', head: true }).eq('buyer_id', profile.id).gte('created_at', tenMinutesAgo);
+    if ((recentPurchases || 0) >= 5) {
+      await adminForRisk.from('financial_risk_events').insert({
+        user_id: profile.id, risk_type: 'purchase_velocity', risk_score: Math.min(95, 60 + (recentPurchases || 0) * 5),
+        details: { workId, purchasesInTenMinutes: recentPurchases },
+      });
+    }
+
     const result = await executePurchase(
       profile.id,
       workId,
@@ -35,6 +46,9 @@ export async function POST(request: Request) {
     );
 
     if (!result.success) {
+      if (/balans|mablag/i.test(result.error || '')) {
+        await adminForRisk.from('financial_risk_events').insert({ user_id: profile.id, risk_type: 'repeated_insufficient_balance', risk_score: 25, details: { workId } });
+      }
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }
 

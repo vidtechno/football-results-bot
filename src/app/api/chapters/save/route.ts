@@ -23,7 +23,6 @@ export async function POST(request: Request) {
     const rawContent = String(body.content || '').trim();
     const content = sanitizeRichText(rawContent);
     const isFree = Boolean(body.isFree);
-    const price = Number(body.price || 0);
     const scheduledAt = body.scheduledAt ? String(body.scheduledAt) : null;
     let status: 'draft' | 'scheduled' | 'published' = 'draft';
     if (body.status === 'published') {
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
     // Verify ownership of the work
     const { data: work } = await supabase
       .from('works')
-      .select('id, author_id')
+      .select('id, author_id, access_type')
       .eq('id', workId)
       .single();
 
@@ -60,6 +59,8 @@ export async function POST(request: Request) {
         { status: 403 },
       );
     }
+    const chapterIsFree = work.access_type === 'free';
+    const isPreviewFree = work.access_type !== 'free' && isFree;
 
     let slug = slugify(title);
     if (!slug) slug = `bob-${chapterNumber}`;
@@ -90,8 +91,9 @@ export async function POST(request: Request) {
             .update({
               title,
               content,
-              is_free: isFree,
-              price: isFree ? 0 : Math.max(0, Math.floor(price)),
+              is_free: chapterIsFree,
+              is_preview_free: isPreviewFree,
+              price: 0,
               updated_at: new Date().toISOString(),
             })
             .eq('id', existingRev.id)
@@ -107,8 +109,9 @@ export async function POST(request: Request) {
               author_id: profile.id,
               title,
               content,
-              is_free: isFree,
-              price: isFree ? 0 : Math.max(0, Math.floor(price)),
+              is_free: chapterIsFree,
+              is_preview_free: isPreviewFree,
+              price: 0,
               status: 'pending_review',
             })
             .select()
@@ -121,7 +124,7 @@ export async function POST(request: Request) {
           isRevision: true,
           message: 'Nashr qilingan bobga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
           revision: revisionResult,
-          chapter: { ...existingChap, title, content, is_free: isFree, price },
+          chapter: { ...existingChap, title, content, is_free: chapterIsFree, is_preview_free: isPreviewFree, price: 0 },
         });
       }
 
@@ -132,8 +135,9 @@ export async function POST(request: Request) {
       const updateFields: any = {
         chapter_number: chapterNumber,
         title,
-        is_free: isFree,
-        price: isFree ? 0 : Math.max(0, Math.floor(price)),
+        is_free: chapterIsFree,
+        is_preview_free: isPreviewFree,
+        price: 0,
         status,
         updated_at: nowIso,
       };
@@ -226,8 +230,9 @@ export async function POST(request: Request) {
       chapter_number: chapterNumber,
       title,
       slug,
-      is_free: isFree,
-      price: isFree ? 0 : Math.max(0, Math.floor(price)),
+      is_free: chapterIsFree,
+      is_preview_free: isPreviewFree,
+      price: 0,
       status,
       created_at: nowIso,
       updated_at: nowIso,

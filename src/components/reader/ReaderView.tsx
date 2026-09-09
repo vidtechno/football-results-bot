@@ -1422,7 +1422,7 @@ export function ReaderView({
               </aside>
             )}
             {!nextChapter && currentPage >= paginated.totalPages && (
-              <CompletionCard workTitle={work.title} authorName={(work as any).author?.pen_name} />
+              <CompletionCard workTitle={work.title} authorName={(work as any).author?.pen_name} coverUrl={work.cover_url} />
             )}
 
             {/* Within-Chapter Pagination Controls (~200 words per page) */}

@@ -9,22 +9,42 @@ export function Footer() {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           {/* Text-only brand & platform mission */}
           <div className="space-y-2 max-w-md">
-            <Link href="/" className="inline-flex font-serif text-2xl font-black italic tracking-[-0.035em] text-stone-900 transition-colors hover:text-emerald-800">
+            <Link
+              href="/"
+              className="inline-flex font-serif text-2xl font-black italic tracking-[-0.035em] text-stone-900 transition-colors hover:text-emerald-800"
+            >
               Manbora
             </Link>
             <p className="text-stone-500 leading-relaxed text-xs font-medium">
-              Manbora — O‘zbek tilidagi kitoblar va davomli asarlar platformasi. Mualliflar o‘z asarlarini keng kitobxonlar ommasiga taqdim etadi va daromad topadi. Kitobxonlar esa erkin mutolaadan bahramand bo‘ladi.
+              Manbora — O‘zbek tilidagi kitoblar va hikoyalar platformasi. Mualliflar o‘z asarlarini
+              keng kitobxonlar ommasiga taqdim etadi va daromad topadi. Kitobxonlar esa erkin
+              mutolaadan bahramand bo‘ladi.
             </p>
           </div>
 
           {/* Nav Links */}
           <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-semibold text-stone-600">
-            <Link href="/" className="hover:text-emerald-800 transition-colors">Bosh sahifa</Link>
-            <Link href="/asarlar" className="hover:text-emerald-800 transition-colors">Barcha asarlar</Link>
-            <Link href="/tarjima-asarlar" className="hover:text-emerald-800 transition-colors">Tarjima asarlar</Link>
-            <Link href="/kutubxona" className="hover:text-emerald-800 transition-colors">Kutubxonam</Link>
-            <Link href="/muallif-boling" className="hover:text-emerald-800 transition-colors">Muallif bo‘ling</Link>
-            <Link href="/kabinet" className="hover:text-emerald-800 transition-colors">Shaxsiy kabinet</Link>
+            <Link href="/" className="hover:text-emerald-800 transition-colors">
+              Bosh sahifa
+            </Link>
+            <Link href="/asarlar" className="hover:text-emerald-800 transition-colors">
+              Barcha asarlar
+            </Link>
+            <Link href="/hikoyalar" className="hover:text-emerald-800 transition-colors">
+              Hikoyalar
+            </Link>
+            <Link href="/tarjima-asarlar" className="hover:text-emerald-800 transition-colors">
+              Tarjima asarlar
+            </Link>
+            <Link href="/kutubxona" className="hover:text-emerald-800 transition-colors">
+              Kutubxonam
+            </Link>
+            <Link href="/muallif-boling" className="hover:text-emerald-800 transition-colors">
+              Muallif bo‘ling
+            </Link>
+            <Link href="/kabinet" className="hover:text-emerald-800 transition-colors">
+              Shaxsiy kabinet
+            </Link>
             <a
               href="https://t.me/diyorbek_anorboyev"
               target="_blank"
@@ -42,7 +62,8 @@ export function Footer() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-700 flex-shrink-0" />
             <span>
-              <strong>Xavfsiz hisob-kitob:</strong> Barcha xaridlar va muallif daromadlari platforma orqali shaffof hamda kafolatlangan holda amalga oshiriladi.
+              <strong>Xavfsiz hisob-kitob:</strong> Barcha xaridlar va muallif daromadlari platforma
+              orqali shaffof hamda kafolatlangan holda amalga oshiriladi.
             </span>
           </div>
 
@@ -55,7 +76,8 @@ export function Footer() {
         <div className="pt-4 border-t border-stone-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-stone-400 font-medium">
           <span>© {new Date().getFullYear()} Manbora. Barcha huquqlar himoyalangan.</span>
           <span className="flex items-center gap-1">
-            O‘zbek kitobxonlari va mualliflari uchun yaratilgan <Heart className="w-3 h-3 text-emerald-700 fill-emerald-700" />
+            O‘zbek kitobxonlari va mualliflari uchun yaratilgan{' '}
+            <Heart className="w-3 h-3 text-emerald-700 fill-emerald-700" />
           </span>
         </div>
       </div>

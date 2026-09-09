@@ -27,12 +27,7 @@ import { ImageUploadDropzone } from '@/components/ui/ImageUploadDropzone';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { PromoCodeSettings } from '@/components/author/PromoCodeSettings';
-import type {
-  AuthorProfile,
-  Work,
-  PayoutRequest,
-  Genre,
-} from '@/lib/types/platform';
+import type { AuthorProfile, Work, PayoutRequest, Genre } from '@/lib/types/platform';
 
 function MuallifStudioContent() {
   const router = useRouter();
@@ -75,82 +70,88 @@ function MuallifStudioContent() {
   const [savingWork, setSavingWork] = useState(false);
   const [workError, setWorkError] = useState<string | null>(null);
 
-  const loadAuthorData = useCallback(async (targetUserId?: string) => {
-    let uid = targetUserId;
-    if (!uid) {
-      const { data: { session } } = await supabase.auth.getSession();
-      uid = session?.user?.id;
-    }
-    if (!uid) {
-      router.push('/kirish?redirect=/muallif');
-      return;
-    }
-    const userId = uid;
-    setLoading(true);
-    try {
-      // 1. Concurrently fetch author profile and active genres
-      const [authorRes, genresRes] = await Promise.all([
-        supabase.from('author_profiles').select('*').eq('user_id', userId).maybeSingle(),
-        supabase.from('genres').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
-      ]);
-
-      const authorData = authorRes.data as AuthorProfile;
-      setAuthor(authorData);
-
-      const genresData = (genresRes.data as Genre[]) || [];
-      setGenres(genresData);
-      if (genresData.length > 0) {
-        setNewWorkGenre(genresData[0].id);
+  const loadAuthorData = useCallback(
+    async (targetUserId?: string) => {
+      let uid = targetUserId;
+      if (!uid) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        uid = session?.user?.id;
       }
-
-      if (authorData && authorData.status === 'approved') {
-        // 2. Concurrently fetch earnings, works, payouts, and sales (single batch)
-        const [availRes, resRes, worksRes, payoutsRes, purchasesRes] = await Promise.all([
+      if (!uid) {
+        router.push('/kirish?redirect=/muallif');
+        return;
+      }
+      const userId = uid;
+      setLoading(true);
+      try {
+        // 1. Concurrently fetch author profile and active genres
+        const [authorRes, genresRes] = await Promise.all([
+          supabase.from('author_profiles').select('*').eq('user_id', userId).maybeSingle(),
           supabase
-            .from('wallet_accounts')
-            .select('balance')
-            .eq('user_id', userId)
-            .eq('account_type', 'author_earnings_available')
-            .maybeSingle(),
-          supabase
-            .from('wallet_accounts')
-            .select('balance')
-            .eq('user_id', userId)
-            .eq('account_type', 'author_earnings_reserved')
-            .maybeSingle(),
-          supabase
-            .from('works')
+            .from('genres')
             .select('*')
-            .eq('author_id', userId)
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('payout_requests')
-            .select('*')
-            .eq('author_id', userId)
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('purchases')
-            .select('gross_amount')
-            .eq('author_id', userId),
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true }),
         ]);
 
-        setAvailableEarnings(availRes.data ? Number(availRes.data.balance) : 0);
-        setReservedEarnings(resRes.data ? Number(resRes.data.balance) : 0);
-        setWorks((worksRes.data as Work[]) || []);
-        setPayouts((payoutsRes.data as PayoutRequest[]) || []);
+        const authorData = authorRes.data as AuthorProfile;
+        setAuthor(authorData);
 
-        const totalGross = (purchasesRes.data || []).reduce(
-          (acc: number, p: any) => acc + Number(p.gross_amount || 0),
-          0
-        );
-        setGrossEarnings(totalGross);
+        const genresData = (genresRes.data as Genre[]) || [];
+        setGenres(genresData);
+        if (genresData.length > 0) {
+          setNewWorkGenre(genresData[0].id);
+        }
+
+        if (authorData && authorData.status === 'approved') {
+          // 2. Concurrently fetch earnings, works, payouts, and sales (single batch)
+          const [availRes, resRes, worksRes, payoutsRes, purchasesRes] = await Promise.all([
+            supabase
+              .from('wallet_accounts')
+              .select('balance')
+              .eq('user_id', userId)
+              .eq('account_type', 'author_earnings_available')
+              .maybeSingle(),
+            supabase
+              .from('wallet_accounts')
+              .select('balance')
+              .eq('user_id', userId)
+              .eq('account_type', 'author_earnings_reserved')
+              .maybeSingle(),
+            supabase
+              .from('works')
+              .select('*')
+              .eq('author_id', userId)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('payout_requests')
+              .select('*')
+              .eq('author_id', userId)
+              .order('created_at', { ascending: false }),
+            supabase.from('purchases').select('gross_amount').eq('author_id', userId),
+          ]);
+
+          setAvailableEarnings(availRes.data ? Number(availRes.data.balance) : 0);
+          setReservedEarnings(resRes.data ? Number(resRes.data.balance) : 0);
+          setWorks((worksRes.data as Work[]) || []);
+          setPayouts((payoutsRes.data as PayoutRequest[]) || []);
+
+          const totalGross = (purchasesRes.data || []).reduce(
+            (acc: number, p: any) => acc + Number(p.gross_amount || 0),
+            0,
+          );
+          setGrossEarnings(totalGross);
+        }
+      } catch (err) {
+        console.error('Muallif kabineti xatosi:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('Muallif kabineti xatosi:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -275,14 +276,17 @@ function MuallifStudioContent() {
                 Arizangiz ko‘rib chiqilmoqda
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-                Mualliflik arizangiz administrator tomonidan tekshirilmoqda. Tasdiqlanganidan so‘ng asar qo‘shish imkoniyati ochiladi.
+                Mualliflik arizangiz administrator tomonidan tekshirilmoqda. Tasdiqlanganidan so‘ng
+                asar qo‘shish imkoniyati ochiladi.
               </p>
             </div>
           ) : (
             <form onSubmit={handleApplyAuthor} className="space-y-4">
               {isRejected && (
                 <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
-                  Avvalgi arizangiz rad etilgan: {author?.rejection_reason || 'Talablarga javob bermadi'}. Qaytadan ariza topshirishingiz mumkin.
+                  Avvalgi arizangiz rad etilgan:{' '}
+                  {author?.rejection_reason || 'Talablarga javob bermadi'}. Qaytadan ariza
+                  topshirishingiz mumkin.
                 </div>
               )}
 
@@ -354,9 +358,7 @@ function MuallifStudioContent() {
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Muallif Studiyasi
-            </h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Muallif Studiyasi</h1>
             <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase">
               Faol
             </span>
@@ -429,9 +431,7 @@ function MuallifStudioContent() {
             Jami kitob savdosi
           </span>
           <div className="my-2">
-            <span className="text-2xl font-black text-slate-900">
-              {formatUZS(grossEarnings)}
-            </span>
+            <span className="text-2xl font-black text-slate-900">{formatUZS(grossEarnings)}</span>
           </div>
           <span className="text-[11px] text-slate-400 font-medium">
             O‘quvchilar tomonidan to‘langan
@@ -444,9 +444,7 @@ function MuallifStudioContent() {
             Platforma komissiyasi
           </span>
           <div className="my-2">
-            <span className="text-2xl font-black text-blue-600">
-              20%
-            </span>
+            <span className="text-2xl font-black text-blue-600">20%</span>
           </div>
           <span className="text-[11px] text-slate-400 font-medium">
             Muallif ulushi: <strong>80%</strong>
@@ -513,29 +511,32 @@ function MuallifStudioContent() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase mb-1 ${
-                          isPub
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${
+                            isPub
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : isPending
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : isRej
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {isPub
+                            ? 'Nashr qilingan'
                             : isPending
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              ? 'Moderatsiyada'
                               : isRej
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {isPub
-                          ? 'Nashr qilingan'
-                          : isPending
-                            ? 'Moderatsiyada'
-                            : isRej
-                              ? 'Rad etilgan'
-                              : 'Qoralama'}
-                      </span>
+                                ? 'Rad etilgan'
+                                : 'Qoralama'}
+                        </span>
+                        <span className="inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-slate-50 text-slate-600 border border-slate-200">
+                          {w.type === 'serialized_story' ? 'Hikoya' : 'Kitob'}
+                        </span>
+                      </div>
 
-                      <h3 className="font-black text-slate-900 text-sm truncate">
-                        {w.title}
-                      </h3>
+                      <h3 className="font-black text-slate-900 text-sm truncate">{w.title}</h3>
                       <p className="text-[11px] text-slate-500 truncate mt-0.5">
                         {w.access_type === 'free'
                           ? 'Bepul'
@@ -622,7 +623,8 @@ function MuallifStudioContent() {
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Karta: <strong className="font-mono text-slate-700">{p.masked_card}</strong> • {p.full_legal_name} • {formatUzbekDate(p.created_at)}
+                      Karta: <strong className="font-mono text-slate-700">{p.masked_card}</strong> •{' '}
+                      {p.full_legal_name} • {formatUzbekDate(p.created_at)}
                     </p>
                   </div>
 
@@ -656,9 +658,7 @@ function MuallifStudioContent() {
       {isNewWorkOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-black text-slate-900 mb-4">
-              Yangi asar yaratish
-            </h3>
+            <h3 className="text-xl font-black text-slate-900 mb-4">Yangi asar yaratish</h3>
 
             {workError && (
               <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
@@ -668,9 +668,7 @@ function MuallifStudioContent() {
 
             <form onSubmit={handleCreateWork} className="space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Asar nomi
-                </label>
+                <label className="block font-bold text-slate-700 mb-1">Asar nomi</label>
                 <input
                   type="text"
                   placeholder="Masalan: O‘tkan kunlar"
@@ -682,9 +680,7 @@ function MuallifStudioContent() {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Asar turi
-                </label>
+                <label className="block font-bold text-slate-700 mb-1">Asar turi</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -695,7 +691,7 @@ function MuallifStudioContent() {
                         : 'bg-white text-slate-700 border-slate-200'
                     }`}
                   >
-                    Oddiy kitob
+                    Kitob
                   </button>
                   <button
                     type="button"
@@ -706,7 +702,7 @@ function MuallifStudioContent() {
                         : 'bg-white text-slate-700 border-slate-200'
                     }`}
                   >
-                    Davomli qissa (Serial)
+                    Hikoya
                   </button>
                 </div>
               </div>
@@ -743,9 +739,7 @@ function MuallifStudioContent() {
 
               {genres.length > 0 && (
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Asosiy janr
-                  </label>
+                  <label className="block font-bold text-slate-700 mb-1">Asosiy janr</label>
                   <select
                     value={newWorkGenre}
                     onChange={(e) => setNewWorkGenre(e.target.value)}
@@ -812,7 +806,9 @@ export default function MuallifStudioPage() {
       fallback={
         <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 py-24">
           <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
-          <span className="text-xs font-semibold text-stone-500">Muallif studiyasi yuklanmoqda...</span>
+          <span className="text-xs font-semibold text-stone-500">
+            Muallif studiyasi yuklanmoqda...
+          </span>
         </div>
       }
     >

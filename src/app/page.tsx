@@ -37,12 +37,14 @@ export default async function HomePage() {
     getActiveGenres(),
     supabase
       .from('author_profiles')
-      .select(`
+      .select(
+        `
         user_id,
         pen_name,
         biography,
         profile:profiles(id, display_name, username, avatar_url)
-      `)
+      `,
+      )
       .eq('status', 'approved')
       .limit(6),
   ]);
@@ -60,11 +62,23 @@ export default async function HomePage() {
 
   const originalWorks = allWorks.filter((work) => !work.is_translation);
   const recentUpdatedWorks = [...originalWorks].sort(byUpdated).slice(0, 10);
-  const featuredWorks = originalWorks.filter((work) => work.is_featured).sort(byUpdated).slice(0, 6);
-  const storyWorks = originalWorks.filter((work) => work.type === 'serialized_story').sort(byNewest).slice(0, 8);
+  const featuredWorks = originalWorks
+    .filter((work) => work.is_featured)
+    .sort(byUpdated)
+    .slice(0, 6);
+  const storyWorks = originalWorks
+    .filter((work) => work.type === 'serialized_story')
+    .sort(byNewest)
+    .slice(0, 8);
   const popularWorks = [...originalWorks].sort(byPopular).slice(0, 10);
-  const freeWorks = originalWorks.filter((work) => work.access_type === 'free').sort(byNewest).slice(0, 8);
-  const translatedWorks = allWorks.filter((work) => work.is_translation).sort(byNewest).slice(0, 5);
+  const freeWorks = originalWorks
+    .filter((work) => work.access_type === 'free')
+    .sort(byNewest)
+    .slice(0, 8);
+  const translatedWorks = allWorks
+    .filter((work) => work.is_translation)
+    .sort(byNewest)
+    .slice(0, 5);
   const discoveryNewWorks = [
     ...recentUpdatedWorks,
     ...allWorks.filter((work) => !recentUpdatedWorks.some((recent) => recent.id === work.id)),
@@ -72,9 +86,7 @@ export default async function HomePage() {
 
   // Hero carousel candidates
   const heroRecent =
-    recentUpdatedWorks.find((w) => w.type === 'serialized_story') ||
-    recentUpdatedWorks[0] ||
-    null;
+    recentUpdatedWorks.find((w) => w.type === 'serialized_story') || recentUpdatedWorks[0] || null;
   const heroEditor = featuredWorks[0] || popularWorks[0] || null;
   const heroPopular = popularWorks[0] || recentUpdatedWorks[0] || null;
 
@@ -83,6 +95,11 @@ export default async function HomePage() {
 
   // Give translated works their own prominent section and avoid repeating them below.
   translatedWorks.forEach((work) => shownWorkIds.add(work.id));
+
+  // Hikoyalar must always have a dedicated row on the homepage. Reserve them
+  // before the mixed sections consume the same works during deduplication.
+  const section4Works = storyWorks.slice(0, 5);
+  section4Works.forEach((work) => shownWorkIds.add(work.id));
 
   const getDeduplicatedSlice = (candidateWorks: Work[], maxCount = 5): Work[] => {
     // Pick works that have not been displayed yet
@@ -102,22 +119,6 @@ export default async function HomePage() {
   // 3. Muharrir tanlovi works (fallback to popular if no featured flag)
   const editorCandidates = featuredWorks.length > 0 ? featuredWorks : popularWorks;
   const section3Works = getDeduplicatedSlice(editorCandidates, 5);
-
-  // 4. 15 daqiqada o‘qiladigan hikoyalar:
-  // Rule: total published word count / 200 wpm <= 15 mins (<= 3000 words)
-  // Prefer completed short stories, then serialized stories
-  const shortStoriesCandidates = (storyWorks || []).filter((w) => {
-    const words = w.total_words || 0;
-    if (words > 0) {
-      return Math.ceil(words / 200) <= 15;
-    }
-    return w.type === 'serialized_story';
-  }).sort((a, b) => {
-    if (a.completion_status === 'completed' && b.completion_status !== 'completed') return -1;
-    if (b.completion_status === 'completed' && a.completion_status !== 'completed') return 1;
-    return (a.total_words || 0) - (b.total_words || 0);
-  });
-  const section4Works = getDeduplicatedSlice(shortStoriesCandidates, 5);
 
   // 5. Eng ko‘p muhokama qilinayotgan
   const section5Works = getDeduplicatedSlice(popularWorks, 5);
@@ -157,10 +158,7 @@ export default async function HomePage() {
       />
 
       {/* 2. Horizontal Discovery Tabs (Yangi, Siz uchun, Ommabop, Kuzatayotganlarim) */}
-      <HomeDiscoveryTabs
-        initialWorks={discoveryNewWorks}
-        popularWorks={popularWorks}
-      />
+      <HomeDiscoveryTabs initialWorks={discoveryNewWorks} popularWorks={popularWorks} />
 
       {/* Curated translations uploaded by the Manbora administration */}
       {translatedWorks.length > 0 && (
@@ -231,9 +229,7 @@ export default async function HomePage() {
       )}
 
       {/* SECTION 2: Shu hafta yangi boblar (Distinct new chapters feed) */}
-      {recentChapters.length > 0 && (
-        <RecentChaptersSection chapters={recentChapters} />
-      )}
+      {recentChapters.length > 0 && <RecentChaptersSection chapters={recentChapters} />}
 
       {/* SECTION 3: Muharrir tanlovi (Editor's Choice) */}
       {section3Works.length > 0 && (
@@ -269,7 +265,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* SECTION 4: 15 daqiqada o‘qiladigan hikoyalar (Short Serial Stories) */}
+      {/* SECTION 4: Dedicated stories catalogue */}
       {section4Works.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -279,10 +275,10 @@ export default async function HomePage() {
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-[#1C1917] tracking-tight">
-                  15 daqiqada o‘qiladigan hikoyalar
+                  Hikoyalar
                 </h2>
                 <p className="text-xs text-stone-500 font-medium">
-                  Yo‘lda yoki qisqa tanaffusda o‘qish uchun mos ixcham hikoyalar
+                  Qisqa, tugallangan va bobma-bob davom etadigan sara hikoyalar
                 </p>
               </div>
             </div>
@@ -301,8 +297,10 @@ export default async function HomePage() {
                 key={work.id}
                 work={work}
                 context="catalogue"
-                showReadingTime={true}
-                readingTimeMinutes={Math.max(1, Math.ceil((work.total_words || 800) / 200))}
+                showReadingTime={Boolean(work.total_words)}
+                readingTimeMinutes={
+                  work.total_words ? Math.max(1, Math.ceil(work.total_words / 200)) : undefined
+                }
               />
             ))}
           </div>
@@ -497,7 +495,9 @@ export default async function HomePage() {
           </h2>
 
           <p className="text-xs sm:text-sm text-stone-300 leading-relaxed font-normal">
-            Manbora — mustaqil mualliflar, hikoyanavislar va ijodkorlar uchun zamonaviy raqamli noshirlik maydoni. Asaringizni o‘quvchilarga yetkazing, obunachilar to‘plang va har bir sotuvdan shaffof daromad oling.
+            Manbora — mustaqil mualliflar, hikoyanavislar va ijodkorlar uchun zamonaviy raqamli
+            noshirlik maydoni. Asaringizni o‘quvchilarga yetkazing, obunachilar to‘plang va har bir
+            sotuvdan shaffof daromad oling.
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">

@@ -59,7 +59,7 @@ export default function YangiAsarPage() {
         if (!gErr && data && isMounted) {
           setGenres(data as Genre[]);
           if (data.length > 0) {
-            setSelectedGenreId(prev => prev || data[0].id);
+            setSelectedGenreId((prev) => prev || data[0].id);
           }
         }
       } catch {
@@ -193,7 +193,7 @@ export default function YangiAsarPage() {
               Yangi asar yaratish
             </h1>
             <p className="text-xs text-stone-500 font-medium">
-              Kitob yoki davomiy hikoyangiz ma’lumotlarini kiriting
+              Kitob yoki hikoyangiz ma’lumotlarini kiriting
             </p>
           </div>
         </div>
@@ -256,23 +256,22 @@ export default function YangiAsarPage() {
         {/* Type & Genre Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-2">
-              Asar formati
-            </label>
+            <label className="block text-xs font-bold text-stone-700 mb-2">Asar formati</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as any)}
               className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 text-stone-900 text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
             >
-              <option value="book">Tugallangan kitob (Roman / Qissa)</option>
-              <option value="serialized_story">Davomiy hikoya (Serial asar)</option>
+              <option value="book">Kitob</option>
+              <option value="serialized_story">Hikoya</option>
             </select>
+            <p className="mt-1.5 text-[11px] text-stone-500">
+              Har ikki turda ham bitta yoki bir nechta bob yaratishingiz mumkin.
+            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-2">
-              Asosiy janr
-            </label>
+            <label className="block text-xs font-bold text-stone-700 mb-2">Asosiy janr</label>
             <select
               value={selectedGenreId}
               onChange={(e) => setSelectedGenreId(e.target.value)}
@@ -295,7 +294,11 @@ export default function YangiAsarPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { id: 'free', label: 'To‘liq bepul', desc: 'Barcha boblar ochiq' },
-              { id: 'paid_full_work', label: 'Butun asar to‘lovi', desc: 'Kitob to‘liq bir narxda sotiladi' },
+              {
+                id: 'paid_full_work',
+                label: 'Butun asar to‘lovi',
+                desc: 'Kitob to‘liq bir narxda sotiladi',
+              },
             ].map((opt) => (
               <button
                 key={opt.id}
@@ -307,9 +310,7 @@ export default function YangiAsarPage() {
                     : 'bg-stone-50 border-stone-200 hover:border-stone-300'
                 }`}
               >
-                <span className="block text-xs font-bold text-stone-900 mb-0.5">
-                  {opt.label}
-                </span>
+                <span className="block text-xs font-bold text-stone-900 mb-0.5">{opt.label}</span>
                 <span className="block text-[11px] text-stone-500">{opt.desc}</span>
               </button>
             ))}

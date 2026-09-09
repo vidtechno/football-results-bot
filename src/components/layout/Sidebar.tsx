@@ -45,6 +45,13 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
       requiresAuth: false,
     },
     {
+      label: 'Hikoyalar',
+      href: '/hikoyalar',
+      icon: Sparkles,
+      exact: false,
+      requiresAuth: false,
+    },
+    {
       label: 'Tarjima asarlar',
       href: '/tarjima-asarlar',
       icon: Languages,
@@ -85,7 +92,9 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
       ? [
           {
             label: 'Bildirishnomalar',
-            href: user ? '/kabinet?tab=notifications' : '/kirish?returnUrl=/kabinet?tab=notifications',
+            href: user
+              ? '/kabinet?tab=notifications'
+              : '/kirish?returnUrl=/kabinet?tab=notifications',
             icon: Bell,
             exact: false,
             badge: unreadCount > 0 ? unreadCount : null,
@@ -124,8 +133,8 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
               const isActive = item.exact
                 ? pathname === item.href
                 : item.activePattern
-                ? pathname.startsWith(item.activePattern)
-                : pathname.startsWith(item.href);
+                  ? pathname.startsWith(item.activePattern)
+                  : pathname.startsWith(item.href);
 
               return (
                 <Link

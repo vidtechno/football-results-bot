@@ -35,8 +35,8 @@ export function WorkCard({
   const rating = work.rating
     ? Number(work.rating).toFixed(1)
     : work.average_rating
-    ? Number(work.average_rating).toFixed(1)
-    : null;
+      ? Number(work.average_rating).toFixed(1)
+      : null;
 
   const authorName = getPublicWorkAuthorName({
     ...work,
@@ -55,14 +55,16 @@ export function WorkCard({
   const priceLabel = isFree
     ? 'Bepul'
     : isPaidFull
-    ? formatUZS(work.full_work_price || 0)
-    : 'Boblar bo‘yicha';
+      ? formatUZS(work.full_work_price || 0)
+      : 'Boblar bo‘yicha';
 
   // Completion status
   const isCompleted = work.completion_status === 'completed';
+  const isStory = work.type === 'serialized_story';
 
   // Chapters count
-  const chaptersCount = work.chapters_count ?? (Array.isArray(work.chapters) ? work.chapters.length : null);
+  const chaptersCount =
+    work.chapters_count ?? (Array.isArray(work.chapters) ? work.chapters.length : null);
 
   // Check if recently updated (within 7 days)
   const isRecentlyUpdated = (() => {
@@ -160,9 +162,7 @@ export function WorkCard({
           </h3>
 
           {/* Author Pen Name */}
-          <p className="text-[11px] text-stone-500 font-medium truncate mt-0.5">
-            {authorName}
-          </p>
+          <p className="text-[11px] text-stone-500 font-medium truncate mt-0.5">{authorName}</p>
 
           {work.is_translation && work.source_language && (
             <p className="text-[10px] text-indigo-700 font-bold truncate mt-0.5">
@@ -172,6 +172,16 @@ export function WorkCard({
 
           {/* Badges: Genre / Status / Chapters Count */}
           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+            <span
+              className={clsx(
+                'inline-block text-[9.5px] font-bold px-1.5 py-0.5 rounded-md border',
+                isStory
+                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-200',
+              )}
+            >
+              {isStory ? 'Hikoya' : 'Kitob'}
+            </span>
             {genreName && (
               <span className="inline-block text-[9.5px] font-semibold px-1.5 py-0.5 rounded-md bg-[#F4EFEB] text-stone-600 border border-[#E7E2D9]">
                 {genreName}
@@ -188,9 +198,7 @@ export function WorkCard({
               {isCompleted ? 'Tugallangan' : 'Davom etmoqda'}
             </span>
             {typeof chaptersCount === 'number' && chaptersCount > 0 && (
-              <span className="text-[9.5px] text-stone-500 font-medium">
-                {chaptersCount} bob
-              </span>
+              <span className="text-[9.5px] text-stone-500 font-medium">{chaptersCount} bob</span>
             )}
             {typeof lastReadChapterNumber === 'number' && (
               <span className="text-[9.5px] text-emerald-800 font-bold">
@@ -201,7 +209,8 @@ export function WorkCard({
               <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
                 <Clock className="w-2.5 h-2.5 text-emerald-700" />
                 <span>
-                  ~{readingTimeMinutes ?? Math.max(1, Math.ceil((work.total_words || 600) / 200))} daqiqa
+                  ~{readingTimeMinutes ?? Math.max(1, Math.ceil((work.total_words || 600) / 200))}{' '}
+                  daqiqa
                 </span>
               </span>
             )}

@@ -41,8 +41,12 @@ const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then((mod) => mod.RichTextEditor),
   {
     ssr: false,
-    loading: () => <div className="p-8 text-center text-xs text-stone-500 animate-pulse">Matn muharriri yuklanmoqda...</div>,
-  }
+    loading: () => (
+      <div className="p-8 text-center text-xs text-stone-500 animate-pulse">
+        Matn muharriri yuklanmoqda...
+      </div>
+    ),
+  },
 );
 
 interface AuthorWorkEditorClientProps {
@@ -91,9 +95,13 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
   const [isDirty, setIsDirty] = useState(false);
   const lastSavedSnapshotRef = useRef<{ title: string; content: string } | null>(null);
   const isAutosavingRef = useRef(false);
-  const [chapterStatus, setChapterStatus] = useState<'published' | 'draft' | 'scheduled'>('published');
+  const [chapterStatus, setChapterStatus] = useState<'published' | 'draft' | 'scheduled'>(
+    'published',
+  );
   const [scheduledAt, setScheduledAt] = useState<string>('');
-  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(
+    'idle',
+  );
   const [isVersionsOpen, setIsVersionsOpen] = useState(false);
   const [versionsList, setVersionsList] = useState<any[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -116,21 +124,29 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
       const [workRes, genresRes, chapRes, revisionsRes, chapRevisionsRes] = await Promise.all([
         supabase
           .from('works')
-          .select(`
+          .select(
+            `
             *,
             work_genres (
               genre:genres (*)
             )
-          `)
+          `,
+          )
           .eq('id', workId)
           .single(),
-        supabase.from('genres').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
+        supabase
+          .from('genres')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true }),
         supabase
           .from('chapters')
-          .select(`
+          .select(
+            `
             *,
             chapter_contents (content)
-          `)
+          `,
+          )
           .eq('work_id', workId)
           .order('chapter_number', { ascending: true }),
         supabase
@@ -138,13 +154,19 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           .select('*')
           .eq('work_id', workId)
           .order('created_at', { ascending: false })
-          .then((r: any) => r, () => ({ data: [] })),
+          .then(
+            (r: any) => r,
+            () => ({ data: [] }),
+          ),
         supabase
           .from('chapter_revisions')
           .select('*')
           .eq('work_id', workId)
           .order('created_at', { ascending: false })
-          .then((r: any) => r, () => ({ data: [] })),
+          .then(
+            (r: any) => r,
+            () => ({ data: [] }),
+          ),
       ]);
 
       if (workRes.error || !workRes.data) {
@@ -181,14 +203,18 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
       setAgeRating(workData.age_rating || 'all');
       setIsArchived(Boolean(workData.is_archived));
 
-      const existingGenres = (workData.work_genres || []).map((wg: any) => wg.genre?.id).filter(Boolean);
+      const existingGenres = (workData.work_genres || [])
+        .map((wg: any) => wg.genre?.id)
+        .filter(Boolean);
       setSelectedGenreIds(existingGenres);
 
       setGenres((genresRes.data as Genre[]) || []);
 
       const formattedChapters = (chapRes.data || []).map((c: any) => ({
         ...c,
-        content: Array.isArray(c.chapter_contents) ? c.chapter_contents[0]?.content || '' : c.chapter_contents?.content || '',
+        content: Array.isArray(c.chapter_contents)
+          ? c.chapter_contents[0]?.content || ''
+          : c.chapter_contents?.content || '',
       }));
 
       setChapters(formattedChapters as Chapter[]);
@@ -338,7 +364,13 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
 
   // 12-second debounced autosave when editing an existing chapter only if changes occurred
   useEffect(() => {
-    if (!isChapterModalOpen || !editingChapterId || !chapterTitle.trim() || !chapterContent.trim() || !isDirty) {
+    if (
+      !isChapterModalOpen ||
+      !editingChapterId ||
+      !chapterTitle.trim() ||
+      !chapterContent.trim() ||
+      !isDirty
+    ) {
       return;
     }
 
@@ -371,7 +403,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           isFree,
           price: 0,
           status: chapterStatus,
-          scheduled_at: chapterStatus === 'scheduled' && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+          scheduled_at:
+            chapterStatus === 'scheduled' && scheduledAt
+              ? new Date(scheduledAt).toISOString()
+              : null,
         };
 
         const res = await fetch('/api/chapters/save', {
@@ -429,7 +464,12 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
 
   async function handleRestoreVersion(versionId: string) {
     if (!editingChapterId) return;
-    if (!confirm('Ushbu versiyadagi matnni tiklashni tasdiqlaysizmi? Hozirgi matn yangi versiya sifatida saqlanadi.')) return;
+    if (
+      !confirm(
+        'Ushbu versiyadagi matnni tiklashni tasdiqlaysizmi? Hozirgi matn yangi versiya sifatida saqlanadi.',
+      )
+    )
+      return;
 
     setRestoringVersionId(versionId);
     try {
@@ -467,7 +507,8 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     setChapterError(null);
 
     try {
-      const isEditingPublishedChapter = editingChapterId && chapters.find((c) => c.id === editingChapterId)?.status === 'published';
+      const isEditingPublishedChapter =
+        editingChapterId && chapters.find((c) => c.id === editingChapterId)?.status === 'published';
       const endpoint = isEditingPublishedChapter ? '/api/chapters/revisions' : '/api/chapters/save';
 
       const payload: any = {
@@ -480,7 +521,8 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
         isFree,
         price: 0,
         status: chapterStatus,
-        scheduled_at: chapterStatus === 'scheduled' && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        scheduled_at:
+          chapterStatus === 'scheduled' && scheduledAt ? new Date(scheduledAt).toISOString() : null,
       };
 
       const res = await fetch(endpoint, {
@@ -739,7 +781,8 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
             <span>Asar nashr qilingan holatda</span>
           </p>
           <p className="text-amber-800 font-normal">
-            Kiritilgan har qanday o‘zgarish avtomat tarzda tahrir (revision) sifatida saqlanadi. Kitobxonlar hozirgi tasdiqlangan versiyani o‘qishda davom etadilar.
+            Kiritilgan har qanday o‘zgarish avtomat tarzda tahrir (revision) sifatida saqlanadi.
+            Kitobxonlar hozirgi tasdiqlangan versiyani o‘qishda davom etadilar.
           </p>
         </div>
       )}
@@ -791,9 +834,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
       {activeTab === 'chapters' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-serif text-lg font-bold text-stone-900">
-              Mundarija va boblar
-            </h2>
+            <h2 className="font-serif text-lg font-bold text-stone-900">Mundarija va boblar</h2>
 
             <button
               onClick={openNewChapterModal}
@@ -920,7 +961,9 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
 
             {/* Description */}
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1.5">Asar annotatsiyasi (Tavsif)</label>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Asar annotatsiyasi (Tavsif)
+              </label>
               <textarea
                 rows={4}
                 value={description}
@@ -933,15 +976,20 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
             {/* Work Type & Access Model */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1.5">Asar formati</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  Asar formati
+                </label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as any)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 font-bold text-xs sm:text-sm text-stone-900"
                 >
-                  <option value="book">Oddiy kitob (Yagona asar)</option>
-                  <option value="serialized_story">Davomli qissa (Haftalik serial)</option>
+                  <option value="book">Kitob</option>
+                  <option value="serialized_story">Hikoya</option>
                 </select>
+                <p className="mt-1.5 text-[11px] text-stone-500">
+                  Har ikki turda ham boblar ishlaydi.
+                </p>
               </div>
 
               <div>
@@ -960,7 +1008,9 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
             {/* Pricing Model */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1.5">Kirish / To‘lov modeli</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  Kirish / To‘lov modeli
+                </label>
                 <select
                   value={accessType}
                   onChange={(e) => setAccessType(e.target.value as any)}
@@ -973,7 +1023,9 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
 
               {accessType === 'paid_full_work' ? (
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">To‘liq asar narxi (so‘m)</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                    To‘liq asar narxi (so‘m)
+                  </label>
                   <input
                     type="number"
                     step="1000"
@@ -985,7 +1037,9 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">Yosh chegarasi</label>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                    Yosh chegarasi
+                  </label>
                   <select
                     value={ageRating}
                     onChange={(e) => setAgeRating(e.target.value)}
@@ -1071,7 +1125,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
 
           <div className="bg-white rounded-3xl border border-stone-200 divide-y divide-stone-100 overflow-hidden shadow-2xs">
             {workRevisions.map((rev) => (
-              <div key={`work_${rev.id}`} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+              <div
+                key={`work_${rev.id}`}
+                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs"
+              >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-stone-100 text-stone-700">
@@ -1083,15 +1140,15 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                         rev.status === 'approved'
                           ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                           : rev.status === 'pending_review'
-                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                          : 'bg-rose-50 text-rose-800 border border-rose-200'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                            : 'bg-rose-50 text-rose-800 border border-rose-200'
                       }`}
                     >
                       {rev.status === 'approved'
                         ? 'Tasdiqlangan'
                         : rev.status === 'pending_review'
-                        ? 'Tekshiruvda'
-                        : 'Rad etilgan'}
+                          ? 'Tekshiruvda'
+                          : 'Rad etilgan'}
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500">
@@ -1107,7 +1164,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
             ))}
 
             {chapterRevisions.map((rev) => (
-              <div key={`chap_${rev.id}`} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+              <div
+                key={`chap_${rev.id}`}
+                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs"
+              >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900">
@@ -1119,15 +1179,15 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                         rev.status === 'approved'
                           ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                           : rev.status === 'pending_review'
-                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                          : 'bg-rose-50 text-rose-800 border border-rose-200'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                            : 'bg-rose-50 text-rose-800 border border-rose-200'
                       }`}
                     >
                       {rev.status === 'approved'
                         ? 'Tasdiqlangan'
                         : rev.status === 'pending_review'
-                        ? 'Tekshiruvda'
-                        : 'Rad etilgan'}
+                          ? 'Tekshiruvda'
+                          : 'Rad etilgan'}
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500">
@@ -1160,15 +1220,15 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                       autosaveStatus === 'saving'
                         ? 'bg-blue-50 text-blue-700 animate-pulse'
                         : autosaveStatus === 'saved'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-rose-50 text-rose-700'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-rose-50 text-rose-700'
                     }`}
                   >
                     {autosaveStatus === 'saving'
                       ? 'Saqlanmoqda...'
                       : autosaveStatus === 'saved'
-                      ? 'Avtomatik saqlandi'
-                      : 'Avtosaqlashda xato'}
+                        ? 'Avtomatik saqlandi'
+                        : 'Avtosaqlashda xato'}
                   </span>
                 )}
               </div>
@@ -1302,7 +1362,8 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                       required={chapterStatus === 'scheduled'}
                     />
                     <p className="text-[10px] text-stone-500">
-                      Ushbu vaqt yetganda avtomatlashtirilgan tizim bobni o‘z-o‘zidan nashr qiladi va kuzatuvchilarga xabar jo‘natadi.
+                      Ushbu vaqt yetganda avtomatlashtirilgan tizim bobni o‘z-o‘zidan nashr qiladi
+                      va kuzatuvchilarga xabar jo‘natadi.
                     </p>
                   </div>
                 )}
@@ -1324,13 +1385,18 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     <span>Ushbu bobni bepul qilish (namuna sifatida)</span>
                   </label>
 
-                  <p className="text-[11px] text-stone-500">Asarning qolgan boblari umumiy kitob narxiga kiradi; bobga alohida narx qo‘yilmaydi.</p>
+                  <p className="text-[11px] text-stone-500">
+                    Asarning qolgan boblari umumiy kitob narxiga kiradi; bobga alohida narx
+                    qo‘yilmaydi.
+                  </p>
                 </div>
               )}
 
               {/* Rich-Text TipTap Editor with Toolbar and Autosave */}
               <div>
-                <label className="block font-bold text-stone-700 mb-1.5">Bob matni (Formatlangan matn)</label>
+                <label className="block font-bold text-stone-700 mb-1.5">
+                  Bob matni (Formatlangan matn)
+                </label>
                 <RichTextEditor
                   initialContent={chapterContent}
                   onChange={(html) => {
@@ -1379,7 +1445,8 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                   Bob versiyalari tarixi
                 </h3>
                 <p className="text-[11px] text-stone-500">
-                  Har bir saqlashda avvalgi matn arxivlanadi. Istalgan versiyani qayta tiklashingiz mumkin.
+                  Har bir saqlashda avvalgi matn arxivlanadi. Istalgan versiyani qayta tiklashingiz
+                  mumkin.
                 </p>
               </div>
               <button

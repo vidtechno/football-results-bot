@@ -11,7 +11,8 @@ export const revalidate = 30;
 
 export const metadata: Metadata = {
   title: 'Barcha asarlar katalogi',
-  description: 'O‘zbek adabiyotining sara kitoblari, davomli hikoyalari va qissalari katalogi. Bepul va pullik elektron asarlar mutolaasi.',
+  description:
+    'O‘zbek adabiyotining sara kitoblari, davomli hikoyalari va qissalari katalogi. Bepul va pullik elektron asarlar mutolaasi.',
   alternates: {
     canonical: 'https://manbora.uz/asarlar',
   },
@@ -131,7 +132,7 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
           )}
         >
           <Sparkles className="w-4 h-4 text-amber-600" />
-          <span>Davomli hikoyalar</span>
+          <span>Hikoyalar</span>
         </Link>
       </div>
 
@@ -187,7 +188,11 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
       {/* Search & Filter Toolbar */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EAE5DD] shadow-xs space-y-4">
         {/* Search input form */}
-        <form method="GET" action="/asarlar" className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <form
+          method="GET"
+          action="/asarlar"
+          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+        >
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-[#A8A29E] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -228,7 +233,10 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
             </Link>
 
             <Link
-              href={buildUrl({ access: accessFilter === 'free' ? undefined : 'free', page: undefined })}
+              href={buildUrl({
+                access: accessFilter === 'free' ? undefined : 'free',
+                page: undefined,
+              })}
               className={clsx(
                 'px-3 py-1.5 rounded-xl font-bold transition-colors',
                 accessFilter === 'free'
@@ -240,7 +248,10 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
             </Link>
 
             <Link
-              href={buildUrl({ access: accessFilter === 'paid_full_work' ? undefined : 'paid_full_work', page: undefined })}
+              href={buildUrl({
+                access: accessFilter === 'paid_full_work' ? undefined : 'paid_full_work',
+                page: undefined,
+              })}
               className={clsx(
                 'px-3 py-1.5 rounded-xl font-bold transition-colors',
                 accessFilter === 'paid_full_work'
@@ -317,7 +328,8 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
           <BookOpen className="w-10 h-10 text-stone-300 mx-auto" />
           <h3 className="font-serif font-bold text-stone-800 text-base">Asarlar topilmadi</h3>
           <p className="text-xs text-stone-500 max-w-sm mx-auto">
-            Qidiruv so‘rovi yoki tanlangan filtrlar bo‘yicha asar topilmadi. Boshqa filtrlarni sinab ko‘ring.
+            Qidiruv so‘rovi yoki tanlangan filtrlar bo‘yicha asar topilmadi. Boshqa filtrlarni sinab
+            ko‘ring.
           </p>
           <Link
             href="/asarlar"

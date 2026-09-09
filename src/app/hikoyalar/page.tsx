@@ -9,8 +9,9 @@ import { CataloguePagination } from '@/components/catalogue/CataloguePagination'
 export const revalidate = 30;
 
 export const metadata: Metadata = {
-  title: 'Hikoyalar va Qissalar',
-  description: 'Bobma-bob yangilanuvchi o‘zbekcha serial hikoyalar, qissalar va novellalar. Yangi boblarni kuzatib boring.',
+  title: 'Hikoyalar',
+  description:
+    'O‘zbek tilidagi qisqa va davomli hikoyalar. Bir bobli yoki bobma-bob hikoyalarni mutolaa qiling.',
   alternates: {
     canonical: '/hikoyalar',
   },
@@ -59,16 +60,20 @@ export default async function HikoyalarPage({ searchParams }: HikoyalarPageProps
       <div className="space-y-1">
         <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight flex items-center gap-2.5">
           <Sparkles className="w-7 h-7 text-amber-600" />
-          <span>Hikoyalar va Qissalar</span>
+          <span>Hikoyalar</span>
         </h1>
         <p className="text-xs sm:text-sm text-[#78716C] font-medium">
-          Muntazam yangilanib boruvchi davomli serial hikoyalar, qissalar va fantastik asarlar
+          Qisqa, tugallangan va bobma-bob davom etadigan o‘zbekcha hikoyalar
         </p>
       </div>
 
       {/* Filter Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EAE5DD] shadow-xs space-y-4">
-        <form method="GET" action="/hikoyalar" className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <form
+          method="GET"
+          action="/hikoyalar"
+          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+        >
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-[#A8A29E] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input

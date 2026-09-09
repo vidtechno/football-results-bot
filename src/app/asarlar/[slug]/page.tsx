@@ -52,8 +52,7 @@ export async function generateMetadata({ params }: WorkDetailPageProps): Promise
     openGraph: {
       title: `${work.title} — ${authorName}`,
       description:
-        work.description?.slice(0, 160) ||
-        `«${work.title}» asari Manbora platformasida.`,
+        work.description?.slice(0, 160) || `«${work.title}» asari Manbora platformasida.`,
       url: `/asarlar/${work.slug}`,
       images: work.cover_url ? [{ url: work.cover_url, alt: work.title }] : [],
     },
@@ -96,11 +95,19 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
   // Fetch social follower count and follow state server-side
   const followPromise = work.id
     ? Promise.all([
-      supabase.from('work_follows').select('id', { count: 'exact', head: true }).eq('work_id', work.id),
-      profile?.id
-        ? supabase.from('work_follows').select('id').eq('work_id', work.id).eq('user_id', profile.id).maybeSingle()
-        : Promise.resolve({ data: null }),
-    ])
+        supabase
+          .from('work_follows')
+          .select('id', { count: 'exact', head: true })
+          .eq('work_id', work.id),
+        profile?.id
+          ? supabase
+              .from('work_follows')
+              .select('id')
+              .eq('work_id', work.id)
+              .eq('user_id', profile.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
     : Promise.resolve([{ count: 0 }, { data: null }] as any);
   const [chapterAccessMap, [{ count }, followCheck]] = await Promise.all([accessPromise, followPromise]);
   const followerCount = count || 0;
@@ -108,15 +115,21 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
   // Check if first chapter is unlocked (which indicates active purchase entitlement or author access)
   const isWorkUnlocked = firstChapter ? !chapterAccessMap[firstChapter.id]?.isLocked : false;
 
-
   return (
     <div className="space-y-8 sm:space-y-12 pb-16">
       <WorkAnalyticsTracker workId={work.id} />
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-stone-500 font-medium truncate">
-        <Link href="/" className="hover:text-amber-900 transition-colors">Bosh sahifa</Link>
+        <Link href="/" className="hover:text-amber-900 transition-colors">
+          Bosh sahifa
+        </Link>
         <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
-        <Link href={work.is_translation ? '/tarjima-asarlar' : '/asarlar'} className="hover:text-amber-900 transition-colors">{work.is_translation ? 'Tarjima asarlar' : 'Asarlar'}</Link>
+        <Link
+          href={work.is_translation ? '/tarjima-asarlar' : '/asarlar'}
+          className="hover:text-amber-900 transition-colors"
+        >
+          {work.is_translation ? 'Tarjima asarlar' : 'Asarlar'}
+        </Link>
         <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
         <span className="text-stone-800 font-bold truncate">{work.title}</span>
       </nav>
@@ -147,7 +160,11 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
           <div className="flex-1 space-y-5 w-full">
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center gap-2">
-                {work.is_translation && <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-sky-50 text-sky-800 border border-sky-200"><Languages className="w-3.5 h-3.5" /> Tarjima asar</span>}
+                {work.is_translation && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-sky-50 text-sky-800 border border-sky-200">
+                    <Languages className="w-3.5 h-3.5" /> Tarjima asar
+                  </span>
+                )}
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
                     isFree
@@ -163,7 +180,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                 </span>
 
                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
-                  {work.type === 'serialized_story' ? 'Davomli qissa' : 'Kitob'}
+                  {work.type === 'serialized_story' ? 'Hikoya' : 'Kitob'}
                 </span>
 
                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
@@ -192,10 +209,25 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
               </div>
               {work.is_translation && (
                 <div className="grid sm:grid-cols-2 gap-2 rounded-2xl border border-sky-100 bg-sky-50/60 p-4 text-xs text-stone-700">
-                  {work.original_title && <p><strong>Original nomi:</strong> {work.original_title}</p>}
-                  <p><strong>Tarjima tili:</strong> {work.source_language}dan o‘zbek tiliga</p>
-                  {work.translator_name && <p><strong>Tarjimon:</strong> {work.translator_name}</p>}
-                  <p><strong>Nashr asosi:</strong> {work.translation_rights_basis === 'licensed' ? 'Ruxsat/litsenziya asosida' : 'Public domain'}</p>
+                  {work.original_title && (
+                    <p>
+                      <strong>Original nomi:</strong> {work.original_title}
+                    </p>
+                  )}
+                  <p>
+                    <strong>Tarjima tili:</strong> {work.source_language}dan o‘zbek tiliga
+                  </p>
+                  {work.translator_name && (
+                    <p>
+                      <strong>Tarjimon:</strong> {work.translator_name}
+                    </p>
+                  )}
+                  <p>
+                    <strong>Nashr asosi:</strong>{' '}
+                    {work.translation_rights_basis === 'licensed'
+                      ? 'Ruxsat/litsenziya asosida'
+                      : 'Public domain'}
+                  </p>
                 </div>
               )}
             </div>
@@ -281,7 +313,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
             {chapters.map((ch) => {
               const access = chapterAccessMap[ch.id];
               const isPurchased = access?.isPurchased;
-              const isLocked = access ? access.isLocked : (!ch.is_free || isPaidFullWork);
+              const isLocked = access ? access.isLocked : !ch.is_free || isPaidFullWork;
 
               return (
                 <Link
@@ -317,12 +349,15 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                         <Unlock className="w-3 h-3 text-blue-700" />
                         <span>Admin uchun ochiq</span>
                       </span>
-                    ) : access?.accessReason === 'purchased' || access?.accessReason === 'entitled' ? (
+                    ) : access?.accessReason === 'purchased' ||
+                      access?.accessReason === 'entitled' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
                         <Unlock className="w-3 h-3 text-emerald-700" />
                         <span>Sotib olingan</span>
                       </span>
-                    ) : isFree || access?.accessReason === 'free' || (!isPaidFullWork && ch.is_free) ? (
+                    ) : isFree ||
+                      access?.accessReason === 'free' ||
+                      (!isPaidFullWork && ch.is_free) ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
                         <Unlock className="w-3 h-3 text-emerald-700" />
                         <span>Bepul</span>
@@ -369,7 +404,11 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
             image: work.cover_url || undefined,
             datePublished: work.published_at || work.created_at || undefined,
             dateModified: work.updated_at || undefined,
-            genre: (work.genres || []).map((g: any) => g.name).filter(Boolean).join(', ') || undefined,
+            genre:
+              (work.genres || [])
+                .map((g: any) => g.name)
+                .filter(Boolean)
+                .join(', ') || undefined,
             author: {
               '@type': 'Person',
               name: authorName,
@@ -397,8 +436,8 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
               {isFree
                 ? 'Bepul mutolaa'
                 : isPaidFullWork
-                ? `To‘liq asar: ${formatUZS(work.full_work_price || 0)}`
-                : 'Bobma-bob to‘lov'}
+                  ? `To‘liq asar: ${formatUZS(work.full_work_price || 0)}`
+                  : 'Bobma-bob to‘lov'}
             </p>
           </div>
           <Link

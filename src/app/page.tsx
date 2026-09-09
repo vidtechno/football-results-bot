@@ -16,7 +16,7 @@ import {
   Languages,
 } from 'lucide-react';
 import { getPublishedWorks, getActiveGenres, getRecentChapters } from '@/lib/db/queries';
-import { createServerClient } from '@/lib/supabase/server';
+import { createCatalogueClient } from '@/lib/supabase/catalogue';
 import { WorkCard } from '@/components/work/WorkCard';
 import { HomeHeroCarousel } from '@/components/home/HomeHeroCarousel';
 import { HomeDiscoveryTabs } from '@/components/home/HomeDiscoveryTabs';
@@ -26,7 +26,7 @@ import type { Work, Genre } from '@/lib/types/platform';
 export const revalidate = 60; // Fresh catalogue data revalidated every 60 seconds
 
 export default async function HomePage() {
-  const supabase = createServerClient();
+  const supabase = createCatalogueClient();
 
   // Fetch all necessary catalogue subsets concurrently
   const [allWorks, recentChapters, genres, authorList] = await Promise.all([

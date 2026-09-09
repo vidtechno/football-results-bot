@@ -75,6 +75,10 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // API handlers validate their own bearer/cookie identity. Avoid a second
+  // remote validation before every progress, analytics and purchase request.
+  if (pathname.startsWith('/api/')) return supabaseResponse;
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
@@ -109,6 +113,13 @@ export async function middleware(request: NextRequest) {
       },
     }
   );
+
+  // Public routes need cookie refresh only; protected server loaders still
+  // validate identity themselves. Never use this local session for permissions.
+  if (!isProtectedPath) {
+    await supabase.auth.getSession();
+    return supabaseResponse;
+  }
 
   // Validates user and refreshes expired tokens in cookies
   const {

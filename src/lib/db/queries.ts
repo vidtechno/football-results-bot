@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { createCatalogueClient } from '@/lib/supabase/catalogue';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import {
   canReadChapter,
@@ -22,7 +23,7 @@ import type {
 
 import { getRelativeTimeString } from '@/lib/utils/formatters';
 
-const requestCache = typeof (React as any).cache === 'function'
+const requestCache: <T extends (...args: any[]) => any>(fn: T) => T = typeof (React as any).cache === 'function'
   ? (React as any).cache
   : (<T extends (...args: any[]) => any>(fn: T): T => fn);
 
@@ -30,7 +31,7 @@ const requestCache = typeof (React as any).cache === 'function'
  * Fetch active genres sorted by order.
  */
 export async function getActiveGenres(): Promise<Genre[]> {
-  const supabase = createServerClient();
+  const supabase = createCatalogueClient();
   const { data, error } = await supabase
     .from('genres')
     .select('*')
@@ -58,7 +59,7 @@ export async function getPublishedWorks(options?: {
   isFeatured?: boolean;
   limit?: number;
 }): Promise<Work[]> {
-  const supabase = createServerClient();
+  const supabase = createCatalogueClient();
   let q = supabase
     .from('works')
     .select(`
@@ -744,7 +745,7 @@ export async function getPaginatedCatalogue(options?: {
   const pageSize = options?.pageSize || 20;
   const offset = (page - 1) * pageSize;
 
-  const supabase = createServerClient();
+  const supabase = createCatalogueClient();
 
   let genreWorkIds: string[] | null = null;
   if (options?.genreSlug) {
@@ -909,7 +910,7 @@ export async function getPaginatedCatalogue(options?: {
  * Fetch genres with published work counts
  */
 export async function getGenresWithCounts(): Promise<Array<Genre & { works_count: number }>> {
-  const supabase = createServerClient();
+  const supabase = createCatalogueClient();
   const [genresRes, wgRes] = await Promise.all([
     supabase.from('genres').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
     supabase.from('work_genres').select('genre_id, work:works!inner(status, is_archived)').eq('work.status', 'published').neq('work.is_archived', true),
@@ -931,11 +932,12 @@ export async function getGenresWithCounts(): Promise<Array<Genre & { works_count
 /**
  * Fetch public author profile and works by ID, user_id or username
  */
-export async function getPublicAuthor(identifier: string) {
+export const getPublicAuthor = requestCache(async function getPublicAuthor(identifier: string) {
   const supabase = createAdminClient();
 
   // Try finding by user_id first, then id
-  let { data: author } = await supabase
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+  let { data: author } = isUuid ? await supabase
     .from('author_profiles')
     .select(`
       *,
@@ -943,7 +945,7 @@ export async function getPublicAuthor(identifier: string) {
     `)
     .or(`user_id.eq.${identifier},id.eq.${identifier}`)
     .eq('status', 'approved')
-    .maybeSingle();
+    .maybeSingle() : { data: null };
 
   // If not found, try finding by username in profiles
   if (!author) {
@@ -1018,7 +1020,7 @@ export async function getPublicAuthor(identifier: string) {
     totalReads,
     followerCount,
   };
-}
+});
 
 export interface RecentChapterItem {
   id: string;
@@ -1050,7 +1052,7 @@ export interface RecentChapterItem {
  * Only returns chapters belonging to active published works.
  */
 export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]> {
-  const supabase = createServerClient();
+  const supabase = createCatalogueClient();
   const { data, error } = await supabase
     .from('chapters')
     .select(`

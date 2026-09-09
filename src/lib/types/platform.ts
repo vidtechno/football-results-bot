@@ -163,6 +163,7 @@ export interface Work {
 
 export interface Chapter {
   id: string;
+  is_preview_free?: boolean;
   work_id: string;
   chapter_number: number;
   title: string;

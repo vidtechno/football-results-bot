@@ -10,7 +10,11 @@ export async function POST(req: NextRequest) {
     if (!allowed.has(body.eventType) || !/^[0-9a-f-]{36}$/i.test(body.sessionId || '')) {
       return NextResponse.json({ error: 'Noto‘g‘ri so‘rov' }, { status: 400 });
     }
-    const profile = await getCurrentProfile(req.headers.get('Authorization'));
+    // Only registered work views need identity. Anonymous page/chapter analytics
+    // are session-based, so avoid an Auth + profile round-trip for every event.
+    const profile = body.eventType === 'work_view'
+      ? await getCurrentProfile(req.headers.get('Authorization'))
+      : null;
     const admin = createAdminClient();
     const path = String(body.path || '/').slice(0, 500);
     const common = { user_id: profile?.id || null, path };

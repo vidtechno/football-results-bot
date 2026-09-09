@@ -45,6 +45,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const activeUserIdRef = useRef<string | null>(null);
+  const realtimeHealthyRef = useRef(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!NOTIFICATIONS_ENABLED || !user) {
@@ -124,11 +125,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
   }, [user, fetchNotifications]);
 
-  // Periodic fallback polling every 45 seconds if user is logged in
+  // Low-frequency fallback only. A healthy Realtime connection handles normal updates.
   useEffect(() => {
     if (!NOTIFICATIONS_ENABLED || !user) return;
-    const interval = setInterval(fetchNotifications, 45000);
-    return () => clearInterval(interval);
+    const pollIfNeeded = () => {
+      if (!realtimeHealthyRef.current && document.visibilityState === 'visible') {
+        void fetchNotifications();
+      }
+    };
+    const interval = setInterval(pollIfNeeded, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', pollIfNeeded);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', pollIfNeeded);
+    };
   }, [user, fetchNotifications]);
 
   // Realtime Supabase postgres_changes subscription (zero memory leak, safe cleanup)
@@ -146,29 +156,32 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           table: 'in_site_notifications',
           filter: `user_id=eq.${user.id}`,
         },
-        () => {
-          fetchNotifications();
+        (payload: any) => {
+          setNotifications((previous) => {
+            const incoming = payload.new as NotificationItem | undefined;
+            const removed = payload.old as Partial<NotificationItem> | undefined;
+            let next = previous;
+            if (payload.eventType === 'INSERT' && incoming?.id) {
+              next = [incoming, ...previous.filter((item) => item.id !== incoming.id)].slice(0, 40);
+            } else if (payload.eventType === 'UPDATE' && incoming?.id) {
+              next = previous.map((item) => item.id === incoming.id ? incoming : item);
+            } else if (payload.eventType === 'DELETE' && removed?.id) {
+              next = previous.filter((item) => item.id !== removed.id);
+            }
+            setUnreadCount(next.filter((item) => !item.is_read && !item.read_at).length);
+            return next;
+          });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        realtimeHealthyRef.current = status === 'SUBSCRIBED';
+      });
 
     return () => {
+      realtimeHealthyRef.current = false;
       supabase.removeChannel(channel);
     };
   }, [user?.id, fetchNotifications]);
-
-  // Global event listener for immediate sync across components
-  useEffect(() => {
-    if (!NOTIFICATIONS_ENABLED) return;
-    const handleSync = () => {
-      fetchNotifications();
-    };
-
-    window.addEventListener('manbora:notifications_changed', handleSync);
-    return () => {
-      window.removeEventListener('manbora:notifications_changed', handleSync);
-    };
-  }, [fetchNotifications]);
 
   const markAllAsRead = async () => {
     if (!NOTIFICATIONS_ENABLED || !user || unreadCount === 0) return;
@@ -195,9 +208,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         body: JSON.stringify({ action: 'mark_all_read' }),
       });
 
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('manbora:notifications_changed'));
-      }
     } catch {
       // Rollback on network failure
       fetchNotifications();
@@ -234,9 +244,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         body: JSON.stringify({ action: 'mark_read', id }),
       });
 
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('manbora:notifications_changed'));
-      }
     } catch {
       fetchNotifications();
     }

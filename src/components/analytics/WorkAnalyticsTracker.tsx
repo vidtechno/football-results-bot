@@ -7,7 +7,11 @@ export function WorkAnalyticsTracker({ workId, chapterId }: { workId: string; ch
     let cancelled = false;
     const run = () => {
       if (cancelled) return;
-      void trackAnalytics(chapterId ? 'chapter_start' : 'work_view', { workId, chapterId })?.then(() => {
+      const eventType = chapterId ? 'chapter_start' : 'work_view';
+      const dedupeKey = `manbora_analytics:${eventType}:${chapterId || workId}`;
+      if (sessionStorage.getItem(dedupeKey)) return;
+      sessionStorage.setItem(dedupeKey, '1');
+      void trackAnalytics(eventType, { workId, chapterId })?.then(() => {
         if (!chapterId && !cancelled) {
           window.dispatchEvent(new CustomEvent('manbora:work-view-recorded', { detail: { workId } }));
         }

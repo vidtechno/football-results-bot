@@ -529,6 +529,7 @@ export function ReaderView({
   const lastSavedPageRef = useRef<number>(currentPage);
   const lastSavedChapterRef = useRef<string>(currentChapter.id);
   const serverSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastForcedSaveRef = useRef<{ key: string; at: number } | null>(null);
 
   // Authoritative progress persistence to PostgreSQL server
   const saveProgressToServer = useCallback(
@@ -545,6 +546,14 @@ export function ReaderView({
       const totalPages = options?.totalPages ?? paginatedRef.current.totalPages;
       const force = options?.force || false;
       const now = Date.now();
+      const forcedSaveKey = `${targetChapter.id}:${page}:${totalPages}`;
+
+      // visibilitychange, pagehide and unmount can fire together. One identical
+      // final write is enough and preserves the same authoritative progress.
+      if (force && lastForcedSaveRef.current?.key === forcedSaveKey && now - lastForcedSaveRef.current.at < 2000) {
+        return;
+      }
+      if (force) lastForcedSaveRef.current = { key: forcedSaveKey, at: now };
 
       const timeSinceLast = now - lastSavedTimeRef.current;
       const pagesSinceLast = Math.abs(page - lastSavedPageRef.current);

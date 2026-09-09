@@ -14,7 +14,7 @@ it('shares only anonymous catalogue GETs and keeps writes uncached', async () =>
   await client.from('genres').select('id');
   const read = fetchMock.mock.calls[0][1];
   expect(read.cache).toBeUndefined();
-  expect(read.next.revalidate).toBe(30);
+  expect(read.next.revalidate).toBe(60);
   expect(new Headers(read.headers).get('Authorization')).toBe('Bearer public-test-key');
   expect(new Headers(read.headers).has('Cookie')).toBe(false);
   await client.from('genres').insert({ name: 'test' });

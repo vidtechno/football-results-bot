@@ -11,7 +11,7 @@ export function createCatalogueClient() {
         fetch: (input, init) => fetch(input, {
           ...init,
           ...(init?.method === undefined || init.method === 'GET'
-            ? { cache: undefined, next: { revalidate: 30, tags: ['public-catalogue'] } }
+            ? { cache: undefined, next: { revalidate: 60, tags: ['public-catalogue'] } }
             : { cache: 'no-store' }),
         }),
       },

@@ -16,7 +16,7 @@ describe('reader performance and visible controls', () => {
 
   it('provides immediate route loading feedback', () => {
     const loading = read('src/app/loading.tsx');
-    expect(loading).toContain('animate-spin');
+    expect(loading).toContain('animate-pulse');
     expect(loading).toContain('Sahifa yuklanmoqda');
   });
 

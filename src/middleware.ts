@@ -114,10 +114,10 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Public routes need cookie refresh only; protected server loaders still
-  // validate identity themselves. Never use this local session for permissions.
+  // Public pages do not need middleware auth work. The browser client refreshes
+  // its own session, while protected pages and API handlers validate identity.
+  // Skipping auth here keeps catalogue navigation out of the server waterfall.
   if (!isProtectedPath) {
-    await supabase.auth.getSession();
     return supabaseResponse;
   }
 

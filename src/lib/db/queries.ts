@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { unstable_cache } from 'next/cache';
 import { createCatalogueClient } from '@/lib/supabase/catalogue';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import {
@@ -235,17 +236,9 @@ export async function getPublishedWorks(options?: {
 /**
  * Fetch single work by slug with published chapters.
  */
-export async function getWorkBySlug(
-  slug: string,
-  userId?: string | null,
-): Promise<{
-  work: Work | null;
-  chapters: Chapter[];
-  chapterAccessMap: Record<string, ChapterAccessStatus>;
-}> {
-  const supabase = createServerClient();
-
-  const { data: workData, error: workError } = await supabase
+const getCachedPublicWorkBySlug = unstable_cache(async (slug: string) => {
+  const supabase = createCatalogueClient();
+  const { data } = await supabase
     .from('works')
     .select(`
       *,
@@ -254,37 +247,47 @@ export async function getWorkBySlug(
         pen_name,
         biography,
         status,
-        profile:profiles (
-          id,
-          display_name,
-          username,
-          avatar_url
-        )
+        profile:profiles (id, display_name, username, avatar_url)
       ),
-      work_genres (
-        genre:genres (*)
-      )
+      work_genres (genre:genres (id, name, slug))
     `)
     .eq('slug', slug)
-    .single();
+    .eq('status', 'published')
+    .maybeSingle();
+  return data || null;
+}, ['public-work-by-slug-v2'], { revalidate: 60, tags: ['public-catalogue'] });
 
-  if (workError || !workData) {
-    return { work: null, chapters: [], chapterAccessMap: {} };
-  }
-
-  const { data: chaptersData } = await supabase
+const getCachedPublicChapters = unstable_cache(async (workId: string) => {
+  const supabase = createCatalogueClient();
+  const { data } = await supabase
     .from('chapters')
-    .select('id, work_id, chapter_number, title, slug, is_free, price, status, published_at, created_at, updated_at')
-    .eq('work_id', workData.id)
+    .select('id, work_id, chapter_number, title, slug, is_free, is_preview_free, price, status, published_at, created_at, updated_at')
+    .eq('work_id', workId)
     .eq('status', 'published')
     .order('chapter_number', { ascending: true });
+  return data || [];
+}, ['public-work-chapters-v2'], { revalidate: 60, tags: ['public-catalogue'] });
 
-  const chapters = (chaptersData as Chapter[]) || [];
+export async function getWorkBySlug(
+  slug: string,
+  userId?: string | null,
+  isAdmin = false,
+): Promise<{
+  work: Work | null;
+  chapters: Chapter[];
+  chapterAccessMap: Record<string, ChapterAccessStatus>;
+}> {
+  const workData = await getCachedPublicWorkBySlug(slug);
+  if (!workData) {
+    return { work: null, chapters: [], chapterAccessMap: {} };
+  }
+  const chapters = await getCachedPublicChapters(workData.id) as Chapter[];
 
   const chapterAccessMap = await getWorkChaptersAccessMap(userId, workData.id, chapters, {
     authorId: workData.author_id,
     workAccessType: workData.access_type,
     fullWorkPrice: Number(workData.full_work_price || 0),
+    isAdmin,
   });
 
   const work: Work = {
@@ -398,28 +401,7 @@ export async function getWorkMetadataBySlug(slug: string): Promise<{
     authorUsername?: string;
   } | null;
 }> {
-  const supabase = createAdminClient();
-  const { data: work } = await supabase
-    .from('works')
-    .select(`
-      id,
-      title,
-      slug,
-      description,
-      cover_url,
-      status,
-      language,
-      is_translation,
-      original_title,
-      original_author_name,
-      translator_name,
-      author:author_profiles (
-        pen_name,
-        profile:profiles(username)
-      )
-    `)
-    .eq('slug', slug)
-    .maybeSingle();
+  const work = await getCachedPublicWorkBySlug(slug);
 
   if (!work) return { work: null };
 
@@ -770,11 +752,37 @@ export async function getPaginatedCatalogue(options?: {
     .from('works')
     .select(
       `
-      *,
+      id,
+      author_id,
+      title,
+      slug,
+      description,
+      cover_url,
+      type,
+      status,
+      access_type,
+      full_work_price,
+      age_rating,
+      completion_status,
+      language,
+      is_translation,
+      original_title,
+      original_author_name,
+      source_language,
+      translator_name,
+      translation_rights_basis,
+      is_archived,
+      is_featured,
+      total_words,
+      average_rating,
+      rating_count,
+      view_count,
+      published_at,
+      created_at,
+      updated_at,
       author:author_profiles (
         user_id,
         pen_name,
-        biography,
         status,
         profile:profiles (
           id,
@@ -784,7 +792,7 @@ export async function getPaginatedCatalogue(options?: {
         )
       ),
       work_genres (
-        genre:genres (*)
+        genre:genres (id, name, slug)
       )
     `,
       { count: 'exact' },
@@ -898,7 +906,7 @@ export async function getPaginatedCatalogue(options?: {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return {
-    works: (data as Work[]) || [],
+    works: (data as unknown as Work[]) || [],
     totalCount,
     totalPages,
     currentPage: page,

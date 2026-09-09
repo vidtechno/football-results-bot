@@ -43,4 +43,25 @@ describe('Supabase load optimization', () => {
     expect(reader).toContain('lastForcedSaveRef');
     expect(reader).toContain('now - lastForcedSaveRef.current.at < 2000');
   });
+
+  it('keeps public navigation out of the middleware auth waterfall', () => {
+    const middleware = read('src/middleware.ts');
+    const publicBranch = middleware.slice(middleware.indexOf('if (!isProtectedPath)'), middleware.indexOf('// Validates user'));
+    expect(publicBranch).not.toContain('auth.getSession');
+    expect(publicBranch).not.toContain('auth.getUser');
+  });
+
+  it('caches public work metadata and chapters while keeping access checks separate', () => {
+    const queries = read('src/lib/db/queries.ts');
+    expect(queries).toContain('getCachedPublicWorkBySlug');
+    expect(queries).toContain('getCachedPublicChapters');
+    expect(queries).toContain("['public-work-by-slug-v2'], { revalidate: 60");
+    expect(queries).toContain('is_preview_free');
+  });
+
+  it('loads public work data and viewer identity in parallel', () => {
+    const page = read('src/app/asarlar/[slug]/page.tsx');
+    expect(page).toContain('Promise.all([profilePromise, publicWorkPromise])');
+    expect(page).toContain('Promise.all([accessPromise, followPromise])');
+  });
 });

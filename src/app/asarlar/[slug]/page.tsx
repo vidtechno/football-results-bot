@@ -23,6 +23,7 @@ import { WorkReviewsSection } from '@/components/reviews/WorkReviewsSection';
 import { getPublicWorkAuthorName, getPublicWorkAuthorUsername } from '@/lib/utils/workAttribution';
 import { WorkAnalyticsTracker } from '@/components/analytics/WorkAnalyticsTracker';
 import { PublicWorkStats } from '@/components/analytics/PublicWorkStats';
+import { getWorkChaptersAccessMap } from '@/lib/security/access';
 
 export const revalidate = 30;
 
@@ -60,13 +61,25 @@ export async function generateMetadata({ params }: WorkDetailPageProps): Promise
 }
 
 export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
-  const profile = await getCurrentProfile();
+  // Public book data and viewer identity are independent; start both together.
+  const profilePromise = getCurrentProfile();
+  const publicWorkPromise = getWorkBySlug(params.slug, null);
+  const [profile, publicWork] = await Promise.all([profilePromise, publicWorkPromise]);
   const supabase = createServerClient();
-  const { work, chapters, chapterAccessMap } = await getWorkBySlug(params.slug, profile?.id);
+  const { work, chapters } = publicWork;
 
   if (!work || work.status === 'archived') {
     notFound();
   }
+
+  const accessPromise = profile
+    ? getWorkChaptersAccessMap(profile.id, work.id, chapters, {
+        authorId: work.author_id,
+        workAccessType: work.access_type,
+        fullWorkPrice: Number(work.full_work_price || 0),
+        isAdmin: Boolean(profile.is_admin),
+      })
+    : Promise.resolve(publicWork.chapterAccessMap);
 
   const isFree = work.access_type === 'free';
   const isPaidFullWork =
@@ -80,22 +93,20 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
   const authorUsername = getPublicWorkAuthorUsername(work);
   const firstChapter = chapters.length > 0 ? chapters[0] : null;
 
-  // Check if first chapter is unlocked (which indicates active purchase entitlement or author access)
-  const isWorkUnlocked = firstChapter ? !chapterAccessMap[firstChapter.id]?.isLocked : false;
-
   // Fetch social follower count and follow state server-side
-  let initialIsFollowing = false;
-  let followerCount = 0;
-  if (work.id) {
-    const [{ count }, followCheck] = await Promise.all([
+  const followPromise = work.id
+    ? Promise.all([
       supabase.from('work_follows').select('id', { count: 'exact', head: true }).eq('work_id', work.id),
       profile?.id
         ? supabase.from('work_follows').select('id').eq('work_id', work.id).eq('user_id', profile.id).maybeSingle()
         : Promise.resolve({ data: null }),
-    ]);
-    followerCount = count || 0;
-    initialIsFollowing = Boolean(followCheck.data);
-  }
+    ])
+    : Promise.resolve([{ count: 0 }, { data: null }] as any);
+  const [chapterAccessMap, [{ count }, followCheck]] = await Promise.all([accessPromise, followPromise]);
+  const followerCount = count || 0;
+  const initialIsFollowing = Boolean(followCheck.data);
+  // Check if first chapter is unlocked (which indicates active purchase entitlement or author access)
+  const isWorkUnlocked = firstChapter ? !chapterAccessMap[firstChapter.id]?.isLocked : false;
 
 
   return (

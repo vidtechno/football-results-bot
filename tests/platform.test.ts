@@ -5,11 +5,7 @@ import {
   calculateCommission,
   generateIdempotencyKey,
 } from '@/lib/utils/currency';
-import {
-  encryptCardData,
-  decryptCardData,
-  isValidUzbekCardNumber,
-} from '@/lib/utils/encryption';
+import { encryptCardData, decryptCardData, isValidUzbekCardNumber } from '@/lib/utils/encryption';
 import { validateImageMagicBytes } from '@/lib/utils/imageUpload';
 import { sanitizeRichText } from '@/lib/utils/sanitizer';
 import { getSafeRedirectUrl } from '@/lib/utils/redirect';
@@ -156,7 +152,12 @@ describe('Financial and Currency Utilities', () => {
         }
         existingPurchases.add(key);
         existingPurchases.add(chapterId);
-        return { success: true, idempotent: false, charged: chapterPrice, newBalance: balance - chapterPrice };
+        return {
+          success: true,
+          idempotent: false,
+          charged: chapterPrice,
+          newBalance: balance - chapterPrice,
+        };
       }
 
       // First attempt charges reader
@@ -183,12 +184,16 @@ describe('Financial and Currency Utilities', () => {
 
       function verifyBalance(balance: number, price: number) {
         if (balance < price) {
-          throw new Error(`Hisobingizda mablag‘ yetarli emas. Balansingiz: ${balance} so‘m, Talab qilinadi: ${price} so‘m`);
+          throw new Error(
+            `Hisobingizda mablag‘ yetarli emas. Balansingiz: ${balance} so‘m, Talab qilinadi: ${price} so‘m`,
+          );
         }
         return true;
       }
 
-      expect(() => verifyBalance(readerBalance, bookPrice)).toThrow('Hisobingizda mablag‘ yetarli emas');
+      expect(() => verifyBalance(readerBalance, bookPrice)).toThrow(
+        'Hisobingizda mablag‘ yetarli emas',
+      );
     });
 
     it('enforces paid chapter content isolation for non-buyers vs buyers', () => {
@@ -226,17 +231,32 @@ describe('Financial and Currency Utilities', () => {
       expect(anon.content).toBe('');
 
       // 2. Authenticated non-buyer
-      const nonBuyer = resolveChapterContent(paidChapter, authorId, { id: 'reader-2', hasPurchased: false }, secretStory);
+      const nonBuyer = resolveChapterContent(
+        paidChapter,
+        authorId,
+        { id: 'reader-2', hasPurchased: false },
+        secretStory,
+      );
       expect(nonBuyer.hasAccess).toBe(false);
       expect(nonBuyer.content).toBe('');
 
       // 3. Another author
-      const otherAuthor = resolveChapterContent(paidChapter, authorId, { id: 'other-author-3', hasPurchased: false }, secretStory);
+      const otherAuthor = resolveChapterContent(
+        paidChapter,
+        authorId,
+        { id: 'other-author-3', hasPurchased: false },
+        secretStory,
+      );
       expect(otherAuthor.hasAccess).toBe(false);
       expect(otherAuthor.content).toBe('');
 
       // 4. Buyer
-      const buyer = resolveChapterContent(paidChapter, authorId, { id: 'buyer-4', hasPurchased: true }, secretStory);
+      const buyer = resolveChapterContent(
+        paidChapter,
+        authorId,
+        { id: 'buyer-4', hasPurchased: true },
+        secretStory,
+      );
       expect(buyer.hasAccess).toBe(true);
       expect(buyer.content).toBe(secretStory);
 
@@ -246,7 +266,12 @@ describe('Financial and Currency Utilities', () => {
       expect(author.content).toBe(secretStory);
 
       // 6. Admin
-      const admin = resolveChapterContent(paidChapter, authorId, { id: 'admin-uuid', isAdmin: true }, secretStory);
+      const admin = resolveChapterContent(
+        paidChapter,
+        authorId,
+        { id: 'admin-uuid', isAdmin: true },
+        secretStory,
+      );
       expect(admin.hasAccess).toBe(true);
       expect(admin.content).toBe(secretStory);
     });
@@ -263,8 +288,12 @@ describe('Financial and Currency Utilities', () => {
         return true;
       }
 
-      expect(() => validatePayoutRequest(50000)).toThrow('Minimal yechib olish miqdori: 100000 so‘m');
-      expect(() => validatePayoutRequest(99999)).toThrow('Minimal yechib olish miqdori: 100000 so‘m');
+      expect(() => validatePayoutRequest(50000)).toThrow(
+        'Minimal yechib olish miqdori: 100000 so‘m',
+      );
+      expect(() => validatePayoutRequest(99999)).toThrow(
+        'Minimal yechib olish miqdori: 100000 so‘m',
+      );
       expect(validatePayoutRequest(100000)).toBe(true);
       expect(validatePayoutRequest(250000)).toBe(true);
     });
@@ -333,9 +362,15 @@ describe('Financial and Currency Utilities', () => {
         return { success: true };
       }
 
-      expect(() => publishContent('pending')).toThrow('Faqat tasdiqlangan mualliflar nashr qilishi mumkin');
-      expect(() => publishContent('rejected')).toThrow('Faqat tasdiqlangan mualliflar nashr qilishi mumkin');
-      expect(() => publishContent('suspended')).toThrow('Faqat tasdiqlangan mualliflar nashr qilishi mumkin');
+      expect(() => publishContent('pending')).toThrow(
+        'Faqat tasdiqlangan mualliflar nashr qilishi mumkin',
+      );
+      expect(() => publishContent('rejected')).toThrow(
+        'Faqat tasdiqlangan mualliflar nashr qilishi mumkin',
+      );
+      expect(() => publishContent('suspended')).toThrow(
+        'Faqat tasdiqlangan mualliflar nashr qilishi mumkin',
+      );
       expect(publishContent('approved').success).toBe(true);
     });
   });
@@ -373,7 +408,11 @@ describe('Financial and Currency Utilities', () => {
       profile: { id: string; is_admin: boolean } | null,
     ): { canAccessAdmin: boolean; redirectUrl?: string; httpStatus?: number } {
       if (!user || !profile) {
-        return { canAccessAdmin: false, redirectUrl: '/kirish?redirect=/diyoration', httpStatus: 302 };
+        return {
+          canAccessAdmin: false,
+          redirectUrl: '/kirish?redirect=/diyoration',
+          httpStatus: 302,
+        };
       }
 
       const emailAllowlisted = isAllowlistedAdminEmailTest(user.email);
@@ -398,7 +437,9 @@ describe('Financial and Currency Utilities', () => {
 
     it('rejects ordinary, spoofed, or subdomained emails', () => {
       expect(isAllowlistedAdminEmailTest('ordinary_user@example.com')).toBe(false);
-      expect(isAllowlistedAdminEmailTest('anorboyevdiyorbek714@gmail.com.attacker.com')).toBe(false);
+      expect(isAllowlistedAdminEmailTest('anorboyevdiyorbek714@gmail.com.attacker.com')).toBe(
+        false,
+      );
       expect(isAllowlistedAdminEmailTest('attacker@anorboyevdiyorbek714@gmail.com')).toBe(false);
       expect(isAllowlistedAdminEmailTest('')).toBe(false);
       expect(isAllowlistedAdminEmailTest(null)).toBe(false);
@@ -468,7 +509,10 @@ describe('Financial and Currency Utilities', () => {
     it('case 5: direct calls to /api/admin/* by ordinary users return 403 Forbidden', () => {
       function mockAdminEndpoint(userProfile: { is_admin: boolean } | null) {
         if (!userProfile || !userProfile.is_admin) {
-          return { status: 403, body: { success: false, error: 'Faqat administratorlar bu amalni bajarishi mumkin' } };
+          return {
+            status: 403,
+            body: { success: false, error: 'Faqat administratorlar bu amalni bajarishi mumkin' },
+          };
         }
         return { status: 200, body: { success: true, data: [] } };
       }
@@ -530,14 +574,18 @@ describe('Financial and Currency Utilities', () => {
 
   describe('Image Security, Magic Bytes & Sharp Upload Pipeline', () => {
     it('accepts valid JPEG file signature (FF D8 FF)', () => {
-      const jpegHeader = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
+      const jpegHeader = Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+      ]);
       const res = validateImageMagicBytes(jpegHeader);
       expect(res.isValid).toBe(true);
       expect(res.detectedFormat).toBe('jpeg');
     });
 
     it('accepts valid PNG file signature (89 50 4E 47 0D 0A 1A 0A)', () => {
-      const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+      const pngHeader = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+      ]);
       const res = validateImageMagicBytes(pngHeader);
       expect(res.isValid).toBe(true);
       expect(res.detectedFormat).toBe('png');
@@ -545,9 +593,18 @@ describe('Financial and Currency Utilities', () => {
 
     it('accepts valid WebP file signature (RIFF....WEBP)', () => {
       const webpHeader = Buffer.from([
-        0x52, 0x49, 0x46, 0x46, // RIFF
-        0x20, 0x00, 0x00, 0x00, // size
-        0x57, 0x45, 0x42, 0x50, // WEBP
+        0x52,
+        0x49,
+        0x46,
+        0x46, // RIFF
+        0x20,
+        0x00,
+        0x00,
+        0x00, // size
+        0x57,
+        0x45,
+        0x42,
+        0x50, // WEBP
       ]);
       const res = validateImageMagicBytes(webpHeader);
       expect(res.isValid).toBe(true);
@@ -555,7 +612,9 @@ describe('Financial and Currency Utilities', () => {
     });
 
     it('strictly rejects SVG files disguised as images (XSS prevention)', () => {
-      const svgDisguisedAsJpg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+      const svgDisguisedAsJpg = Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+      );
       const res = validateImageMagicBytes(svgDisguisedAsJpg);
       expect(res.isValid).toBe(false);
     });
@@ -574,7 +633,8 @@ describe('Financial and Currency Utilities', () => {
 
   describe('Rich-Text Editorial HTML Sanitizer', () => {
     it('preserves valid editorial tags (p, h2, h3, blockquote, ul, ol, li, strong, em, u, hr, br)', () => {
-      const input = '<h2>Bosh bob</h2><p>Bu <strong>muhim</strong> va <em>ajoyib</em> <u>fikr</u>.</p><blockquote>Iqtibos</blockquote><hr /><p>Yangi qator<br />davomi</p>';
+      const input =
+        '<h2>Bosh bob</h2><p>Bu <strong>muhim</strong> va <em>ajoyib</em> <u>fikr</u>.</p><blockquote>Iqtibos</blockquote><hr /><p>Yangi qator<br />davomi</p>';
       const sanitized = sanitizeRichText(input);
       expect(sanitized).toContain('<h2>Bosh bob</h2>');
       expect(sanitized).toContain('<strong>muhim</strong>');
@@ -586,14 +646,16 @@ describe('Financial and Currency Utilities', () => {
     });
 
     it('preserves approved typography alignment classes', () => {
-      const input = '<p class="text-center">Markazda joylashgan matn</p><p class="text-right">O‘ngda joylashgan</p>';
+      const input =
+        '<p class="text-center">Markazda joylashgan matn</p><p class="text-right">O‘ngda joylashgan</p>';
       const sanitized = sanitizeRichText(input);
       expect(sanitized).toContain('class="text-center"');
       expect(sanitized).toContain('class="text-right"');
     });
 
     it('strictly strips script tags and iframes to prevent XSS in chapters', () => {
-      const malicious = '<p>Hikoya matni</p><script>alert("hacked")</script><iframe src="//evil.com"></iframe>';
+      const malicious =
+        '<p>Hikoya matni</p><script>alert("hacked")</script><iframe src="//evil.com"></iframe>';
       const sanitized = sanitizeRichText(malicious);
       expect(sanitized).not.toContain('<script');
       expect(sanitized).not.toContain('alert');
@@ -602,10 +664,33 @@ describe('Financial and Currency Utilities', () => {
     });
 
     it('strips inline event listeners and javascript: URIs', () => {
-      const malicious = '<p onclick="alert(1)" onmouseover="stealTokens()">Xavfli matn</p><a href="javascript:alert(1)">Havola</a>';
+      const malicious =
+        '<p onclick="alert(1)" onmouseover="stealTokens()">Xavfli matn</p><a href="javascript:alert(1)">Havola</a>';
       const sanitized = sanitizeRichText(malicious);
       expect(sanitized).not.toContain('onclick');
       expect(sanitized).not.toContain('onmouseover');
+      expect(sanitized).not.toContain('javascript:');
+    });
+
+    it('preserves safe lazy chapter images and table markup', () => {
+      const input =
+        '<img src="https://cdn.example.com/chapter.webp" alt="Manzara" data-width="50" data-align="right"><table><tbody><tr><th>Nomi</th><td>Qiymat</td></tr></tbody></table>';
+      const sanitized = sanitizeRichText(input);
+      expect(sanitized).toContain('loading="lazy"');
+      expect(sanitized).toContain('decoding="async"');
+      expect(sanitized).toContain('data-width="50"');
+      expect(sanitized).toContain('data-align="right"');
+      expect(sanitized).toContain(
+        '<table><tbody><tr><th>Nomi</th><td>Qiymat</td></tr></tbody></table>',
+      );
+    });
+
+    it('rejects unsafe embedded image sources and event handlers', () => {
+      const sanitized = sanitizeRichText(
+        '<img src="data:image/svg+xml,bad" onerror="alert(1)"><img src="javascript:alert(1)">',
+      );
+      expect(sanitized).not.toContain('<img');
+      expect(sanitized).not.toContain('onerror');
       expect(sanitized).not.toContain('javascript:');
     });
   });
@@ -655,7 +740,9 @@ describe('Financial and Currency Utilities', () => {
       expect(archivedWork.id).toBe('work-123'); // Still exists in database
 
       // Public catalog query filter simulation
-      const publicWorks = [work, archivedWork].filter((w) => !w.is_archived && w.status === 'published');
+      const publicWorks = [work, archivedWork].filter(
+        (w) => !w.is_archived && w.status === 'published',
+      );
       expect(publicWorks.length).toBe(1);
       expect(publicWorks[0].id).toBe('work-123');
       expect(publicWorks[0].is_archived).toBe(false);
@@ -964,10 +1051,19 @@ describe('Financial and Currency Utilities', () => {
         is_admin: true,
       };
 
-      function handleKirishServerRedirect(profile: typeof adminProfile | null, rawRedirect?: string) {
-        const safe = getSafeRedirectUrl(rawRedirect, profile?.is_admin ? '/diyoration' : '/kabinet');
+      function handleKirishServerRedirect(
+        profile: typeof adminProfile | null,
+        rawRedirect?: string,
+      ) {
+        const safe = getSafeRedirectUrl(
+          rawRedirect,
+          profile?.is_admin ? '/diyoration' : '/kabinet',
+        );
         if (profile) {
-          if (profile.is_admin && (rawRedirect === '/diyoration' || rawRedirect?.startsWith('/diyoration/'))) {
+          if (
+            profile.is_admin &&
+            (rawRedirect === '/diyoration' || rawRedirect?.startsWith('/diyoration/'))
+          ) {
             return { redirect: '/diyoration' };
           }
           return { redirect: safe };
@@ -1011,11 +1107,14 @@ describe('Financial and Currency Utilities', () => {
     it('session survives refresh and client navigation via cookie persistence', () => {
       // Simulating cookie store persisting official @supabase/ssr session chunk
       const cookieJar = new Map<string, string>();
-      cookieJar.set('sb-testproject-auth-token', JSON.stringify(['access_token_123', 'refresh_token_456']));
+      cookieJar.set(
+        'sb-testproject-auth-token',
+        JSON.stringify(['access_token_123', 'refresh_token_456']),
+      );
 
       // On navigation or refresh, cookies remain in the jar and are parsed
       const hasCookie = Array.from(cookieJar.keys()).some(
-        (k) => k.startsWith('sb-') && k.includes('-auth-token')
+        (k) => k.startsWith('sb-') && k.includes('-auth-token'),
       );
       expect(hasCookie).toBe(true);
 
@@ -1178,10 +1277,46 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
 
   describe('4. Admin Search & Filtering Logic', () => {
     const mockUsers = [
-      { id: '11111111-1111-1111-1111-111111111111', public_id: 'MB-00001001', display_name: 'Diyorbek Anorboyev', username: 'diyorbek', email: 'anorboyevdiyorbek714@gmail.com', is_admin: true, balance: 50000, author_status: null },
-      { id: '22222222-2222-2222-2222-222222222222', public_id: 'MB-00001002', display_name: 'Abdulla Qodiriy', username: 'qodiriy', email: 'qodiriy@manbora.uz', is_admin: false, balance: 120000, author_status: 'approved' },
-      { id: '33333333-3333-3333-3333-333333333333', public_id: 'MB-00001003', display_name: 'Alisher Navoiy', username: 'navoiy', email: 'navoiy@manbora.uz', is_admin: false, balance: 0, author_status: 'suspended' },
-      { id: '44444444-4444-4444-4444-444444444444', public_id: 'MB-00001004', display_name: 'Oddiy Kitobxon', username: 'kitobxon1', email: 'reader@example.com', is_admin: false, balance: 0, author_status: null },
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        public_id: 'MB-00001001',
+        display_name: 'Diyorbek Anorboyev',
+        username: 'diyorbek',
+        email: 'anorboyevdiyorbek714@gmail.com',
+        is_admin: true,
+        balance: 50000,
+        author_status: null,
+      },
+      {
+        id: '22222222-2222-2222-2222-222222222222',
+        public_id: 'MB-00001002',
+        display_name: 'Abdulla Qodiriy',
+        username: 'qodiriy',
+        email: 'qodiriy@manbora.uz',
+        is_admin: false,
+        balance: 120000,
+        author_status: 'approved',
+      },
+      {
+        id: '33333333-3333-3333-3333-333333333333',
+        public_id: 'MB-00001003',
+        display_name: 'Alisher Navoiy',
+        username: 'navoiy',
+        email: 'navoiy@manbora.uz',
+        is_admin: false,
+        balance: 0,
+        author_status: 'suspended',
+      },
+      {
+        id: '44444444-4444-4444-4444-444444444444',
+        public_id: 'MB-00001004',
+        display_name: 'Oddiy Kitobxon',
+        username: 'kitobxon1',
+        email: 'reader@example.com',
+        is_admin: false,
+        balance: 0,
+        author_status: null,
+      },
     ];
 
     function searchUsers(q: string, filter: string) {
@@ -1189,12 +1324,13 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
       const lowerQ = q.trim().toLowerCase();
 
       if (lowerQ) {
-        list = list.filter((u) =>
-          u.display_name.toLowerCase().includes(lowerQ) ||
-          u.username.toLowerCase().includes(lowerQ) ||
-          u.public_id.toLowerCase().includes(lowerQ) ||
-          u.email.toLowerCase().includes(lowerQ) ||
-          u.id.toLowerCase() === lowerQ
+        list = list.filter(
+          (u) =>
+            u.display_name.toLowerCase().includes(lowerQ) ||
+            u.username.toLowerCase().includes(lowerQ) ||
+            u.public_id.toLowerCase().includes(lowerQ) ||
+            u.email.toLowerCase().includes(lowerQ) ||
+            u.id.toLowerCase() === lowerQ,
         );
       }
 
@@ -1259,7 +1395,7 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
         reason: string;
         note?: string;
         idempotencyKey?: string;
-      }
+      },
     ) {
       if (!caller.is_admin) {
         throw new Error('Faqat tasdiqlangan administratorlar balansni o‘zgartirishi mumkin');
@@ -1330,13 +1466,11 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
       const ledger: WalletTx[] = [];
       const audit: any[] = [];
 
-      const res = simulateAdminAdjustment(
-        { is_admin: true, id: 'admin1' },
-        wallet,
-        ledger,
-        audit,
-        { action: 'credit', amount: 25000, reason: 'Telegram orqali qo‘lda to‘lov' }
-      );
+      const res = simulateAdminAdjustment({ is_admin: true, id: 'admin1' }, wallet, ledger, audit, {
+        action: 'credit',
+        amount: 25000,
+        reason: 'Telegram orqali qo‘lda to‘lov',
+      });
 
       expect(res.success).toBe(true);
       expect(wallet.balance).toBe(35000);
@@ -1351,13 +1485,11 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
       const ledger: WalletTx[] = [];
       const audit: any[] = [];
 
-      const res = simulateAdminAdjustment(
-        { is_admin: true, id: 'admin1' },
-        wallet,
-        ledger,
-        audit,
-        { action: 'debit', amount: 20000, reason: 'qaytarim' }
-      );
+      const res = simulateAdminAdjustment({ is_admin: true, id: 'admin1' }, wallet, ledger, audit, {
+        action: 'debit',
+        amount: 20000,
+        reason: 'qaytarim',
+      });
 
       expect(res.success).toBe(true);
       expect(wallet.balance).toBe(30000);
@@ -1372,13 +1504,11 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
       const audit: any[] = [];
 
       expect(() =>
-        simulateAdminAdjustment(
-          { is_admin: true, id: 'admin1' },
-          wallet,
-          ledger,
-          audit,
-          { action: 'debit', amount: 10000, reason: 'jarima' }
-        )
+        simulateAdminAdjustment({ is_admin: true, id: 'admin1' }, wallet, ledger, audit, {
+          action: 'debit',
+          amount: 10000,
+          reason: 'jarima',
+        }),
       ).toThrow('Foydalanuvchi balansida yetarli mablag‘ mavjud emas');
 
       // Balance remains intact
@@ -1392,13 +1522,11 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
       const audit: any[] = [];
 
       expect(() =>
-        simulateAdminAdjustment(
-          { is_admin: false, id: 'regular_user' },
-          wallet,
-          ledger,
-          audit,
-          { action: 'credit', amount: 5000, reason: 'bonus' }
-        )
+        simulateAdminAdjustment({ is_admin: false, id: 'regular_user' }, wallet, ledger, audit, {
+          action: 'credit',
+          amount: 5000,
+          reason: 'bonus',
+        }),
       ).toThrow('Faqat tasdiqlangan administratorlar');
     });
 
@@ -1408,33 +1536,27 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
       const audit: any[] = [];
 
       expect(() =>
-        simulateAdminAdjustment(
-          { is_admin: true, id: 'admin1' },
-          wallet,
-          ledger,
-          audit,
-          { action: 'credit', amount: 100.5, reason: 'bonus' }
-        )
+        simulateAdminAdjustment({ is_admin: true, id: 'admin1' }, wallet, ledger, audit, {
+          action: 'credit',
+          amount: 100.5,
+          reason: 'bonus',
+        }),
       ).toThrow('Summa musbat butun son bo‘lishi lozim');
 
       expect(() =>
-        simulateAdminAdjustment(
-          { is_admin: true, id: 'admin1' },
-          wallet,
-          ledger,
-          audit,
-          { action: 'credit', amount: -5000, reason: 'bonus' }
-        )
+        simulateAdminAdjustment({ is_admin: true, id: 'admin1' }, wallet, ledger, audit, {
+          action: 'credit',
+          amount: -5000,
+          reason: 'bonus',
+        }),
       ).toThrow('Summa musbat butun son bo‘lishi lozim');
 
       expect(() =>
-        simulateAdminAdjustment(
-          { is_admin: true, id: 'admin1' },
-          wallet,
-          ledger,
-          audit,
-          { action: 'credit', amount: 0, reason: 'bonus' }
-        )
+        simulateAdminAdjustment({ is_admin: true, id: 'admin1' }, wallet, ledger, audit, {
+          action: 'credit',
+          amount: 0,
+          reason: 'bonus',
+        }),
       ).toThrow('Summa musbat butun son bo‘lishi lozim');
     });
 
@@ -1451,7 +1573,7 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
         wallet,
         ledger,
         audit,
-        { action: 'credit', amount: 20000, reason: 'Telegram to‘lov', idempotencyKey: key }
+        { action: 'credit', amount: 20000, reason: 'Telegram to‘lov', idempotencyKey: key },
       );
       expect(res1.balance_after).toBe(30000);
       expect(wallet.balance).toBe(30000);
@@ -1462,7 +1584,7 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
         wallet,
         ledger,
         audit,
-        { action: 'credit', amount: 20000, reason: 'Telegram to‘lov', idempotencyKey: key }
+        { action: 'credit', amount: 20000, reason: 'Telegram to‘lov', idempotencyKey: key },
       );
       expect(res2.idempotent).toBe(true);
       expect(wallet.balance).toBe(30000); // Does not double count
@@ -1522,6 +1644,3 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
     });
   });
 });
-
-
-

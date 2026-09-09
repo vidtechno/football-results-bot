@@ -4,6 +4,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
+import Image from '@tiptap/extension-image';
+import { TableKit } from '@tiptap/extension-table';
 import {
   Bold,
   Italic,
@@ -25,6 +27,12 @@ import {
   CheckCircle2,
   Clock,
   RotateCcw,
+  ImagePlus,
+  Table2,
+  Trash2,
+  Rows3,
+  Columns3,
+  Loader2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { sanitizeRichText, getRichTextStats } from '@/lib/utils/sanitizer';
@@ -37,7 +45,31 @@ interface RichTextEditorProps {
   storageKey?: string;
   workTitle?: string;
   chapterTitle?: string;
+  adminMediaEnabled?: boolean;
+  workId?: string;
 }
+
+const ChapterImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: '100',
+        parseHTML: (element) => element.getAttribute('data-width') || '100',
+        renderHTML: (attributes) => ({ 'data-width': attributes.width }),
+      },
+      align: {
+        default: 'center',
+        parseHTML: (element) => element.getAttribute('data-align') || 'center',
+        renderHTML: (attributes) => ({ 'data-align': attributes.align }),
+      },
+    };
+  },
+}).configure({
+  inline: false,
+  allowBase64: false,
+  HTMLAttributes: { loading: 'lazy', decoding: 'async' },
+});
 
 export function RichTextEditor({
   initialContent = '',
@@ -47,64 +79,76 @@ export function RichTextEditor({
   storageKey,
   workTitle,
   chapterTitle,
+  adminMediaEnabled = false,
+  workId,
 }: RichTextEditorProps) {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [hasDraftRecovery, setHasDraftRecovery] = useState(false);
-  const [recoveredDraftMeta, setRecoveredDraftMeta] = useState<{ work?: string; chapter?: string } | null>(null);
+  const [recoveredDraftMeta, setRecoveredDraftMeta] = useState<{
+    work?: string;
+    chapter?: string;
+  } | null>(null);
   const [stats, setStats] = useState(() => getRichTextStats(initialContent));
   const autosaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const imageInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [2, 3],
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit.configure({
+          heading: {
+            levels: [2, 3],
+          },
+          dropcursor: false,
+        }),
+        TextAlign.configure({
+          types: ['heading', 'paragraph'],
+        }),
+        ...(adminMediaEnabled ? [ChapterImage, TableKit] : []),
+      ],
+      content: initialContent,
+      editorProps: {
+        attributes: {
+          class:
+            'prose prose-stone max-w-none focus:outline-hidden min-h-[380px] p-5 font-serif text-base leading-relaxed text-stone-900',
         },
-        dropcursor: false,
-      }),
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
-      }),
-    ],
-    content: initialContent,
-    editorProps: {
-      attributes: {
-        class:
-          'prose prose-stone max-w-none focus:outline-hidden min-h-[380px] p-5 font-serif text-base leading-relaxed text-stone-900',
+      },
+      onCreate: ({ editor }) => {
+        const rawHtml = editor.getHTML();
+        setStats(getRichTextStats(rawHtml));
+      },
+      onUpdate: ({ editor }) => {
+        const rawHtml = editor.getHTML();
+        const cleanHtml = sanitizeRichText(rawHtml);
+        setStats(getRichTextStats(cleanHtml));
+        setSaveStatus('unsaved');
+        onChange(cleanHtml);
+
+        // Debounced autosave to localStorage (1000ms debounce)
+        if (storageKey) {
+          if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
+          autosaveTimeoutRef.current = setTimeout(() => {
+            try {
+              const draftPayload = JSON.stringify({
+                content: cleanHtml,
+                time: Date.now(),
+                workTitle: workTitle || '',
+                chapterTitle: chapterTitle || '',
+              });
+              localStorage.setItem(storageKey, draftPayload);
+              localStorage.setItem(`${storageKey}_time`, Date.now().toString());
+              setSaveStatus('saved');
+            } catch {
+              // ignore localStorage errors
+            }
+          }, 1000);
+        }
       },
     },
-    onCreate: ({ editor }) => {
-      const rawHtml = editor.getHTML();
-      setStats(getRichTextStats(rawHtml));
-    },
-    onUpdate: ({ editor }) => {
-      const rawHtml = editor.getHTML();
-      const cleanHtml = sanitizeRichText(rawHtml);
-      setStats(getRichTextStats(cleanHtml));
-      setSaveStatus('unsaved');
-      onChange(cleanHtml);
-
-      // Debounced autosave to localStorage (1000ms debounce)
-      if (storageKey) {
-        if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
-        autosaveTimeoutRef.current = setTimeout(() => {
-          try {
-            const draftPayload = JSON.stringify({
-              content: cleanHtml,
-              time: Date.now(),
-              workTitle: workTitle || '',
-              chapterTitle: chapterTitle || '',
-            });
-            localStorage.setItem(storageKey, draftPayload);
-            localStorage.setItem(`${storageKey}_time`, Date.now().toString());
-            setSaveStatus('saved');
-          } catch {
-            // ignore localStorage errors
-          }
-        }, 1000);
-      }
-    },
-  });
+    [adminMediaEnabled],
+  );
 
   // Check for local draft recovery on mount & clean up legacy unpartitioned drafts
   useEffect(() => {
@@ -209,6 +253,44 @@ export function RichTextEditor({
     } catch {}
   }, [storageKey]);
 
+  const handleImageUpload = useCallback(
+    async (file: File) => {
+      if (!editor || !adminMediaEnabled || !workId) return;
+      setImageUploading(true);
+      setMediaError(null);
+      try {
+        const formData = new FormData();
+        formData.set('file', file);
+        formData.set('type', 'chapter');
+        formData.set('workId', workId);
+        const response = await fetch('/api/uploads/image', { method: 'POST', body: formData });
+        const result = await response.json();
+        if (!response.ok || !result.publicUrl) throw new Error(result.error || 'Rasm yuklanmadi');
+        const alt = window.prompt('Rasm uchun qisqa izoh (ixtiyoriy):', '') || '';
+        editor.chain().focus().setImage({ src: result.publicUrl, alt }).run();
+      } catch (error: any) {
+        setMediaError(error?.message || 'Rasmni yuklashda xatolik yuz berdi');
+      } finally {
+        setImageUploading(false);
+        if (imageInputRef.current) imageInputRef.current.value = '';
+      }
+    },
+    [adminMediaEnabled, editor, workId],
+  );
+
+  const handleImageDelete = useCallback(() => {
+    if (!editor) return;
+    const src = editor.getAttributes('image').src;
+    editor.chain().focus().deleteSelection().run();
+    if (typeof src === 'string' && src.includes('/chapter-content/')) {
+      void fetch('/api/uploads/image', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publicUrl: src }),
+      });
+    }
+  }, [editor]);
+
   if (!editor) {
     return (
       <div className="p-8 text-center text-stone-400 text-xs font-semibold">
@@ -261,7 +343,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleBold().run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive('bold') ? 'bg-stone-200 text-stone-900 font-black' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive('bold')
+                ? 'bg-stone-200 text-stone-900 font-black'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Qalin (Ctrl+B)"
           >
@@ -274,7 +358,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleItalic().run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive('italic') ? 'bg-stone-200 text-stone-900 font-black' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive('italic')
+                ? 'bg-stone-200 text-stone-900 font-black'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Kursiv (Ctrl+I)"
           >
@@ -287,7 +373,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleUnderline().run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive('underline') ? 'bg-stone-200 text-stone-900 font-black' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive('underline')
+                ? 'bg-stone-200 text-stone-900 font-black'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Tagiga chizilgan (Ctrl+U)"
           >
@@ -302,7 +390,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive('heading', { level: 2 }) ? 'bg-stone-200 text-stone-900 font-bold' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive('heading', { level: 2 })
+                ? 'bg-stone-200 text-stone-900 font-bold'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Sarlavha 2"
           >
@@ -314,7 +404,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive('heading', { level: 3 }) ? 'bg-stone-200 text-stone-900 font-bold' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive('heading', { level: 3 })
+                ? 'bg-stone-200 text-stone-900 font-bold'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Kichik sarlavha 3"
           >
@@ -327,7 +419,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive('blockquote') ? 'bg-stone-200 text-stone-900 font-bold' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive('blockquote')
+                ? 'bg-stone-200 text-stone-900 font-bold'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Iqtibos"
           >
@@ -342,7 +436,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive('bulletList') ? 'bg-stone-200 text-stone-900 font-bold' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive('bulletList')
+                ? 'bg-stone-200 text-stone-900 font-bold'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Belgilangan ro‘yxat"
           >
@@ -354,7 +450,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive('orderedList') ? 'bg-stone-200 text-stone-900 font-bold' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive('orderedList')
+                ? 'bg-stone-200 text-stone-900 font-bold'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Raqamlangan ro‘yxat"
           >
@@ -369,7 +467,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().setTextAlign('left').run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive({ textAlign: 'left' }) ? 'bg-stone-200 text-stone-900' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive({ textAlign: 'left' })
+                ? 'bg-stone-200 text-stone-900'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Chapga tekislash"
           >
@@ -381,7 +481,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().setTextAlign('center').run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive({ textAlign: 'center' }) ? 'bg-stone-200 text-stone-900' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive({ textAlign: 'center' })
+                ? 'bg-stone-200 text-stone-900'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="O‘rtaga tekislash"
           >
@@ -393,7 +495,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().setTextAlign('right').run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive({ textAlign: 'right' }) ? 'bg-stone-200 text-stone-900' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive({ textAlign: 'right' })
+                ? 'bg-stone-200 text-stone-900'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="O‘ngga tekislash"
           >
@@ -405,7 +509,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().setTextAlign('justify').run()}
             className={clsx(
               'p-2 rounded-lg text-xs transition-colors',
-              editor.isActive({ textAlign: 'justify' }) ? 'bg-stone-200 text-stone-900' : 'text-stone-600 hover:bg-stone-200/70',
+              editor.isActive({ textAlign: 'justify' })
+                ? 'bg-stone-200 text-stone-900'
+                : 'text-stone-600 hover:bg-stone-200/70',
             )}
             title="Eni bo‘ylab tekislash"
           >
@@ -423,6 +529,49 @@ export function RichTextEditor({
           >
             <Minus className="w-4 h-4" />
           </button>
+
+          {adminMediaEnabled && (
+            <>
+              <span className="w-px h-5 bg-stone-300 mx-1" />
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void handleImageUpload(file);
+                }}
+              />
+              <button
+                type="button"
+                disabled={imageUploading}
+                onClick={() => imageInputRef.current?.click()}
+                className="p-2 rounded-lg text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 transition-colors"
+                title="Rasm joylash (faqat admin)"
+              >
+                {imageUploading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ImagePlus className="w-4 h-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  editor
+                    .chain()
+                    .focus()
+                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                    .run()
+                }
+                className="p-2 rounded-lg text-emerald-700 hover:bg-emerald-100 transition-colors"
+                title="3 × 3 jadval qo‘shish (faqat admin)"
+              >
+                <Table2 className="w-4 h-4" />
+              </button>
+            </>
+          )}
 
           {/* Clear Format */}
           <button
@@ -458,6 +607,98 @@ export function RichTextEditor({
           </button>
         </div>
       </div>
+
+      {adminMediaEnabled &&
+        (editor.isActive('image') || editor.isActive('table') || mediaError) && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-stone-200 bg-emerald-50/60 px-3 py-2 text-[11px]">
+            {mediaError && <span className="font-bold text-rose-700">{mediaError}</span>}
+            {editor.isActive('image') && (
+              <>
+                <span className="font-bold text-stone-600">Rasm o‘lchami:</span>
+                {[25, 50, 75, 100].map((width) => (
+                  <button
+                    key={width}
+                    type="button"
+                    onClick={() =>
+                      editor
+                        .chain()
+                        .focus()
+                        .updateAttributes('image', { width: String(width) })
+                        .run()
+                    }
+                    className="rounded-lg border border-emerald-200 bg-white px-2 py-1 font-bold text-emerald-800 hover:bg-emerald-100"
+                  >
+                    {width}%
+                  </button>
+                ))}
+                <span className="font-bold text-stone-600 ml-1">Joylashuv:</span>
+                {(['left', 'center', 'right'] as const).map((align) => (
+                  <button
+                    key={align}
+                    type="button"
+                    onClick={() =>
+                      editor.chain().focus().updateAttributes('image', { align }).run()
+                    }
+                    className="rounded-lg border border-stone-200 bg-white px-2 py-1 font-bold text-stone-700 hover:bg-stone-100"
+                  >
+                    {align === 'left' ? 'Chap' : align === 'right' ? 'O‘ng' : 'Markaz'}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={handleImageDelete}
+                  className="ml-auto inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 font-bold text-white"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  O‘chirish
+                </button>
+              </>
+            )}
+            {editor.isActive('table') && (
+              <>
+                <span className="font-bold text-stone-600">Jadval:</span>
+                <button
+                  type="button"
+                  onClick={() => editor.chain().focus().addRowAfter().run()}
+                  className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-bold text-stone-700 border border-stone-200"
+                >
+                  <Rows3 className="h-3 w-3" />
+                  Qator
+                </button>
+                <button
+                  type="button"
+                  onClick={() => editor.chain().focus().addColumnAfter().run()}
+                  className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-bold text-stone-700 border border-stone-200"
+                >
+                  <Columns3 className="h-3 w-3" />
+                  Ustun
+                </button>
+                <button
+                  type="button"
+                  onClick={() => editor.chain().focus().deleteRow().run()}
+                  className="rounded-lg bg-white px-2 py-1 font-bold text-rose-700 border border-rose-200"
+                >
+                  Qatorni o‘chirish
+                </button>
+                <button
+                  type="button"
+                  onClick={() => editor.chain().focus().deleteColumn().run()}
+                  className="rounded-lg bg-white px-2 py-1 font-bold text-rose-700 border border-rose-200"
+                >
+                  Ustunni o‘chirish
+                </button>
+                <button
+                  type="button"
+                  onClick={() => editor.chain().focus().deleteTable().run()}
+                  className="ml-auto inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 font-bold text-white"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Jadvalni o‘chirish
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
       {/* Main TipTap Content Area */}
       <div className="flex-1 bg-white cursor-text" onClick={() => editor.commands.focus()}>

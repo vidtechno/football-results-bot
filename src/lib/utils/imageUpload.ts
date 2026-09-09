@@ -21,7 +21,10 @@ export interface ImageValidationResult {
 /**
  * Validates image magic bytes (file signature) to prevent polyglots, SVGs, or renamed executables.
  */
-export function validateImageMagicBytes(buffer: Buffer): { isValid: boolean; detectedFormat?: string } {
+export function validateImageMagicBytes(buffer: Buffer): {
+  isValid: boolean;
+  detectedFormat?: string;
+} {
   if (!buffer || buffer.length < 12) {
     return { isValid: false };
   }
@@ -77,7 +80,7 @@ export function validateImageMagicBytes(buffer: Buffer): { isValid: boolean; det
 export async function sanitizeAndProcessImage(
   buffer: Buffer,
   options: {
-    type: 'cover' | 'avatar';
+    type: 'cover' | 'avatar' | 'chapter';
     maxWidth?: number;
     maxHeight?: number;
   },
@@ -95,7 +98,8 @@ export async function sanitizeAndProcessImage(
   if (!magicCheck.isValid || !magicCheck.detectedFormat) {
     return {
       isValid: false,
-      error: 'Faqat JPEG, PNG, WebP yoki AVIF formatidagi haqiqiy rasmlar qabul qilinadi. SVG yoki boshqa fayllar taqiqlangan.',
+      error:
+        'Faqat JPEG, PNG, WebP yoki AVIF formatidagi haqiqiy rasmlar qabul qilinadi. SVG yoki boshqa fayllar taqiqlangan.',
     };
   }
 
@@ -115,8 +119,12 @@ export async function sanitizeAndProcessImage(
     }
 
     // Dimension bounds
-    const maxWidth = options.maxWidth || (options.type === 'avatar' ? 800 : 2000);
-    const maxHeight = options.maxHeight || (options.type === 'avatar' ? 800 : 3000);
+    const maxWidth =
+      options.maxWidth ||
+      (options.type === 'avatar' ? 800 : options.type === 'chapter' ? 1400 : 2000);
+    const maxHeight =
+      options.maxHeight ||
+      (options.type === 'avatar' ? 800 : options.type === 'chapter' ? 1800 : 3000);
 
     // Re-encode into optimized WebP:
     // Auto-orient based on EXIF, strip all metadata, resize if exceeds bounds
@@ -140,8 +148,8 @@ export async function sanitizeAndProcessImage(
 
     const sanitizedBuffer = await pipeline
       .webp({
-        quality: 85,
-        effort: 4,
+        quality: options.type === 'chapter' ? 72 : 85,
+        effort: options.type === 'chapter' ? 5 : 4,
       })
       .toBuffer();
 
@@ -176,13 +184,11 @@ export async function uploadSanitizedImageToStorage(
     const cleanPrefix = folderPrefix.replace(/^\/+|\/+$/g, '');
     const filePath = cleanPrefix ? `${cleanPrefix}/${randomName}.webp` : `${randomName}.webp`;
 
-    const { error: uploadError } = await adminClient.storage
-      .from(bucket)
-      .upload(filePath, buffer, {
-        contentType: 'image/webp',
-        cacheControl: '31536000',
-        upsert: false,
-      });
+    const { error: uploadError } = await adminClient.storage.from(bucket).upload(filePath, buffer, {
+      contentType: 'image/webp',
+      cacheControl: '31536000',
+      upsert: false,
+    });
 
     if (uploadError) {
       console.error('Storage upload error:', uploadError);

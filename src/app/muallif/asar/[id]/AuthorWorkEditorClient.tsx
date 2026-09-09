@@ -55,7 +55,7 @@ interface AuthorWorkEditorClientProps {
 
 export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [work, setWork] = useState<Work | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -1411,6 +1411,8 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                   workTitle={title || work?.title || 'Asar'}
                   chapterTitle={chapterTitle || `${chapterNumber}-bob`}
                   placeholder="Bob matnini bu yerga yozing..."
+                  adminMediaEnabled={isAdmin}
+                  workId={workId}
                 />
               </div>
 

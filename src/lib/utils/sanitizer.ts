@@ -19,6 +19,13 @@ const ALLOWED_TAGS = new Set([
   'u',
   'hr',
   'br',
+  'img',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
 ]);
 
 const ALLOWED_ALIGNMENTS = new Set(['left', 'center', 'right', 'justify']);
@@ -59,11 +66,24 @@ export function sanitizeRichText(html: string): string {
     // Handle self-closing
     if (lowerTag === 'hr') return '<hr />';
     if (lowerTag === 'br') return '<br />';
+    if (lowerTag === 'img') {
+      const src = attrs.match(/\bsrc\s*=\s*["'](https:\/\/[^"']+)["']/i)?.[1];
+      if (!src) return '';
+      const alt = (attrs.match(/\balt\s*=\s*["']([^"']*)["']/i)?.[1] || '')
+        .replace(/[<>]/g, '')
+        .slice(0, 200);
+      const rawWidth = attrs.match(/\bdata-width\s*=\s*["'](25|50|75|100)["']/i)?.[1] || '100';
+      const rawAlign =
+        attrs.match(/\bdata-align\s*=\s*["'](left|center|right)["']/i)?.[1] || 'center';
+      return `<img src="${src}" alt="${alt}" data-width="${rawWidth}" data-align="${rawAlign}" loading="lazy" decoding="async" />`;
+    }
 
     // Check style or class for safe text-align
     let safeAttrs = '';
     const styleMatch = attrs.match(/text-align\s*:\s*(left|center|right|justify)/i);
-    const classMatch = attrs.match(/class\s*=\s*["']([^"']*text-(left|center|right|justify)[^"']*)["']/i);
+    const classMatch = attrs.match(
+      /class\s*=\s*["']([^"']*text-(left|center|right|justify)[^"']*)["']/i,
+    );
 
     if (classMatch) {
       const alignMatch = classMatch[1].match(/\btext-(left|center|right|justify)\b/);

@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
-import { sanitizeAndProcessImage, uploadSanitizedImageToStorage, MAX_IMAGE_FILE_SIZE } from '@/lib/utils/imageUpload';
+import {
+  sanitizeAndProcessImage,
+  uploadSanitizedImageToStorage,
+  MAX_IMAGE_FILE_SIZE,
+} from '@/lib/utils/imageUpload';
 
 export async function POST(request: Request) {
   try {
@@ -34,6 +38,29 @@ export async function POST(request: Request) {
     // Permission checks
     const adminClient = createAdminClient();
 
+    if (type === 'chapter') {
+      if (!profile.is_admin) {
+        return NextResponse.json(
+          { success: false, error: 'Bob ichiga rasm joylash faqat administrator uchun ochiq' },
+          { status: 403 },
+        );
+      }
+      if (!workId) {
+        return NextResponse.json(
+          { success: false, error: 'Asar identifikatori talab qilinadi' },
+          { status: 400 },
+        );
+      }
+      const { data: work } = await adminClient
+        .from('works')
+        .select('id')
+        .eq('id', workId)
+        .maybeSingle();
+      if (!work) {
+        return NextResponse.json({ success: false, error: 'Asar topilmadi' }, { status: 404 });
+      }
+    }
+
     if (type === 'cover') {
       // Must be an author
       const { data: authorData } = await adminClient
@@ -59,7 +86,10 @@ export async function POST(request: Request) {
 
         if (!work || work.author_id !== profile.id) {
           return NextResponse.json(
-            { success: false, error: 'Siz faqat o‘zingiz yaratgan asar muqovasini o‘zgartira olasiz' },
+            {
+              success: false,
+              error: 'Siz faqat o‘zingiz yaratgan asar muqovasini o‘zgartira olasiz',
+            },
             { status: 403 },
           );
         }
@@ -72,7 +102,7 @@ export async function POST(request: Request) {
 
     // Validate magic bytes, strip EXIF, normalize to WebP
     const validation = await sanitizeAndProcessImage(buffer, {
-      type: type === 'avatar' ? 'avatar' : 'cover',
+      type: type === 'avatar' ? 'avatar' : type === 'chapter' ? 'chapter' : 'cover',
     });
 
     if (!validation.isValid || !validation.sanitizedBuffer) {
@@ -84,7 +114,7 @@ export async function POST(request: Request) {
 
     // Upload sanitized WebP to permanent public bucket
     const targetBucket = type === 'avatar' ? 'avatars' : 'work-covers';
-    const folderPrefix = profile.id;
+    const folderPrefix = type === 'chapter' ? `${profile.id}/chapter-content` : profile.id;
 
     const uploadResult = await uploadSanitizedImageToStorage(
       validation.sanitizedBuffer,
@@ -149,6 +179,43 @@ export async function POST(request: Request) {
     console.error('Upload route error:', err);
     return NextResponse.json(
       { success: false, error: err.message || 'Serverda xatolik yuz berdi' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const profile = await getCurrentProfile(request.headers.get('Authorization'));
+    if (!profile?.is_admin) {
+      return NextResponse.json(
+        { success: false, error: 'Faqat administrator uchun' },
+        { status: 403 },
+      );
+    }
+    const { publicUrl } = await request.json();
+    if (typeof publicUrl !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'Rasm manzili talab qilinadi' },
+        { status: 400 },
+      );
+    }
+    const marker = '/work-covers/';
+    const path = publicUrl.includes(marker) ? publicUrl.split(marker)[1]?.split('?')[0] : null;
+    const allowedPrefix = `${profile.id}/chapter-content/`;
+    if (!path || !path.startsWith(allowedPrefix) || !path.endsWith('.webp')) {
+      return NextResponse.json(
+        { success: false, error: 'Ushbu rasmni o‘chirish mumkin emas' },
+        { status: 403 },
+      );
+    }
+    const adminClient = createAdminClient();
+    const { error } = await adminClient.storage.from('work-covers').remove([path]);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Rasmni o‘chirishda xatolik yuz berdi' },
       { status: 500 },
     );
   }

@@ -44,11 +44,13 @@ export function MobileBottomNav() {
     ...(NOTIFICATIONS_ENABLED
       ? [
           {
-            href: user ? '/kabinet?tab=notifications' : '/kirish?returnUrl=/kabinet?tab=notifications',
+            href: user
+              ? '/sozlamalar?tab=notifications'
+              : '/kirish?returnUrl=/sozlamalar?tab=notifications',
             label: 'Bildirishnomalar',
             icon: Bell,
             exact: false,
-            activePattern: '/kabinet?tab=notifications',
+            activePattern: '/sozlamalar',
             badge: unreadCount > 0 ? unreadCount : null,
           },
         ]
@@ -84,8 +86,8 @@ export function MobileBottomNav() {
           const isActive = tab.exact
             ? pathname === tab.href
             : tab.activePattern
-            ? pathname.startsWith(tab.activePattern)
-            : pathname.startsWith(tab.href);
+              ? pathname.startsWith(tab.activePattern)
+              : pathname.startsWith(tab.href);
 
           return (
             <Link
@@ -93,9 +95,7 @@ export function MobileBottomNav() {
               href={tab.href}
               className={clsx(
                 'min-h-[44px] min-w-[44px] flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-150 active:scale-95 select-none relative',
-                isActive
-                  ? 'text-emerald-900 font-black'
-                  : 'text-stone-500 hover:text-stone-900',
+                isActive ? 'text-emerald-900 font-black' : 'text-stone-500 hover:text-stone-900',
               )}
             >
               <div
@@ -105,10 +105,7 @@ export function MobileBottomNav() {
                 )}
               >
                 <Icon
-                  className={clsx(
-                    'w-5 h-5',
-                    isActive ? 'text-emerald-900' : 'text-stone-500',
-                  )}
+                  className={clsx('w-5 h-5', isActive ? 'text-emerald-900' : 'text-stone-500')}
                 />
                 {tab.badge ? (
                   <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 rounded-full bg-amber-500 text-stone-950 font-black text-[9px] flex items-center justify-center shadow-xs">

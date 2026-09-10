@@ -28,9 +28,7 @@ import {
   Save,
   Loader2,
   Sparkles,
-  Heart,
   Users,
-  Compass,
   ArrowRight,
   AlertCircle,
   Send,
@@ -46,32 +44,39 @@ import { TopupModal } from '@/components/wallet/TopupModal';
 import { TransactionHistoryTable } from '@/components/wallet/TransactionHistoryTable';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { CabinetGenrePreferences } from '@/components/cabinet/CabinetGenrePreferences';
-import { ReadingStreakCard } from '@/components/cabinet/ReadingStreakCard';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
 import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 import type { TopupRequest, WalletTransaction, Purchase } from '@/lib/types/platform';
 
-type KabinetTab =
-  | 'overview'
-  | 'profile'
-  | 'finances'
-  | 'notifications'
-  | 'security'
-  | 'quick_links';
+type KabinetTab = 'overview' | 'profile' | 'finances' | 'notifications' | 'security';
 
 interface KabinetClientProps {
   initialProgress?: any[];
   initialBookmarks?: any[];
+  mode?: 'dashboard' | 'settings';
 }
 
-function KabinetContent({ initialProgress = [], initialBookmarks = [] }: KabinetClientProps) {
+function KabinetContent({
+  initialProgress = [],
+  initialBookmarks = [],
+  mode = 'dashboard',
+}: KabinetClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   const topupParam = searchParams.get('topup');
 
-  const { user, profile, author, balance, isAdmin, signOut, refreshAuth, isLoading: authLoading } = useAuth();
+  const {
+    user,
+    profile,
+    author,
+    balance,
+    isAdmin,
+    signOut,
+    refreshAuth,
+    isLoading: authLoading,
+  } = useAuth();
   const { unreadCount } = useNotifications();
 
   const [topups, setTopups] = useState<TopupRequest[]>([]);
@@ -86,7 +91,10 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
     return pMap;
   });
   const [bookmarks, setBookmarks] = useState<any[]>(initialBookmarks);
-  const [loadingData, setLoadingData] = useState<boolean>(initialProgress.length === 0 && initialBookmarks.length === 0);
+  const [followedAuthors, setFollowedAuthors] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState<boolean>(
+    initialProgress.length === 0 && initialBookmarks.length === 0,
+  );
   const [dataError, setDataError] = useState<string | null>(null);
   const [isTopupOpen, setIsTopupOpen] = useState(topupParam === 'true');
   const [idCopied, setIdCopied] = useState(false);
@@ -118,7 +126,9 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
 
   // Security form state
   const [newEmail, setNewEmail] = useState('');
-  const [emailMsg, setEmailMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [emailMsg, setEmailMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(
+    null,
+  );
   const [emailLoading, setEmailLoading] = useState(false);
 
   const [newPassword, setNewPassword] = useState('');
@@ -129,20 +139,33 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
   // Tab mapping
   const resolveTab = (param: string | null): KabinetTab => {
     if (param === 'profile') return 'profile';
-    if (param === 'finances' || param === 'topups' || param === 'purchases' || param === 'transactions') return 'finances';
+    if (
+      param === 'finances' ||
+      param === 'topups' ||
+      param === 'purchases' ||
+      param === 'transactions'
+    )
+      return 'finances';
     if (param === 'notifications') return NOTIFICATIONS_ENABLED ? 'notifications' : 'overview';
     if (param === 'security') return 'security';
-    if (param === 'quick_links') return 'quick_links';
     return 'overview';
   };
 
-  const [activeTab, setActiveTab] = useState<KabinetTab>(resolveTab(tabParam));
+  const [activeTab, setActiveTab] = useState<KabinetTab>(
+    mode === 'settings'
+      ? resolveTab(tabParam) === 'overview'
+        ? 'profile'
+        : resolveTab(tabParam)
+      : 'overview',
+  );
 
   useEffect(() => {
-    if (tabParam) {
+    if (mode === 'settings' && tabParam) {
       setActiveTab(resolveTab(tabParam));
+    } else if (mode === 'dashboard') {
+      setActiveTab('overview');
     }
-  }, [tabParam]);
+  }, [tabParam, mode]);
 
   useEffect(() => {
     if (topupParam === 'true') {
@@ -157,7 +180,10 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       setEditUsername(profile.username || '');
       setEditBio(profile.bio || '');
       const social = (profile as any).social_links || {};
-      setEditTelegram(social.telegram || (profile.telegram_username ? `@${profile.telegram_username.replace(/^@/, '')}` : ''));
+      setEditTelegram(
+        social.telegram ||
+          (profile.telegram_username ? `@${profile.telegram_username.replace(/^@/, '')}` : ''),
+      );
       setEditInstagram(social.instagram || '');
       setEditYoutube(social.youtube || '');
       setEditWebsite(social.website || '');
@@ -204,18 +230,27 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
         .maybeSingle();
 
       if (dataGroup === 'overview') {
-        const progressPromise = fetch('/api/library/continue-reading', { headers }).then(async (res) => {
-          if (!res.ok) throw new Error('Mutolaa ma‘lumotlarini yuklashda xatolik yuz berdi');
-          return res.json();
-        });
+        const progressPromise = fetch('/api/library/continue-reading', { headers }).then(
+          async (res) => {
+            if (!res.ok) throw new Error('Mutolaa ma‘lumotlarini yuklashda xatolik yuz berdi');
+            return res.json();
+          },
+        );
         const bookmarksPromise = fetch('/api/bookmarks?limit=6', { headers }).then(async (res) => {
           if (!res.ok) throw new Error('Xatcho‘plarni yuklashda xatolik yuz berdi');
           return res.json();
         });
-        const [walletRes, progressRes, bmRes] = await Promise.all([
+        const followedAuthorsPromise = fetch('/api/cabinet/following-authors', { headers }).then(
+          async (res) => {
+            if (!res.ok) return { authors: [] };
+            return res.json();
+          },
+        );
+        const [walletRes, progressRes, bmRes, followedRes] = await Promise.all([
           walletPromise,
           progressPromise,
           bookmarksPromise,
+          followedAuthorsPromise,
         ]);
 
         if (bmRes?.success && Array.isArray(bmRes.bookmarks)) setBookmarks(bmRes.bookmarks);
@@ -227,6 +262,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           });
           setProgressMap(pMap);
         }
+        setFollowedAuthors(Array.isArray(followedRes?.authors) ? followedRes.authors : []);
         if (walletRes.data?.id) {
           const { data: txData } = await supabase
             .from('wallet_transactions')
@@ -245,7 +281,9 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           .limit(50);
         const purchasePromise = supabase
           .from('purchases')
-          .select(`*, work:works (id, title, slug, cover_url), chapter:chapters (id, chapter_number, title, slug)`)
+          .select(
+            `*, work:works (id, title, slug, cover_url), chapter:chapters (id, chapter_number, title, slug)`,
+          )
           .eq('buyer_id', userId)
           .order('created_at', { ascending: false })
           .limit(50);
@@ -283,11 +321,12 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       setPurchases([]);
       setTopups([]);
       setTransactions([]);
+      setFollowedAuthors([]);
       router.push('/kirish?returnUrl=/kabinet');
     } else if (user?.id) {
-      loadTabUserData(user.id, activeTab);
+      loadTabUserData(user.id, mode === 'dashboard' ? 'overview' : activeTab);
     }
-  }, [user, authLoading, router, activeTab, loadTabUserData]);
+  }, [user, authLoading, router, activeTab, loadTabUserData, mode]);
 
   async function handleSignOut() {
     setBookmarks([]);
@@ -542,28 +581,62 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                 <Skeleton className="h-4 w-40" />
               )}
             </div>
+            {profile?.bio && (
+              <p className="mt-2 max-w-xl line-clamp-2 text-xs leading-relaxed text-stone-600">
+                {profile.bio}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Balance Card & Author Studio Link */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+          {mode === 'dashboard' && (
+            <Link
+              href="/sozlamalar?tab=profile"
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl border border-stone-200 bg-white text-stone-800 font-bold text-xs hover:bg-stone-50 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              <span>Profilni tahrirlash</span>
+            </Link>
+          )}
           {authLoading ? (
             <Skeleton className="h-10 w-36 rounded-2xl" />
           ) : author && author.status === 'approved' ? (
-            <Link
-              href="/muallif"
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] font-bold text-xs hover:bg-[#FDE68A] transition-colors"
-            >
-              <PenTool className="w-4 h-4 text-[#B45309]" />
-              <span>Mualliflik kabineti</span>
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/muallif"
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-800 border border-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors"
+              >
+                <PenTool className="w-4 h-4" />
+                <span>Muallif studiyasi</span>
+              </Link>
+              <Link
+                href="/muallif/asar/yangi"
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-amber-600 border border-amber-600 text-white font-bold text-xs hover:bg-amber-700 transition-colors"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Asar yaratish</span>
+              </Link>
+              {profile?.username && (
+                <Link
+                  href={`/mualliflar/${profile.username}`}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl border border-stone-200 bg-white text-stone-700 font-bold text-xs hover:bg-stone-50 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Ommaviy profil</span>
+                </Link>
+              )}
+            </div>
           ) : (
             <Link
               href="/muallif-boling"
               className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#F5F2EC] hover:bg-[#EAE5DD] text-[#57534E] font-bold text-xs transition-colors"
             >
               <PenTool className="w-4 h-4 text-[#B45309]" />
-              <span>Muallif bo‘lish</span>
+              <span>
+                {author?.status === 'pending' ? 'Ariza ko‘rib chiqilmoqda' : 'Muallif bo‘lish'}
+              </span>
             </Link>
           )}
 
@@ -588,54 +661,54 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
         </div>
       </div>
 
-      {/* 6 Tabs Navigation Header */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar border-b border-[#EAE5DD]">
-        {[
-          { id: 'overview', label: 'Umumiy ko‘rinish', icon: Compass },
-          { id: 'profile', label: 'Profil ma’lumotlari', icon: User },
-          { id: 'finances', label: 'Xaridlar va balans', icon: Wallet },
-          ...(NOTIFICATIONS_ENABLED
-            ? [{ id: 'notifications', label: 'Bildirishnomalar', icon: Bell }]
-            : []),
-          { id: 'security', label: 'Xavfsizlik', icon: Shield },
-          { id: 'quick_links', label: 'Tezkor havolalar', icon: Bookmark },
-        ].map((t) => {
-          const Icon = t.icon;
-          const isActive = activeTab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => switchTab(t.id as KabinetTab)}
-              className={clsx(
-                'flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all',
-                isActive
-                  ? 'bg-stone-900 text-white shadow-xs font-black'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100',
-              )}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{t.label}</span>
-              {t.id === 'notifications' && unreadCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-amber-600 text-white text-[10px] font-black leading-none animate-in zoom-in">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {mode === 'settings' && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar border-b border-[#EAE5DD]">
+          {[
+            { id: 'profile', label: 'Profil ma’lumotlari', icon: User },
+            { id: 'finances', label: 'Xaridlar va balans', icon: Wallet },
+            ...(NOTIFICATIONS_ENABLED
+              ? [{ id: 'notifications', label: 'Bildirishnomalar', icon: Bell }]
+              : []),
+            { id: 'security', label: 'Xavfsizlik', icon: Shield },
+          ].map((t) => {
+            const Icon = t.icon;
+            const isActive = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => switchTab(t.id as KabinetTab)}
+                className={clsx(
+                  'flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all',
+                  isActive
+                    ? 'bg-stone-900 text-white shadow-xs font-black'
+                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100',
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{t.label}</span>
+                {t.id === 'notifications' && unreadCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-amber-600 text-white text-[10px] font-black leading-none animate-in zoom-in">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* TAB 1: OVERVIEW */}
-      {activeTab === 'overview' && (
+      {mode === 'dashboard' && (
         <div className="space-y-6">
-          <ReadingStreakCard />
           {/* Continue Reading Quick List */}
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-amber-600" />
-                <h3 className="font-sans font-black text-lg text-stone-900">Mutolaani davom ettirish</h3>
+                <h3 className="font-sans font-black text-lg text-stone-900">
+                  Mutolaani davom ettirish
+                </h3>
               </div>
               <Link
                 href="/kutubxona?tab=reading"
@@ -649,7 +722,10 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             {loadingData ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/70 flex items-center gap-3 animate-pulse">
+                  <div
+                    key={i}
+                    className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/70 flex items-center gap-3 animate-pulse"
+                  >
                     <div className="w-12 h-16 rounded-xl bg-stone-200 shrink-0" />
                     <div className="flex-1 space-y-2">
                       <div className="h-3.5 bg-stone-200 rounded w-3/4" />
@@ -673,56 +749,139 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                   Qayta urinish
                 </button>
               </div>
-            ) : (progressList.length > 0 ? progressList : Object.values(progressMap)).length === 0 ? (
-              <p className="text-xs text-stone-500 py-4 text-center">Hozircha mutolaa qilinayotgan asarlar yo‘q.</p>
+            ) : (progressList.length > 0 ? progressList : Object.values(progressMap)).length ===
+              0 ? (
+              <p className="text-xs text-stone-500 py-4 text-center">
+                Hozircha mutolaa qilinayotgan asarlar yo‘q.
+              </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(progressList.length > 0 ? progressList : Object.values(progressMap)).slice(0, 3).map((item: any) => {
-                  const w = item.work;
-                  const ch = item.chapter || item.last_chapter;
-                  const pageNum = item.pageNumber ?? item.page_index ?? item.page_number ?? 1;
-                  const percent = item.progressPercent ?? item.percentage ?? item.reading_progress ?? 0;
-                  const chNum = item.chapterNumber ?? ch?.chapter_number ?? ch?.number ?? 1;
-                  const chTitle = item.chapterTitle ?? ch?.title ?? 'Mutolaa';
-                  const title = item.workTitle || w?.title || 'Asar';
-                  const cover = item.coverUrl || w?.cover_url;
-                  const readUrl = item.resumeUrl || item.read_url || (ch && w ? `/asarlar/${w.slug}/${ch.slug}?page=${pageNum}` : w ? `/asarlar/${w.slug}` : '/asarlar');
+                {(progressList.length > 0 ? progressList : Object.values(progressMap))
+                  .slice(0, 3)
+                  .map((item: any) => {
+                    const w = item.work;
+                    const ch = item.chapter || item.last_chapter;
+                    const pageNum = item.pageNumber ?? item.page_index ?? item.page_number ?? 1;
+                    const percent =
+                      item.progressPercent ?? item.percentage ?? item.reading_progress ?? 0;
+                    const chNum = item.chapterNumber ?? ch?.chapter_number ?? ch?.number ?? 1;
+                    const chTitle = item.chapterTitle ?? ch?.title ?? 'Mutolaa';
+                    const title = item.workTitle || w?.title || 'Asar';
+                    const cover = item.coverUrl || w?.cover_url;
+                    const readUrl =
+                      item.resumeUrl ||
+                      item.read_url ||
+                      (ch && w
+                        ? `/asarlar/${w.slug}/${ch.slug}?page=${pageNum}`
+                        : w
+                          ? `/asarlar/${w.slug}`
+                          : '/asarlar');
 
-                  return (
-                    <div
-                      key={item.workId || item.work_id || item.id}
-                      className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/70 flex items-center gap-3"
-                    >
-                      <div className="relative w-12 h-16 rounded-xl bg-stone-200 overflow-hidden shrink-0">
-                        {cover ? (
-                          <Image src={cover} alt={title} fill className="object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-stone-400">
-                            <BookOpen className="w-4 h-4" />
+                    return (
+                      <div
+                        key={item.workId || item.work_id || item.id}
+                        className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/70 flex items-center gap-3"
+                      >
+                        <div className="relative w-12 h-16 rounded-xl bg-stone-200 overflow-hidden shrink-0">
+                          {cover ? (
+                            <Image src={cover} alt={title} fill className="object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-stone-400">
+                              <BookOpen className="w-4 h-4" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <h4 className="font-sans font-bold text-xs text-stone-900 truncate">
+                            {title}
+                          </h4>
+                          {(ch || item.chapterTitle) && (
+                            <p className="text-[11px] text-stone-600 truncate">
+                              {chNum}-bob: {chTitle}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between text-[10px] text-amber-800 font-bold">
+                            <span>
+                              {pageNum ? `${pageNum}-sahifa • ` : ''}
+                              {percent}% progress
+                            </span>
+                            <Link
+                              href={readUrl}
+                              className="px-2.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] transition-colors"
+                            >
+                              O‘qish
+                            </Link>
                           </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <h4 className="font-sans font-bold text-xs text-stone-900 truncate">{title}</h4>
-                        {(ch || item.chapterTitle) && (
-                          <p className="text-[11px] text-stone-600 truncate">
-                            {chNum}-bob: {chTitle}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between text-[10px] text-amber-800 font-bold">
-                          <span>
-                            {pageNum ? `${pageNum}-sahifa • ` : ''}{percent}% progress
-                          </span>
-                          <Link href={readUrl} className="px-2.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] transition-colors">
-                            O‘qish
-                          </Link>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             )}
+          </div>
+
+          {/* Personal library shortcuts */}
+          <div className="bg-white rounded-3xl border border-[#EAE5DD] p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-emerald-700" />
+                <div>
+                  <h3 className="font-sans font-black text-lg text-stone-900">Mening kutubxonam</h3>
+                  <p className="text-[11px] text-stone-500">
+                    Barcha shaxsiy to‘plamlaringiz bir joyda
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/kutubxona"
+                className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1 shrink-0"
+              >
+                <span className="hidden sm:inline">Kutubxonani ochish</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[
+                {
+                  href: '/kutubxona?tab=purchased',
+                  title: 'Sotib olingan',
+                  description: 'Xarid qilingan asarlar',
+                  icon: Wallet,
+                },
+                {
+                  href: '/kutubxona?tab=read_later',
+                  title: 'Keyinroq o‘qish',
+                  description: 'Saqlab qo‘yilgan asarlar',
+                  icon: Bookmark,
+                },
+                {
+                  href: '/kutubxona?tab=completed',
+                  title: 'Tugallangan',
+                  description: 'Oxirigacha o‘qilganlar',
+                  icon: CheckCircle2,
+                },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="group flex min-h-[76px] items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4 transition-colors hover:border-emerald-300 hover:bg-emerald-50/50"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-800 shadow-xs">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-black text-stone-900">{item.title}</span>
+                      <span className="block truncate text-[11px] text-stone-500">
+                        {item.description}
+                      </span>
+                    </span>
+                    <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-stone-400 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-700" />
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
           {/* Bookmarks Quick List */}
@@ -730,7 +889,9 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bookmark className="w-5 h-5 text-amber-600" />
-                <h3 className="font-sans font-black text-lg text-stone-900">Saqlangan xatcho‘plar</h3>
+                <h3 className="font-sans font-black text-lg text-stone-900">
+                  Saqlangan xatcho‘plar
+                </h3>
               </div>
               <Link
                 href="/kutubxona?tab=bookmarks"
@@ -744,7 +905,10 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             {loadingData ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="p-3.5 rounded-2xl bg-amber-50/40 border border-amber-200/60 flex items-center justify-between gap-3 animate-pulse">
+                  <div
+                    key={i}
+                    className="p-3.5 rounded-2xl bg-amber-50/40 border border-amber-200/60 flex items-center justify-between gap-3 animate-pulse"
+                  >
                     <div className="space-y-2 flex-1">
                       <div className="h-3.5 bg-amber-200/60 rounded w-2/3" />
                       <div className="h-2.5 bg-amber-200/40 rounded w-1/2" />
@@ -755,7 +919,8 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
               </div>
             ) : bookmarks.length === 0 ? (
               <p className="text-xs text-stone-500 py-4 text-center">
-                Xatcho‘plar mavjud emas. Mutolaa vaqtida yuqoridagi xatcho‘p tugmasi orqali sahifalarni saqlang.
+                Xatcho‘plar mavjud emas. Mutolaa vaqtida yuqoridagi xatcho‘p tugmasi orqali
+                sahifalarni saqlang.
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -763,7 +928,12 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                   const w = b.work;
                   const ch = b.chapter;
                   const pageNum = b.page_number || 1;
-                  const readUrl = ch && w ? `/asarlar/${w.slug}/${ch.slug}?page=${pageNum}` : w ? `/asarlar/${w.slug}` : `/asarlar`;
+                  const readUrl =
+                    ch && w
+                      ? `/asarlar/${w.slug}/${ch.slug}?page=${pageNum}`
+                      : w
+                        ? `/asarlar/${w.slug}`
+                        : `/asarlar`;
 
                   return (
                     <div
@@ -771,9 +941,12 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                       className="p-3.5 rounded-2xl bg-amber-50/40 border border-amber-200/60 flex items-center justify-between gap-3"
                     >
                       <div className="min-w-0 space-y-0.5">
-                        <h4 className="font-sans font-bold text-xs text-stone-900 truncate">{w?.title || 'Asar'}</h4>
+                        <h4 className="font-sans font-bold text-xs text-stone-900 truncate">
+                          {w?.title || 'Asar'}
+                        </h4>
                         <p className="text-[11px] text-amber-800 font-semibold truncate">
-                          {ch ? `${ch.chapter_number}-bob, ` : ''}{pageNum}-sahifa{b.progress_percent ? ` • ${b.progress_percent}%` : ''}
+                          {ch ? `${ch.chapter_number}-bob, ` : ''}
+                          {pageNum}-sahifa{b.progress_percent ? ` • ${b.progress_percent}%` : ''}
                         </p>
                       </div>
                       <Link
@@ -789,31 +962,107 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             )}
           </div>
 
+          {/* Followed authors — a primary reader-retention block */}
+          <div className="bg-white rounded-3xl border border-[#EAE5DD] p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-emerald-700" />
+                <div>
+                  <h3 className="font-sans font-black text-lg text-stone-900">
+                    Kuzatayotgan mualliflar
+                  </h3>
+                  <p className="text-[11px] text-stone-500">
+                    Yangi asar va boblarini o‘tkazib yubormang
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/kutubxona?tab=followed_authors"
+                className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1 shrink-0"
+              >
+                <span className="hidden sm:inline">Barchasini ko‘rish</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {followedAuthors.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-6 text-center">
+                <p className="text-sm font-bold text-stone-800">
+                  Hali hech bir muallifni kuzatmayapsiz
+                </p>
+                <Link
+                  href="/mualliflar"
+                  className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-emerald-800 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-900"
+                >
+                  Mualliflarni kashf qilish <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                {followedAuthors.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/mualliflar/${item.username || item.id}`}
+                    className="group rounded-2xl border border-stone-200 bg-stone-50 p-3 text-center hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors min-w-0"
+                  >
+                    <div className="relative mx-auto h-12 w-12 overflow-hidden rounded-full bg-emerald-800 text-white flex items-center justify-center font-black">
+                      {item.avatarUrl ? (
+                        <Image
+                          src={item.avatarUrl}
+                          alt={item.penName}
+                          fill
+                          className="object-cover"
+                          sizes="48px"
+                        />
+                      ) : (
+                        item.penName?.slice(0, 1)
+                      )}
+                    </div>
+                    <p className="mt-2 truncate text-xs font-black text-stone-900">
+                      {item.penName || item.displayName}
+                    </p>
+                    <p className="truncate text-[10px] text-stone-500">@{item.username}</p>
+                    {item.latestWork && (
+                      <p className="mt-1 line-clamp-1 text-[10px] font-semibold text-emerald-800">
+                        {item.latestWork.title}
+                      </p>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Recent Transactions List */}
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-amber-600" />
-                <h3 className="font-sans font-black text-lg text-stone-900">Oxirgi hisob operatsiyalari</h3>
+                <h3 className="font-sans font-black text-lg text-stone-900">
+                  Oxirgi hisob operatsiyalari
+                </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => switchTab('finances')}
+              <Link
+                href="/sozlamalar?tab=finances"
                 className="text-xs font-bold text-amber-800 hover:text-amber-900 flex items-center gap-1"
               >
                 <span>Batafsil ko‘rish</span>
                 <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              </Link>
             </div>
 
             {transactions.length === 0 ? (
-              <p className="text-xs text-stone-500 py-4 text-center">Operatsiyalar tarixi mavjud emas.</p>
+              <p className="text-xs text-stone-500 py-4 text-center">
+                Operatsiyalar tarixi mavjud emas.
+              </p>
             ) : (
               <div className="divide-y divide-stone-100">
                 {transactions.slice(0, 4).map((tx) => (
                   <div key={tx.id} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
-                      <p className="font-bold text-stone-900">{tx.description || tx.transaction_type}</p>
+                      <p className="font-bold text-stone-900">
+                        {tx.description || tx.transaction_type}
+                      </p>
                       <p className="text-[11px] text-stone-400">{formatUzbekDate(tx.created_at)}</p>
                     </div>
                     <span
@@ -833,218 +1082,246 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       )}
 
       {/* TAB 2: PROFILE SETTINGS, AVATAR & GENRE PREFERENCES */}
-      {activeTab === 'profile' && (
+      {mode === 'settings' && activeTab === 'profile' && (
         <div className="space-y-6 max-w-2xl">
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="flex items-center gap-3 pb-4 border-b border-stone-100">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
-              <User className="w-5 h-5" />
+            <div className="flex items-center gap-3 pb-4 border-b border-stone-100">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                <User className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="font-sans font-black text-lg text-stone-900">Profil ma’lumotlari</h2>
+                <p className="text-xs text-stone-500">
+                  Shaxsiy identifikatoringiz va ijtimoiy bog‘lanishlaringiz
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-sans font-black text-lg text-stone-900">Profil ma’lumotlari</h2>
-              <p className="text-xs text-stone-500">Shaxsiy identifikatoringiz va ijtimoiy bog‘lanishlaringiz</p>
-            </div>
-          </div>
 
-          {profileSuccess && (
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{profileSuccess}</span>
-            </div>
-          )}
+            {profileSuccess && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{profileSuccess}</span>
+              </div>
+            )}
 
-          {profileError && (
-            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{profileError}</span>
-            </div>
-          )}
+            {profileError && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{profileError}</span>
+              </div>
+            )}
 
-          {/* Avatar Section */}
-          <div className="flex items-center gap-5 p-4 rounded-2xl bg-stone-50 border border-stone-200/80">
-            <div className="relative w-16 h-16 rounded-2xl bg-stone-200 overflow-hidden shrink-0 border border-stone-300">
-              {avatarUrl ? (
-                <Image src={avatarUrl} alt="Avatar" fill className="object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-stone-500 font-bold text-xl">
-                  {profile?.display_name?.slice(0, 1) || 'M'}
-                </div>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <span className="text-xs font-bold text-stone-900 block">Profil rasmi (Avatar)</span>
-              <p className="text-[11px] text-stone-500">Maksimal 2 MB (PNG, JPEG, WebP)</p>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={handleAvatarFileChange}
-                className="hidden"
-                id="avatar-upload-input"
-              />
-              <label
-                htmlFor="avatar-upload-input"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-stone-300 hover:border-amber-600 text-stone-700 font-bold text-xs cursor-pointer transition-colors shadow-2xs"
-              >
-                {avatarUploading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
-                    <span>Yuklanmoqda...</span>
-                  </>
+            {/* Avatar Section */}
+            <div className="flex items-center gap-5 p-4 rounded-2xl bg-stone-50 border border-stone-200/80">
+              <div className="relative w-16 h-16 rounded-2xl bg-stone-200 overflow-hidden shrink-0 border border-stone-300">
+                {avatarUrl ? (
+                  <Image src={avatarUrl} alt="Avatar" fill className="object-cover" />
                 ) : (
-                  <>
-                    <Camera className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Rasmni yangilash</span>
-                  </>
+                  <div className="w-full h-full flex items-center justify-center text-stone-500 font-bold text-xl">
+                    {profile?.display_name?.slice(0, 1) || 'M'}
+                  </div>
                 )}
-              </label>
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-stone-900 block">
+                  Profil rasmi (Avatar)
+                </span>
+                <p className="text-[11px] text-stone-500">Maksimal 2 MB (PNG, JPEG, WebP)</p>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleAvatarFileChange}
+                  className="hidden"
+                  id="avatar-upload-input"
+                />
+                <label
+                  htmlFor="avatar-upload-input"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-stone-300 hover:border-amber-600 text-stone-700 font-bold text-xs cursor-pointer transition-colors shadow-2xs"
+                >
+                  {avatarUploading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                      <span>Yuklanmoqda...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Rasmni yangilash</span>
+                    </>
+                  )}
+                </label>
+              </div>
             </div>
-          </div>
 
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">To‘liq ismingiz</label>
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-medium"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">Foydalanuvchi nomi (username)</label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">@</span>
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  To‘liq ismingiz
+                </label>
                 <input
                   type="text"
-                  value={editUsername}
-                  onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                  className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-medium"
                   required
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">Haqingizda (Bio)</label>
-              <textarea
-                value={editBio}
-                onChange={(e) => setEditBio(e.target.value)}
-                rows={3}
-                placeholder="O‘zingiz yoki mutolaa qiziqishlaringiz haqida qisqacha..."
-                className="w-full px-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden"
-              />
-            </div>
-
-            <div className="space-y-3 pt-2 border-t border-stone-100">
-              <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider">Ijtimoiy tarmoqlar va havolalar</h4>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
-                  <Send className="w-3.5 h-3.5 text-sky-500" />
-                  <span>Telegram</span>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Foydalanuvchi nomi (username)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">@</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">
+                    @
+                  </span>
                   <input
                     type="text"
-                    value={editTelegram}
-                    onChange={(e) => setEditTelegram(e.target.value)}
-                    placeholder="username yoki https://t.me/username"
+                    value={editUsername}
+                    onChange={(e) =>
+                      setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+                    }
                     className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                    required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
-                  <Instagram className="w-3.5 h-3.5 text-pink-500" />
-                  <span>Instagram</span>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Haqingizda (Bio)
                 </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">@</span>
-                  <input
-                    type="text"
-                    value={editInstagram}
-                    onChange={(e) => setEditInstagram(e.target.value)}
-                    placeholder="username yoki https://instagram.com/username"
-                    className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
-                  <Youtube className="w-3.5 h-3.5 text-red-500" />
-                  <span>YouTube</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">@</span>
-                  <input
-                    type="text"
-                    value={editYoutube}
-                    onChange={(e) => setEditYoutube(e.target.value)}
-                    placeholder="@kanal yoki https://youtube.com/@kanal"
-                    className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Shaxsiy veb-sayt</span>
-                </label>
-                <input
-                  type="url"
-                  value={editWebsite}
-                  onChange={(e) => setEditWebsite(e.target.value)}
-                  placeholder="https://example.uz"
-                  className="w-full px-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                <textarea
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  rows={3}
+                  placeholder="O‘zingiz yoki mutolaa qiziqishlaringiz haqida qisqacha..."
+                  className="w-full px-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden"
                 />
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={savingProfile}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm transition-colors shadow-sm"
-            >
-              {savingProfile ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Saqlanmoqda...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>O‘zgarishlarni saqlash</span>
-                </>
-              )}
-            </button>
-          </form>
+              <div className="space-y-3 pt-2 border-t border-stone-100">
+                <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
+                  Ijtimoiy tarmoqlar va havolalar
+                </h4>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                    <Send className="w-3.5 h-3.5 text-sky-500" />
+                    <span>Telegram</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">
+                      @
+                    </span>
+                    <input
+                      type="text"
+                      value={editTelegram}
+                      onChange={(e) => setEditTelegram(e.target.value)}
+                      placeholder="username yoki https://t.me/username"
+                      className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                    <Instagram className="w-3.5 h-3.5 text-pink-500" />
+                    <span>Instagram</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">
+                      @
+                    </span>
+                    <input
+                      type="text"
+                      value={editInstagram}
+                      onChange={(e) => setEditInstagram(e.target.value)}
+                      placeholder="username yoki https://instagram.com/username"
+                      className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                    <Youtube className="w-3.5 h-3.5 text-red-500" />
+                    <span>YouTube</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-xs">
+                      @
+                    </span>
+                    <input
+                      type="text"
+                      value={editYoutube}
+                      onChange={(e) => setEditYoutube(e.target.value)}
+                      placeholder="@kanal yoki https://youtube.com/@kanal"
+                      className="w-full pl-8 pr-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Shaxsiy veb-sayt</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={editWebsite}
+                    onChange={(e) => setEditWebsite(e.target.value)}
+                    placeholder="https://example.uz"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs sm:text-sm focus:bg-white focus:border-amber-600 outline-hidden font-mono"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingProfile}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm transition-colors shadow-sm"
+              >
+                {savingProfile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saqlanmoqda...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>O‘zgarishlarni saqlash</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          <CabinetGenrePreferences />
         </div>
-
-        <CabinetGenrePreferences />
-      </div>
-    )}
+      )}
 
       {/* TAB 3: FINANCES & PURCHASES */}
-      {activeTab === 'finances' && (
+      {mode === 'settings' && activeTab === 'finances' && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 shadow-xs">
-            <h3 className="font-sans font-black text-lg text-stone-900 mb-4">Balans va to‘ldirishlar</h3>
+            <h3 className="font-sans font-black text-lg text-stone-900 mb-4">
+              Balans va to‘ldirishlar
+            </h3>
             <div className="divide-y divide-stone-100">
               {topups.length === 0 ? (
-                <p className="text-xs text-stone-500 py-4 text-center">To‘ldirish so‘rovlari mavjud emas.</p>
+                <p className="text-xs text-stone-500 py-4 text-center">
+                  To‘ldirish so‘rovlari mavjud emas.
+                </p>
               ) : (
                 topups.map((topup) => (
                   <div key={topup.id} className="py-3 flex items-center justify-between text-xs">
                     <div>
                       <p className="font-bold text-stone-900">{formatUZS(topup.amount)}</p>
-                      <p className="text-[11px] text-stone-400">{formatUzbekDate(topup.created_at)}</p>
+                      <p className="text-[11px] text-stone-400">
+                        {formatUzbekDate(topup.created_at)}
+                      </p>
                     </div>
                     <span
                       className={clsx(
@@ -1052,11 +1329,15 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                         topup.status === 'approved'
                           ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                           : topup.status === 'rejected'
-                          ? 'bg-rose-50 text-rose-800 border border-rose-200'
-                          : 'bg-amber-50 text-amber-800 border border-amber-200',
+                            ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                            : 'bg-amber-50 text-amber-800 border border-amber-200',
                       )}
                     >
-                      {topup.status === 'approved' ? 'Tasdiqlangan' : topup.status === 'rejected' ? 'Rad etilgan' : 'Kutilmoqda'}
+                      {topup.status === 'approved'
+                        ? 'Tasdiqlangan'
+                        : topup.status === 'rejected'
+                          ? 'Rad etilgan'
+                          : 'Kutilmoqda'}
                     </span>
                   </div>
                 ))
@@ -1065,20 +1346,28 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           </div>
 
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 shadow-xs">
-            <h3 className="font-sans font-black text-lg text-stone-900 mb-4">Sotib olingan asarlar va boblar</h3>
+            <h3 className="font-sans font-black text-lg text-stone-900 mb-4">
+              Sotib olingan asarlar va boblar
+            </h3>
             <div className="divide-y divide-stone-100">
               {purchases.length === 0 ? (
-                <p className="text-xs text-stone-500 py-4 text-center">Hozircha sotib olingan asarlar yo‘q.</p>
+                <p className="text-xs text-stone-500 py-4 text-center">
+                  Hozircha sotib olingan asarlar yo‘q.
+                </p>
               ) : (
                 purchases.map((p) => (
                   <div key={p.id} className="py-3 flex items-center justify-between text-xs">
                     <div>
                       <p className="font-bold text-stone-900">{p.work?.title || 'Asar'}</p>
                       <p className="text-[11px] text-stone-500">
-                        {p.chapter ? `${p.chapter.chapter_number}-bob: ${p.chapter.title}` : 'To‘liq kitob'}
+                        {p.chapter
+                          ? `${p.chapter.chapter_number}-bob: ${p.chapter.title}`
+                          : 'To‘liq kitob'}
                       </p>
                     </div>
-                    <span className="font-mono font-bold text-stone-900">{formatUZS(p.gross_amount)}</span>
+                    <span className="font-mono font-bold text-stone-900">
+                      {formatUZS(p.gross_amount)}
+                    </span>
                   </div>
                 ))
               )}
@@ -1086,22 +1375,28 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           </div>
 
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 shadow-xs">
-            <h3 className="font-sans font-black text-lg text-stone-900 mb-4">Hisob operatsiyalari jurnali</h3>
+            <h3 className="font-sans font-black text-lg text-stone-900 mb-4">
+              Hisob operatsiyalari jurnali
+            </h3>
             <TransactionHistoryTable transactions={transactions} />
           </div>
         </div>
       )}
 
       {/* TAB 4: NOTIFICATIONS PREFERENCES */}
-      {NOTIFICATIONS_ENABLED && activeTab === 'notifications' && (
+      {mode === 'settings' && NOTIFICATIONS_ENABLED && activeTab === 'notifications' && (
         <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs max-w-2xl space-y-6">
           <div className="flex items-center gap-3 pb-4 border-b border-stone-100">
             <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
               <Bell className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-sans font-black text-lg text-stone-900">Bildirishnoma sozlamalari</h2>
-              <p className="text-xs text-stone-500">Qaysi turdagi xabarnomalarni olishni o‘zingiz boshqaring</p>
+              <h2 className="font-sans font-black text-lg text-stone-900">
+                Bildirishnoma sozlamalari
+              </h2>
+              <p className="text-xs text-stone-500">
+                Qaysi turdagi xabarnomalarni olishni o‘zingiz boshqaring
+              </p>
             </div>
           </div>
 
@@ -1116,7 +1411,9 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-stone-50 border border-stone-200/80">
               <div>
                 <h4 className="font-bold text-stone-900 text-sm">Sayt ichidagi bildirishnomalar</h4>
-                <p className="text-xs text-stone-500">Yangi boblar, sharhlar va balans o‘zgarishlari haqida bildirishnomalar</p>
+                <p className="text-xs text-stone-500">
+                  Yangi boblar, sharhlar va balans o‘zgarishlari haqida bildirishnomalar
+                </p>
               </div>
               <input
                 type="checkbox"
@@ -1129,7 +1426,9 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-stone-50 border border-stone-200/80">
               <div>
                 <h4 className="font-bold text-stone-900 text-sm">Aksiyalar va chegirmalar</h4>
-                <p className="text-xs text-stone-500">Sevimli asarlaringizdagi chegirmalar va yangi aksiyalar haqida xabardor qilish</p>
+                <p className="text-xs text-stone-500">
+                  Sevimli asarlaringizdagi chegirmalar va yangi aksiyalar haqida xabardor qilish
+                </p>
               </div>
               <input
                 type="checkbox"
@@ -1142,12 +1441,16 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-stone-50 border border-stone-200/80">
               <div>
                 <h4 className="font-bold text-stone-900 text-sm">Email xabarnomalari</h4>
-                <p className="text-xs text-stone-500">Haftalik sara asarlar dayjesti va muhim xizmat xabarlari</p>
+                <p className="text-xs text-stone-500">
+                  Haftalik sara asarlar dayjesti va muhim xizmat xabarlari
+                </p>
               </div>
               <input
                 type="checkbox"
                 checked={notifPrefs.email_marketing}
-                onChange={(e) => setNotifPrefs((p) => ({ ...p, email_marketing: e.target.checked }))}
+                onChange={(e) =>
+                  setNotifPrefs((p) => ({ ...p, email_marketing: e.target.checked }))
+                }
                 className="w-5 h-5 accent-amber-600 rounded cursor-pointer mt-1"
               />
             </div>
@@ -1174,7 +1477,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       )}
 
       {/* TAB 5: SECURITY */}
-      {activeTab === 'security' && (
+      {mode === 'settings' && activeTab === 'security' && (
         <div className="space-y-6 max-w-2xl">
           {/* Email Update */}
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs space-y-4">
@@ -1195,7 +1498,11 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                     : 'bg-rose-50 text-rose-800 border border-rose-200',
                 )}
               >
-                {emailMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                {emailMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4" />
+                ) : (
+                  <AlertCircle className="w-4 h-4" />
+                )}
                 <span>{emailMsg.text}</span>
               </div>
             )}
@@ -1236,7 +1543,11 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                     : 'bg-rose-50 text-rose-800 border border-rose-200',
                 )}
               >
-                {passMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                {passMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4" />
+                ) : (
+                  <AlertCircle className="w-4 h-4" />
+                )}
                 <span>{passMsg.text}</span>
               </div>
             )}
@@ -1273,7 +1584,9 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           <div className="bg-white rounded-3xl border border-rose-200/80 p-6 sm:p-8 shadow-xs flex items-center justify-between gap-4">
             <div>
               <h3 className="font-sans font-bold text-base text-stone-900">Sessiyani yakunlash</h3>
-              <p className="text-xs text-stone-500">Ushbu qurilmadagi hisobingizdan xavfsiz chiqish</p>
+              <p className="text-xs text-stone-500">
+                Ushbu qurilmadagi hisobingizdan xavfsiz chiqish
+              </p>
             </div>
             <button
               type="button"
@@ -1284,65 +1597,6 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
               <span>Chiqish</span>
             </button>
           </div>
-        </div>
-      )}
-
-      {/* TAB 6: QUICK LIBRARY LINKS */}
-      {activeTab === 'quick_links' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Link
-            href="/kutubxona?tab=reading"
-            className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
-          >
-            <Clock className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-sans font-black text-base text-stone-900">Mutolaadagi asarlar</h4>
-            <p className="text-xs text-stone-500">Oxirgi o‘qiyotgan sahifalaringiz va mutolaa jurnalingiz</p>
-          </Link>
-
-          <Link
-            href="/kutubxona?tab=bookmarks"
-            className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
-          >
-            <Bookmark className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-sans font-black text-base text-stone-900">Xatcho‘plar</h4>
-            <p className="text-xs text-stone-500">Belgilab qo‘yilgan aniq sahifalar va boblar</p>
-          </Link>
-
-          <Link
-            href="/kutubxona?tab=purchased"
-            className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
-          >
-            <Lock className="w-6 h-6 text-emerald-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-sans font-black text-base text-stone-900">Sotib olingan asarlar</h4>
-            <p className="text-xs text-stone-500">Doimiy kirish huquqiga ega bo‘lgan kitob va boblaringiz</p>
-          </Link>
-
-          <Link
-            href="/kutubxona?tab=favorite"
-            className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
-          >
-            <Heart className="w-6 h-6 text-rose-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-sans font-black text-base text-stone-900">Sevimli asarlar</h4>
-            <p className="text-xs text-stone-500">Siz sevib mutolaa qiladigan va yurakcha bosgan asarlar</p>
-          </Link>
-
-          <Link
-            href="/kutubxona?tab=followed_authors"
-            className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
-          >
-            <Users className="w-6 h-6 text-sky-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-sans font-black text-base text-stone-900">Kuzatilayotgan mualliflar</h4>
-            <p className="text-xs text-stone-500">Siz obuna bo‘lgan mualliflar va ularning yangiliklari</p>
-          </Link>
-
-          <Link
-            href="/muallif-boling"
-            className="p-6 rounded-3xl bg-amber-50/70 border border-amber-200 hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
-          >
-            <PenTool className="w-6 h-6 text-amber-700 group-hover:scale-110 transition-transform" />
-            <h4 className="font-sans font-black text-base text-stone-900">Muallif bo‘ling</h4>
-            <p className="text-xs text-stone-600">O‘z kitoblaringizni nashr qiling va 80% daromad oling</p>
-          </Link>
         </div>
       )}
 
@@ -1369,7 +1623,9 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
 
 export default function KabinetClient(props: KabinetClientProps) {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xs text-stone-400">Yuklanmoqda...</div>}>
+    <Suspense
+      fallback={<div className="p-8 text-center text-xs text-stone-400">Yuklanmoqda...</div>}
+    >
       <KabinetContent {...props} />
     </Suspense>
   );

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   BookOpen,
   MessageSquare,
@@ -12,11 +12,11 @@ import {
   Send,
   Loader2,
   Plus,
-} from "lucide-react";
-import { WorkCard } from "@/components/work/WorkCard";
-import { useAuth } from "@/components/providers/AuthProvider";
-import { supabase } from "@/lib/supabase/client";
-import type { Work } from "@/lib/types/platform";
+} from 'lucide-react';
+import { WorkCard } from '@/components/work/WorkCard';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { supabase } from '@/lib/supabase/client';
+import type { Work } from '@/lib/types/platform';
 
 interface AuthorPostItem {
   id: string;
@@ -41,32 +41,33 @@ export function AuthorProfileFeed({
   authorId,
 }: AuthorProfileFeedProps) {
   const { user, profile } = useAuth();
-  const isAuthorOwner = Boolean(user && authorUserId && (user.id === authorUserId || profile?.is_admin));
+  const isAuthorOwner = Boolean(
+    user && authorUserId && (user.id === authorUserId || profile?.is_admin),
+  );
 
-  const [activeTab, setActiveTab] = useState<"all_works" | "ongoing" | "completed" | "posts">("all_works");
+  const [activeTab, setActiveTab] = useState<'all_works' | 'stories' | 'posts'>('all_works');
   const [copied, setCopied] = useState(false);
 
   // Feed Posts state
   const [feedPosts, setFeedPosts] = useState<AuthorPostItem[]>(posts);
-  const [newPostContent, setNewPostContent] = useState("");
+  const [newPostContent, setNewPostContent] = useState('');
   const [newPostPinned, setNewPostPinned] = useState(false);
   const [submittingPost, setSubmittingPost] = useState(false);
 
   // Editing state
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
-  const [editPostContent, setEditPostContent] = useState("");
+  const [editPostContent, setEditPostContent] = useState('');
   const [editPostPinned, setEditPostPinned] = useState(false);
   const [savingEditPost, setSavingEditPost] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
 
   const filteredWorks = works.filter((w) => {
-    if (activeTab === "ongoing") return w.completion_status === "ongoing";
-    if (activeTab === "completed") return w.completion_status === "completed";
+    if (activeTab === 'stories') return w.type === 'serialized_story';
     return true;
   });
 
   const handleShare = async () => {
-    if (typeof navigator !== "undefined" && navigator.share) {
+    if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
           title: `${authorPenName} — Manbora`,
@@ -77,7 +78,7 @@ export function AuthorProfileFeed({
       } catch {}
     }
 
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
@@ -92,14 +93,16 @@ export function AuthorProfileFeed({
       setSubmittingPost(true);
       setFeedError(null);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch("/api/author/posts", {
-        method: "POST",
+      const res = await fetch('/api/author/posts', {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           content: newPostContent.trim(),
@@ -109,14 +112,14 @@ export function AuthorProfileFeed({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Postni chop etishda xatolik yuz berdi");
+        throw new Error(data.error || 'Postni chop etishda xatolik yuz berdi');
       }
 
       setFeedPosts((prev) => [data.post, ...prev]);
-      setNewPostContent("");
+      setNewPostContent('');
       setNewPostPinned(false);
     } catch (err: any) {
-      setFeedError(err.message || "Xatolik yuz berdi");
+      setFeedError(err.message || 'Xatolik yuz berdi');
     } finally {
       setSubmittingPost(false);
     }
@@ -130,7 +133,7 @@ export function AuthorProfileFeed({
 
   const cancelEditingPost = () => {
     setEditingPostId(null);
-    setEditPostContent("");
+    setEditPostContent('');
     setEditPostPinned(false);
   };
 
@@ -142,14 +145,16 @@ export function AuthorProfileFeed({
       setSavingEditPost(true);
       setFeedError(null);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch("/api/author/posts", {
-        method: "PATCH",
+      const res = await fetch('/api/author/posts', {
+        method: 'PATCH',
         headers,
         body: JSON.stringify({
           id: editingPostId,
@@ -160,34 +165,34 @@ export function AuthorProfileFeed({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Postni yangilashda xatolik yuz berdi");
+        throw new Error(data.error || 'Postni yangilashda xatolik yuz berdi');
       }
 
       const updated = data.post;
-      setFeedPosts((prev) =>
-        prev.map((p) => (p.id === editingPostId ? { ...p, ...updated } : p))
-      );
+      setFeedPosts((prev) => prev.map((p) => (p.id === editingPostId ? { ...p, ...updated } : p)));
       cancelEditingPost();
     } catch (err: any) {
-      setFeedError(err.message || "Xatolik yuz berdi");
+      setFeedError(err.message || 'Xatolik yuz berdi');
     } finally {
       setSavingEditPost(false);
     }
   };
 
   const handleDeletePost = async (postId: string) => {
-    if (!confirm("Haqiqatan ham ushbu xabarni o‘chirmoqchimisiz?")) return;
+    if (!confirm('Haqiqatan ham ushbu xabarni o‘chirmoqchimisiz?')) return;
 
     try {
       setFeedError(null);
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const headers: Record<string, string> = {};
       if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
       const res = await fetch(`/api/author/posts?id=${postId}`, {
-        method: "DELETE",
+        method: 'DELETE',
         headers,
       });
 
@@ -195,24 +200,26 @@ export function AuthorProfileFeed({
         setFeedPosts((prev) => prev.filter((p) => p.id !== postId));
       } else {
         const data = await res.json();
-        throw new Error(data.error || "O‘chirishda xatolik");
+        throw new Error(data.error || 'O‘chirishda xatolik');
       }
     } catch (err: any) {
-      setFeedError(err.message || "Xatolik yuz berdi");
+      setFeedError(err.message || 'Xatolik yuz berdi');
     }
   };
 
   const handleTogglePin = async (post: AuthorPostItem) => {
     try {
       setFeedError(null);
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch("/api/author/posts", {
-        method: "PATCH",
+      const res = await fetch('/api/author/posts', {
+        method: 'PATCH',
         headers,
         body: JSON.stringify({
           id: post.id,
@@ -222,7 +229,7 @@ export function AuthorProfileFeed({
 
       if (res.ok) {
         setFeedPosts((prev) =>
-          prev.map((p) => (p.id === post.id ? { ...p, pinned: !post.pinned } : p))
+          prev.map((p) => (p.id === post.id ? { ...p, pinned: !post.pinned } : p)),
         );
       }
     } catch {
@@ -236,42 +243,32 @@ export function AuthorProfileFeed({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAE5DD] pb-3">
         <div className="flex items-center gap-1.5 sm:gap-2">
           <button
-            onClick={() => setActiveTab("all_works")}
+            onClick={() => setActiveTab('all_works')}
             className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
-              activeTab === "all_works"
-                ? "bg-[#1C1917] text-white shadow-xs"
-                : "bg-white text-[#78716C] hover:bg-[#F5F2EC] hover:text-[#1C1917]"
+              activeTab === 'all_works'
+                ? 'bg-[#1C1917] text-white shadow-xs'
+                : 'bg-white text-[#78716C] hover:bg-[#F5F2EC] hover:text-[#1C1917]'
             }`}
           >
-            Barcha asarlar ({works.length})
+            Asarlar ({works.length})
           </button>
           <button
-            onClick={() => setActiveTab("ongoing")}
+            onClick={() => setActiveTab('stories')}
             className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
-              activeTab === "ongoing"
-                ? "bg-[#1C1917] text-white shadow-xs"
-                : "bg-white text-[#78716C] hover:bg-[#F5F2EC] hover:text-[#1C1917]"
+              activeTab === 'stories'
+                ? 'bg-[#1C1917] text-white shadow-xs'
+                : 'bg-white text-[#78716C] hover:bg-[#F5F2EC] hover:text-[#1C1917]'
             }`}
           >
-            Davom etayotgan ({works.filter((w) => w.completion_status === "ongoing").length})
-          </button>
-          <button
-            onClick={() => setActiveTab("completed")}
-            className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
-              activeTab === "completed"
-                ? "bg-[#1C1917] text-white shadow-xs"
-                : "bg-white text-[#78716C] hover:bg-[#F5F2EC] hover:text-[#1C1917]"
-            }`}
-          >
-            Tugallangan ({works.filter((w) => w.completion_status === "completed").length})
+            Hikoyalar ({works.filter((w) => w.type === 'serialized_story').length})
           </button>
           {(feedPosts.length > 0 || isAuthorOwner) && (
             <button
-              onClick={() => setActiveTab("posts")}
+              onClick={() => setActiveTab('posts')}
               className={`rounded-full px-4 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === "posts"
-                  ? "bg-[#1C1917] text-white shadow-xs"
-                  : "bg-white text-[#78716C] hover:bg-[#F5F2EC] hover:text-[#1C1917]"
+                activeTab === 'posts'
+                  ? 'bg-[#1C1917] text-white shadow-xs'
+                  : 'bg-white text-[#78716C] hover:bg-[#F5F2EC] hover:text-[#1C1917]'
               }`}
             >
               <MessageSquare className="h-3.5 w-3.5" />
@@ -305,11 +302,14 @@ export function AuthorProfileFeed({
       )}
 
       {/* Content Area */}
-      {activeTab === "posts" ? (
+      {activeTab === 'posts' ? (
         <div className="space-y-4 max-w-2xl">
           {/* Create Post Box for Author Owner */}
           {isAuthorOwner && (
-            <form onSubmit={handleCreatePost} className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-3 shadow-2xs">
+            <form
+              onSubmit={handleCreatePost}
+              className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-3 shadow-2xs"
+            >
               <label className="block text-xs font-bold text-amber-950">
                 Kitobxonlaringiz uchun yangi e’lon yoki xabar yozing:
               </label>
@@ -374,16 +374,16 @@ export function AuthorProfileFeed({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span>{new Date(post.created_at).toLocaleDateString("uz-UZ")}</span>
+                    <span>{new Date(post.created_at).toLocaleDateString('uz-UZ')}</span>
                     {isAuthorOwner && (
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => handleTogglePin(post)}
                           className={`p-1 transition-colors ${
-                            post.pinned ? "text-amber-700" : "text-stone-400 hover:text-stone-700"
+                            post.pinned ? 'text-amber-700' : 'text-stone-400 hover:text-stone-700'
                           }`}
-                          title={post.pinned ? "Qadalganini bekor qilish" : "Yuqoriga qadash"}
+                          title={post.pinned ? 'Qadalganini bekor qilish' : 'Yuqoriga qadash'}
                         >
                           <Pin className="w-3.5 h-3.5" />
                         </button>
@@ -462,7 +462,7 @@ export function AuthorProfileFeed({
               Bu bo‘limda asarlar topilmadi.
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
+            <div className="grid grid-cols-2 min-[430px]:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4.5">
               {filteredWorks.map((work) => (
                 <WorkCard key={work.id} work={work} context="catalogue" />
               ))}

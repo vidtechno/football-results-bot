@@ -21,18 +21,34 @@ export async function GET(req: NextRequest) {
 
     if (type === 'work') {
       const [{ count }, userFollow] = await Promise.all([
-        admin.from('work_follows').select('id', { count: 'exact', head: true }).eq('work_id', targetId),
+        admin
+          .from('work_follows')
+          .select('id', { count: 'exact', head: true })
+          .eq('work_id', targetId),
         profile
-          ? admin.from('work_follows').select('id').eq('work_id', targetId).eq('user_id', profile.id).maybeSingle()
+          ? admin
+              .from('work_follows')
+              .select('id')
+              .eq('work_id', targetId)
+              .eq('user_id', profile.id)
+              .maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
       followerCount = count || 0;
       isFollowing = !!userFollow.data;
     } else if (type === 'author') {
       const [{ count }, userFollow] = await Promise.all([
-        admin.from('author_follows').select('id', { count: 'exact', head: true }).eq('author_id', targetId),
+        admin
+          .from('author_follows')
+          .select('id', { count: 'exact', head: true })
+          .eq('author_id', targetId),
         profile
-          ? admin.from('author_follows').select('id').eq('author_id', targetId).eq('user_id', profile.id).maybeSingle()
+          ? admin
+              .from('author_follows')
+              .select('id')
+              .eq('author_id', targetId)
+              .eq('user_id', profile.id)
+              .maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
       followerCount = count || 0;
@@ -71,10 +87,7 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (work && work.author_id === profile.id) {
-        return NextResponse.json(
-          { error: 'Muallif o‘z asarini kuzata olmaydi' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Muallif o‘z asarini kuzata olmaydi' }, { status: 400 });
       }
 
       // Check existing
@@ -110,7 +123,19 @@ export async function POST(req: NextRequest) {
       if (targetId === profile.id) {
         return NextResponse.json(
           { error: 'Foydalanuvchi o‘zini o‘zi kuzata olmaydi' },
-          { status: 400 }
+          { status: 400 },
+        );
+      }
+
+      const { data: targetAuthor } = await admin
+        .from('author_profiles')
+        .select('user_id,status')
+        .eq('user_id', targetId)
+        .maybeSingle();
+      if (!targetAuthor || targetAuthor.status !== 'approved') {
+        return NextResponse.json(
+          { error: 'Faqat tasdiqlangan mualliflarni kuzatish mumkin' },
+          { status: 400 },
         );
       }
 

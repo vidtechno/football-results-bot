@@ -1051,7 +1051,7 @@ export const getPublicAuthor = requestCache(async function getPublicAuthor(ident
 
   if (!author) return null;
 
-  const [worksRes, followersRes] = await Promise.all([
+  const [worksRes, followersRes, followingRes] = await Promise.all([
     supabase
       .from('works')
       .select(
@@ -1068,6 +1068,10 @@ export const getPublicAuthor = requestCache(async function getPublicAuthor(ident
       .from('author_follows')
       .select('id', { count: 'exact', head: true })
       .eq('author_id', author.user_id),
+    supabase
+      .from('author_follows')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', author.user_id),
   ]);
 
   const rawWorks = (worksRes.data as any[]) || [];
@@ -1081,6 +1085,7 @@ export const getPublicAuthor = requestCache(async function getPublicAuthor(ident
     },
   })) as Work[];
   const followerCount = followersRes.count || 0;
+  const followingCount = followingRes.count || 0;
 
   // Calculate total public reads canonically from reading_progress across published works (excluding author self-reads)
   const workIds = works.map((w) => w.id);
@@ -1100,6 +1105,7 @@ export const getPublicAuthor = requestCache(async function getPublicAuthor(ident
     totalWorks: works.length,
     totalReads,
     followerCount,
+    followingCount,
   };
 });
 

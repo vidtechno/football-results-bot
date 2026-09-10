@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Bell, BellRing, UserPlus, UserCheck, Loader2, PenTool } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -29,6 +29,23 @@ export function FollowButton({
   const [followerCount, setFollowerCount] = useState(initialFollowerCount);
   const [isHovered, setIsHovered] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!user || (type === 'author' && user.id === targetId)) return;
+    let active = true;
+    fetch(`/api/social/follow?type=${type}&targetId=${encodeURIComponent(targetId)}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active && data) {
+          setIsFollowing(Boolean(data.isFollowing));
+          setFollowerCount(Number(data.followerCount || 0));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user, type, targetId]);
 
   // Prevent self-follow: show Author Studio link instead
   if (type === 'author' && user && user.id === targetId) {
@@ -94,8 +111,8 @@ export function FollowButton({
               ? 'Asar yangiliklarini kuzatishni to‘xtatish'
               : 'Asarni kuzatish (yangi boblar bildirishnomasi)'
             : isFollowing
-            ? 'Muallifni kuzatishni to‘xtatish'
-            : 'Muallifni kuzatish'
+              ? 'Muallifni kuzatishni to‘xtatish'
+              : 'Muallifni kuzatish'
         }
         aria-label={
           type === 'work'
@@ -103,8 +120,8 @@ export function FollowButton({
               ? 'Asar kuzatilmoqda'
               : 'Asarni kuzatish'
             : isFollowing
-            ? 'Muallif kuzatilmoqda'
-            : 'Muallifni kuzatish'
+              ? 'Muallif kuzatilmoqda'
+              : 'Muallifni kuzatish'
         }
         className={`p-2 rounded-xl border transition-all flex items-center gap-1.5 text-xs font-bold min-h-[44px] ${
           isFollowing
@@ -117,9 +134,15 @@ export function FollowButton({
         {isPending ? (
           <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
         ) : type === 'work' ? (
-          isFollowing ? <BellRing className="w-4 h-4 text-amber-700" /> : <Bell className="w-4 h-4" />
+          isFollowing ? (
+            <BellRing className="w-4 h-4 text-amber-700" />
+          ) : (
+            <Bell className="w-4 h-4" />
+          )
+        ) : isFollowing ? (
+          <UserCheck className="w-4 h-4 text-amber-700" />
         ) : (
-          isFollowing ? <UserCheck className="w-4 h-4 text-amber-700" /> : <UserPlus className="w-4 h-4" />
+          <UserPlus className="w-4 h-4" />
         )}
         {showCount && followerCount > 0 && <span>{followerCount}</span>}
       </button>
@@ -143,9 +166,15 @@ export function FollowButton({
       {isPending ? (
         <Loader2 className="w-4 h-4 animate-spin" />
       ) : type === 'work' ? (
-        isFollowing ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />
+        isFollowing ? (
+          <BellRing className="w-4 h-4" />
+        ) : (
+          <Bell className="w-4 h-4" />
+        )
+      ) : isFollowing ? (
+        <UserCheck className="w-4 h-4" />
       ) : (
-        isFollowing ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />
+        <UserPlus className="w-4 h-4" />
       )}
 
       <span>
@@ -156,16 +185,18 @@ export function FollowButton({
               : 'Asar kuzatilmoqda'
             : 'Asarni kuzatish'
           : isFollowing
-          ? isHovered
-            ? 'Kuzatishni to‘xtatish'
-            : 'Kuzatilmoqda'
-          : 'Muallifni kuzatish'}
+            ? isHovered
+              ? 'Kuzatishni to‘xtatish'
+              : 'Kuzatilmoqda'
+            : 'Muallifni kuzatish'}
       </span>
 
       {showCount && (
         <span
           className={`ml-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${
-            isFollowing ? 'bg-black/20 text-white' : 'bg-[#FAF8F5] text-stone-600 border border-[#EAE5DD]'
+            isFollowing
+              ? 'bg-black/20 text-white'
+              : 'bg-[#FAF8F5] text-stone-600 border border-[#EAE5DD]'
           }`}
         >
           {followerCount}

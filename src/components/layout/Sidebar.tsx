@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ArrowRight,
   Languages,
+  Settings,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -93,8 +94,8 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
           {
             label: 'Bildirishnomalar',
             href: user
-              ? '/kabinet?tab=notifications'
-              : '/kirish?returnUrl=/kabinet?tab=notifications',
+              ? '/sozlamalar?tab=notifications'
+              : '/kirish?returnUrl=/sozlamalar?tab=notifications',
             icon: Bell,
             exact: false,
             badge: unreadCount > 0 ? unreadCount : null,
@@ -102,13 +103,6 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
           },
         ]
       : []),
-    {
-      label: 'Muallif bo‘ling',
-      href: '/muallif-boling',
-      icon: Sparkles,
-      exact: false,
-      requiresAuth: false,
-    },
   ];
 
   const isAuthor = Boolean(author && author.status === 'approved');
@@ -170,12 +164,36 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
         </div>
 
         {/* Role-Aware Additions */}
-        {(isAuthor || isAdmin) && (
+        {user && (
           <div className="pt-2 border-t border-[#EAE5DD] space-y-1">
             <p className="px-3 text-[10.5px] font-black uppercase tracking-wider text-stone-600 mb-1.5">
               Boshqaruv
             </p>
             <nav className="space-y-1">
+              <Link
+                href="/kabinet"
+                className={clsx(
+                  'flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group',
+                  pathname === '/kabinet'
+                    ? 'bg-emerald-800 text-white font-bold shadow-xs'
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/60',
+                )}
+              >
+                <Compass className="w-4 h-4" />
+                <span>Kabinet</span>
+              </Link>
+              <Link
+                href="/sozlamalar"
+                className={clsx(
+                  'flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group',
+                  pathname.startsWith('/sozlamalar')
+                    ? 'bg-emerald-800 text-white font-bold shadow-xs'
+                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/60',
+                )}
+              >
+                <Settings className="w-4 h-4" />
+                <span>Sozlamalar</span>
+              </Link>
               {isAuthor && (
                 <>
                   <Link
@@ -203,6 +221,18 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
                     <span className="truncate">Muallif studiyasi</span>
                   </Link>
                 </>
+              )}
+
+              {!isAuthor && (
+                <Link
+                  href="/muallif-boling"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-stone-700 hover:text-stone-900 hover:bg-stone-200/60 transition-all group"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-700" />
+                  <span className="truncate">
+                    {author?.status === 'pending' ? 'Ariza ko‘rib chiqilmoqda' : 'Muallif bo‘lish'}
+                  </span>
+                </Link>
               )}
 
               {isAdmin && (
@@ -241,7 +271,13 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
             href={isAuthor ? '/muallif' : '/muallif-boling'}
             className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[11px] transition-colors shadow-2xs group"
           >
-            <span>{isAuthor ? 'Muallif kabineti' : 'Muallif bo‘lish'}</span>
+            <span>
+              {isAuthor
+                ? 'Muallif studiyasi'
+                : author?.status === 'pending'
+                  ? 'Ariza ko‘rib chiqilmoqda'
+                  : 'Muallif bo‘lish'}
+            </span>
             <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>

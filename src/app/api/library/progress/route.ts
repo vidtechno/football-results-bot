@@ -5,7 +5,10 @@ export async function POST(request: Request) {
   try {
     const profile = await getCurrentProfile(request.headers.get('Authorization'));
     if (!profile) {
-      return NextResponse.json({ success: false, error: 'Avtorizatsiya talab etiladi' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Avtorizatsiya talab etiladi' },
+        { status: 401 },
+      );
     }
 
     let body: any = {};
@@ -25,15 +28,24 @@ export async function POST(request: Request) {
     const pageIndex = Math.max(1, Math.floor(Number(body.pageIndex || body.page || 1)));
     const totalPages = Math.max(1, Math.floor(Number(body.totalPages || 1)));
     const paragraphOffset = Math.max(0, Math.floor(Number(body.paragraphOffset || 0)));
-    const percentage = Math.max(0, Math.min(100, Math.round(Number(body.percentage || body.progress || 0))));
-    const chapterPercentage = Math.max(0, Math.min(100, Math.round(Number(body.chapterPercentage ?? percentage))));
+    const percentage = Math.max(
+      0,
+      Math.min(100, Math.round(Number(body.percentage || body.progress || 0))),
+    );
+    const chapterPercentage = Math.max(
+      0,
+      Math.min(100, Math.round(Number(body.chapterPercentage ?? percentage))),
+    );
     const isCompleted = Boolean(body.isCompleted || percentage >= 98);
     const activeSeconds = Math.max(0, Math.min(90, Math.floor(Number(body.activeSeconds || 0))));
     const pageAdvanced = Boolean(body.pageAdvanced);
     const bookCompleted = Boolean(body.bookCompleted);
 
     if (!workId || !chapterId) {
-      return NextResponse.json({ success: false, error: 'Asar va bob talab qilinadi' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Asar va bob talab qilinadi' },
+        { status: 400 },
+      );
     }
 
     const adminClient = createAdminClient();
@@ -73,49 +85,45 @@ export async function POST(request: Request) {
     const lastReadAtIso = new Date(incomingTime).toISOString();
 
     // 1. Authoritative Reading Progress update (user_id + work_id unique constraint)
-    const { error: progressError } = await adminClient
-      .from('reading_progress')
-      .upsert(
-        {
-          user_id: profile.id,
-          work_id: workId,
-          chapter_id: chapterId,
-          page_index: pageIndex,
-          total_pages: totalPages,
-          paragraph_offset: paragraphOffset,
-          percentage,
-          is_completed: isCompleted,
-          last_read_at: lastReadAtIso,
-          updated_at: nowIso,
-        },
-        {
-          onConflict: 'user_id,work_id',
-        },
-      );
+    const { error: progressError } = await adminClient.from('reading_progress').upsert(
+      {
+        user_id: profile.id,
+        work_id: workId,
+        chapter_id: chapterId,
+        page_index: pageIndex,
+        total_pages: totalPages,
+        paragraph_offset: paragraphOffset,
+        percentage,
+        is_completed: isCompleted,
+        last_read_at: lastReadAtIso,
+        updated_at: nowIso,
+      },
+      {
+        onConflict: 'user_id,work_id',
+      },
+    );
 
     if (progressError) {
       console.warn('reading_progress upsert warning:', progressError.message);
     }
 
     // 2. Keep library_items aggregate view synced
-    await adminClient
-      .from('library_items')
-      .upsert(
-        {
-          user_id: profile.id,
-          work_id: workId,
-          last_read_chapter_id: chapterId,
-          reading_progress: percentage,
-          saved_state: isCompleted ? 'completed' : 'reading',
-          updated_at: nowIso,
-        },
-        {
-          onConflict: 'user_id,work_id',
-        },
-      );
+    await adminClient.from('library_items').upsert(
+      {
+        user_id: profile.id,
+        work_id: workId,
+        last_read_chapter_id: chapterId,
+        reading_progress: percentage,
+        saved_state: isCompleted ? 'completed' : 'reading',
+        updated_at: nowIso,
+      },
+      {
+        onConflict: 'user_id,work_id',
+      },
+    );
 
-    // A single atomic database function keeps streak, XP and analytics counters cheap.
-    // Older databases can keep saving progress until migration 033 is applied.
+    // A single bounded database call keeps completion milestones in sync.
+    // Migration 041 removes the former streak/XP writes from this function.
     const { error: activityError } = await adminClient.rpc('record_reading_activity', {
       p_user_id: profile.id,
       p_work_id: workId,
@@ -141,6 +149,9 @@ export async function POST(request: Request) {
       },
     });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'Server xatosi' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: err.message || 'Server xatosi' },
+      { status: 500 },
+    );
   }
 }

@@ -21,6 +21,8 @@ import { getPublicAuthor } from '@/lib/db/queries';
 import { WorkCard } from '@/components/work/WorkCard';
 import { FollowButton } from '@/components/social/FollowButton';
 import { AuthorProfileFeed } from '@/components/author/AuthorProfileFeed';
+import { AuthorConnections } from '@/components/author/AuthorConnections';
+import { ProfileShareButton } from '@/components/author/ProfileShareButton';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getCurrentProfile } from '@/lib/supabase/server';
 
@@ -42,7 +44,7 @@ interface AuthorPublicProfilePageProps {
 
 function sanitizeSocialUrl(
   network: 'telegram' | 'instagram' | 'youtube' | 'website',
-  value?: string | null
+  value?: string | null,
 ): string | null {
   if (network === 'telegram') return sanitizeTelegram(value);
   if (network === 'instagram') return sanitizeInstagram(value);
@@ -51,7 +53,9 @@ function sanitizeSocialUrl(
   return null;
 }
 
-export async function generateMetadata({ params }: AuthorPublicProfilePageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: AuthorPublicProfilePageProps): Promise<Metadata> {
   const result = await getPublicAuthor(params.username);
   if (!result || !result.author) {
     return { title: 'Muallif topilmadi' };
@@ -60,23 +64,23 @@ export async function generateMetadata({ params }: AuthorPublicProfilePageProps)
   const { author } = result;
   return {
     title: `${author.pen_name} — Muallif profili`,
-    description: author.biography || `${author.pen_name}ning Manbora platformasidagi sara kitoblari va hikoyalari.`,
+    description:
+      author.biography ||
+      `${author.pen_name}ning Manbora platformasidagi sara kitoblari va hikoyalari.`,
     alternates: {
       canonical: `/mualliflar/${params.username}`,
     },
   };
 }
 
-export default async function AuthorPublicProfilePage({
-  params,
-}: AuthorPublicProfilePageProps) {
+export default async function AuthorPublicProfilePage({ params }: AuthorPublicProfilePageProps) {
   const result = await getPublicAuthor(params.username);
 
   if (!result || !result.author) {
     notFound();
   }
 
-  const { author, works, totalWorks, totalReads, followerCount } = result;
+  const { author, works, totalWorks, totalReads, followerCount, followingCount } = result;
   const profile = author.profile;
   const currentViewer = await getCurrentProfile();
   const isOwnProfile = currentViewer?.id === author.user_id;
@@ -158,15 +162,19 @@ export default async function AuthorPublicProfilePage({
     <div className="space-y-8 sm:space-y-10 pb-16">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-[#78716C] font-semibold">
-        <Link href="/" className="hover:text-[#B45309]">Bosh sahifa</Link>
+        <Link href="/" className="hover:text-[#B45309]">
+          Bosh sahifa
+        </Link>
         <ChevronRight className="w-3.5 h-3.5 text-[#A8A29E]" />
-        <Link href="/mualliflar" className="hover:text-[#B45309]">Mualliflar</Link>
+        <Link href="/mualliflar" className="hover:text-[#B45309]">
+          Mualliflar
+        </Link>
         <ChevronRight className="w-3.5 h-3.5 text-[#A8A29E]" />
         <span className="text-[#1C1917]">{author.pen_name}</span>
       </nav>
 
       {/* Author Card */}
-      <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs">
+      <div className="bg-white rounded-3xl border border-[#EAE5DD] p-5 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
           {/* Avatar */}
           <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white flex items-center justify-center text-3xl font-black font-sans shadow-md shadow-[#B45309]/15 overflow-hidden shrink-0">
@@ -190,9 +198,7 @@ export default async function AuthorPublicProfilePage({
                 <span>Tasdiqlangan muallif</span>
               </span>
               {profile?.username && (
-                <span className="text-xs text-[#78716C] font-medium">
-                  @{profile.username}
-                </span>
+                <span className="text-xs text-[#78716C] font-medium">@{profile.username}</span>
               )}
             </div>
 
@@ -222,32 +228,48 @@ export default async function AuthorPublicProfilePage({
               </div>
             )}
 
-            {/* Public Statistics */}
-            <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-4 sm:gap-6 text-xs text-[#78716C] font-bold">
-              <div className="flex items-center gap-1.5">
-                <BookOpen className="w-4 h-4 text-[#B45309]" />
-                <span>{totalWorks} ta chop etilgan asar</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Eye className="w-4 h-4 text-[#B45309]" />
-                <span>{totalReads.toLocaleString('uz-UZ')} ta mutolaa</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-[#B45309]" />
-                <span>{followerCount} ta obunachi</span>
+            {/* Instagram-inspired, book-platform statistics */}
+            <div className="pt-2 flex flex-wrap items-stretch justify-center sm:justify-start gap-2">
+              <a
+                href="#asarlar"
+                className="min-h-[68px] min-w-[92px] rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-center hover:border-amber-300 hover:bg-amber-50 transition-colors"
+              >
+                <strong className="block text-xl text-stone-950">{totalWorks}</strong>
+                <span className="text-[11px] font-semibold text-stone-500">Asarlar</span>
+              </a>
+              <AuthorConnections
+                authorId={author.user_id}
+                followers={followerCount}
+                following={followingCount}
+              />
+              <div className="min-h-[68px] min-w-[92px] rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-center">
+                <strong className="block text-xl text-stone-950">
+                  {totalReads.toLocaleString('uz-UZ')}
+                </strong>
+                <span className="text-[11px] font-semibold text-stone-500">Mutolaa</span>
               </div>
             </div>
 
             {/* Follow Action */}
             <div className="pt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               {isOwnProfile ? (
-                <Link
-                  href="/muallif"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-colors shadow-2xs min-h-[44px]"
-                >
-                  <PenTool className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Muallif studiyasi</span>
-                </Link>
+                <>
+                  <Link
+                    href="/muallif"
+                    className="inline-flex items-center gap-1.5 px-5 py-2 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs transition-colors shadow-2xs min-h-[44px]"
+                  >
+                    <PenTool className="w-4 h-4" />
+                    <span>Muallif studiyasi</span>
+                  </Link>
+                  <Link
+                    href="/sozlamalar?tab=profile"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-colors min-h-[44px]"
+                  >
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span>Profilni tahrirlash</span>
+                  </Link>
+                  <ProfileShareButton authorName={author.pen_name} />
+                </>
               ) : (
                 <FollowButton
                   type="author"
@@ -304,7 +326,7 @@ export default async function AuthorPublicProfilePage({
       )}
 
       {/* Author Works & Posts Feed with Tabs and Sharing */}
-      <section className="space-y-4">
+      <section id="asarlar" className="space-y-4 scroll-mt-24">
         <AuthorProfileFeed
           works={works}
           posts={authorPosts || []}

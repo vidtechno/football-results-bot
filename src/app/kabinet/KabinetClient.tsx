@@ -1352,6 +1352,15 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           isOpen={isTopupOpen}
           onClose={() => setIsTopupOpen(false)}
           userBalance={balance || 0}
+          userName={
+            profile?.display_name ||
+            user?.user_metadata?.display_name ||
+            user?.user_metadata?.full_name ||
+            user?.email?.split('@')[0] ||
+            'Foydalanuvchi'
+          }
+          publicId={profile?.public_id || 'Noma’lum'}
+          userEmail={user?.email}
         />
       )}
     </div>

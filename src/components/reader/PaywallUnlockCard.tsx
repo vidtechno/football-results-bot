@@ -328,8 +328,14 @@ export function PaywallUnlockCard({
         isOpen={showTopupModal}
         onClose={() => setShowTopupModal(false)}
         userBalance={currentBalance}
-        userName={profile?.display_name || 'Foydalanuvchi'}
-        publicId={profile?.public_id || 'MB-00000000'}
+        userName={
+          profile?.display_name ||
+          user?.user_metadata?.display_name ||
+          user?.user_metadata?.full_name ||
+          user?.email?.split('@')[0] ||
+          'Foydalanuvchi'
+        }
+        publicId={profile?.public_id || 'Noma’lum'}
         userEmail={user?.email}
         targetItem={{
           title: isFullWork ? (workTitle || 'To‘liq kitob') : chapterTitle,

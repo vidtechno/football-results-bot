@@ -40,7 +40,7 @@ export function TopupModal({
   onClose,
   userBalance = 0,
   userName = 'Foydalanuvchi',
-  publicId = 'MB-00000000',
+  publicId = 'Noma’lum',
   userEmail,
   targetItem,
 }: TopupModalProps) {

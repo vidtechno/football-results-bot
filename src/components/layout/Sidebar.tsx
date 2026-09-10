@@ -26,7 +26,7 @@ import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
   const pathname = usePathname();
-  const { user, author, isAdmin } = useAuth();
+  const { user, profile, author, isAdmin } = useAuth();
   const { unreadCount } = useNotifications();
 
   // Primary navigation links
@@ -106,6 +106,8 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
   ];
 
   const isAuthor = Boolean(author && author.status === 'approved');
+  const cabinetHref =
+    isAuthor && profile?.username ? `/mualliflar/${profile.username}` : '/kabinet';
 
   return (
     <aside
@@ -171,10 +173,10 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
             </p>
             <nav className="space-y-1">
               <Link
-                href="/kabinet"
+                href={cabinetHref}
                 className={clsx(
                   'flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group',
-                  pathname === '/kabinet'
+                  pathname === cabinetHref
                     ? 'bg-emerald-800 text-white font-bold shadow-xs'
                     : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200/60',
                 )}

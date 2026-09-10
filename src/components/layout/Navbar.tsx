@@ -29,6 +29,10 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const cabinetHref =
+    author?.status === 'approved' && profile?.username
+      ? `/mualliflar/${profile.username}`
+      : '/kabinet';
 
   // Close profile dropdown on click outside
   useEffect(() => {
@@ -97,7 +101,7 @@ export function Navbar() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Asar, muallif yoki janr qidirish..."
-            className="nav-search w-full pl-10 pr-16 py-2.5 rounded-2xl bg-white/90 border border-[#EAE5DD] focus:bg-white focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100/70 outline-hidden text-xs text-[#1C1917] placeholder-stone-400 transition-all duration-300 shadow-2xs"
+              className="nav-search w-full pl-10 pr-16 py-2.5 rounded-2xl bg-white/90 border border-[#EAE5DD] focus:bg-white focus:border-emerald-700 focus:ring-4 focus:ring-emerald-100/70 outline-hidden text-xs text-[#1C1917] placeholder-stone-400 transition-all duration-300 shadow-2xs"
             />
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
               <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-[10px] font-bold text-stone-500">
@@ -171,12 +175,14 @@ export function Navbar() {
 
                     <div className="py-1">
                       <Link
-                        href="/kabinet"
+                        href={cabinetHref}
                         onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-2.5 px-4 py-2 text-stone-700 hover:bg-stone-100 transition-colors font-medium"
                       >
                         <User className="w-4 h-4 text-stone-400" />
-                        <span>Mening kabinetim</span>
+                        <span>
+                          {author?.status === 'approved' ? 'Mening profilim' : 'Mening kabinetim'}
+                        </span>
                       </Link>
                       <Link
                         href="/kutubxona"

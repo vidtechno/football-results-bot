@@ -109,7 +109,10 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
           : Promise.resolve({ data: null }),
       ])
     : Promise.resolve([{ count: 0 }, { data: null }] as any);
-  const [chapterAccessMap, [{ count }, followCheck]] = await Promise.all([accessPromise, followPromise]);
+  const [chapterAccessMap, [{ count }, followCheck]] = await Promise.all([
+    accessPromise,
+    followPromise,
+  ]);
   const followerCount = count || 0;
   const initialIsFollowing = Boolean(followCheck.data);
   // Check if first chapter is unlocked (which indicates active purchase entitlement or author access)
@@ -286,6 +289,16 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                 initialIsFollowing={initialIsFollowing}
                 initialFollowerCount={followerCount}
               />
+
+              {authorUsername && (
+                <Link
+                  href={`/mualliflar/${authorUsername}`}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-xs font-black text-emerald-900 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+                >
+                  <User className="h-4 w-4" />
+                  <span>Muallif profilini ko‘rish</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>

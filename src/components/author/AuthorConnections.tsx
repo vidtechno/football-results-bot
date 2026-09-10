@@ -38,7 +38,7 @@ export function AuthorConnections({
       <button
         type="button"
         onClick={() => show('followers')}
-        className="min-h-[68px] min-w-[92px] rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-center hover:border-amber-300 hover:bg-amber-50 transition-colors"
+        className="flex min-h-[78px] w-full min-w-0 flex-col items-center justify-center rounded-2xl bg-white px-3 text-center shadow-xs transition-colors hover:bg-amber-50"
       >
         <strong className="block text-xl text-stone-950">
           {followers.toLocaleString('uz-UZ')}
@@ -48,7 +48,7 @@ export function AuthorConnections({
       <button
         type="button"
         onClick={() => show('following')}
-        className="min-h-[68px] min-w-[92px] rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-center hover:border-amber-300 hover:bg-amber-50 transition-colors"
+        className="flex min-h-[78px] w-full min-w-0 flex-col items-center justify-center rounded-2xl bg-white px-3 text-center shadow-xs transition-colors hover:bg-amber-50"
       >
         <strong className="block text-xl text-stone-950">
           {following.toLocaleString('uz-UZ')}

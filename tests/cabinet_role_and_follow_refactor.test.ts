@@ -58,6 +58,35 @@ describe('author follow integrity and public profile', () => {
     expect(page).toContain('followingCount');
     expect(connections).toContain("type: 'followers' | 'following'");
   });
+
+  it('keeps recent chapters off the public profile and shows private cabinet data only to its owner', () => {
+    const page = read('src/app/mualliflar/[username]/page.tsx');
+    const ownerPanel = read('src/components/author/AuthorOwnerPanel.tsx');
+    expect(page).not.toContain('So‘nggi chiqqan boblar');
+    expect(page).not.toContain(".from('chapters')");
+    expect(page).toContain('isOwnProfile && <AuthorOwnerPanel />');
+    expect(ownerPanel).toContain('Faqat sizga ko‘rinadi');
+    expect(ownerPanel).toContain('Mutolaani davom ettirish');
+    expect(ownerPanel).toContain('Mening kutubxonam');
+  });
+
+  it('routes approved authors to their own profile and exposes ordered owner actions', () => {
+    const sidebar = read('src/components/layout/Sidebar.tsx');
+    const navbar = read('src/components/layout/Navbar.tsx');
+    const page = read('src/app/mualliflar/[username]/page.tsx');
+    expect(sidebar).toContain('`/mualliflar/${profile.username}`');
+    expect(sidebar).toContain('href={cabinetHref}');
+    expect(navbar).toContain('href={cabinetHref}');
+    expect(page).toContain('Muallif studiyasi');
+    expect(page).toContain('Asar yaratish');
+    expect(page).toContain('Profilni tahrirlash');
+  });
+
+  it('links every work detail to its public author profile', () => {
+    const workPage = read('src/app/asarlar/[slug]/page.tsx');
+    expect(workPage).toContain('Muallif profilini ko‘rish');
+    expect(workPage).toContain('href={`/mualliflar/${authorUsername}`}');
+  });
 });
 
 describe('streak runtime removal', () => {

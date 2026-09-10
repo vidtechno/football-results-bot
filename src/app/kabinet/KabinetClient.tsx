@@ -525,8 +525,8 @@ function KabinetContent({
   return (
     <div className="space-y-6 sm:space-y-8 pb-16">
       {/* Header Profile & Balance Bar */}
-      <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col items-start justify-between gap-6 rounded-3xl border border-[#EAE5DD] bg-white p-6 shadow-xs sm:p-8 xl:flex-row xl:items-center">
+        <div className="flex min-w-0 items-center gap-4">
           <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#1C1917] text-white flex items-center justify-center font-sans font-black text-xl sm:text-2xl shadow-md shadow-[#1C1917]/10 shrink-0 overflow-hidden">
             {avatarUrl ? (
               <Image src={avatarUrl} alt="Avatar" fill className="object-cover" />
@@ -590,7 +590,7 @@ function KabinetContent({
         </div>
 
         {/* Balance Card & Author Studio Link */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+        <div className="flex w-full flex-wrap items-stretch gap-2 xl:w-auto xl:justify-end">
           {mode === 'dashboard' && (
             <Link
               href="/sozlamalar?tab=profile"
@@ -603,7 +603,7 @@ function KabinetContent({
           {authLoading ? (
             <Skeleton className="h-10 w-36 rounded-2xl" />
           ) : author && author.status === 'approved' ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <>
               <Link
                 href="/muallif"
                 className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-800 border border-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors"
@@ -627,7 +627,7 @@ function KabinetContent({
                   <span>Ommaviy profil</span>
                 </Link>
               )}
-            </div>
+            </>
           ) : (
             <Link
               href="/muallif-boling"
@@ -640,12 +640,12 @@ function KabinetContent({
             </Link>
           )}
 
-          <div className="flex items-center justify-between gap-4 bg-[#FAF8F5] border border-[#EAE5DD] rounded-2xl p-3 sm:px-5">
+          <div className="flex min-w-[220px] flex-1 items-center justify-between gap-4 rounded-2xl border border-[#EAE5DD] bg-[#FAF8F5] p-3 sm:flex-none sm:px-5">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#B45309] block">
                 Kitobxon balansi
               </span>
-              <span className="text-base sm:text-lg font-black font-mono text-[#1C1917]">
+              <span className="whitespace-nowrap text-base font-black font-mono text-[#1C1917] sm:text-lg">
                 {balance !== null ? formatUZS(balance) : <Skeleton className="h-6 w-24" />}
               </span>
             </div>

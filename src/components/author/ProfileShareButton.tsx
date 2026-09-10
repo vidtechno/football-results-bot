@@ -20,7 +20,7 @@ export function ProfileShareButton({ authorName }: { authorName: string }) {
     <button
       type="button"
       onClick={share}
-      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-white hover:bg-stone-50 text-stone-800 border border-stone-200 font-bold text-xs min-h-[44px]"
+      className="inline-flex min-h-[46px] items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 text-xs font-black text-stone-700 transition-colors hover:bg-stone-50"
     >
       {copied ? <Check className="w-4 h-4 text-emerald-700" /> : <Share2 className="w-4 h-4" />}
       <span>{copied ? 'Havola nusxalandi' : 'Profilni ulashish'}</span>

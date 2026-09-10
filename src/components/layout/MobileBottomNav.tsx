@@ -11,9 +11,11 @@ import { NOTIFICATIONS_ENABLED } from '@/lib/config/features';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const { user, author } = useAuth();
+  const { user, profile, author } = useAuth();
   const { unreadCount } = useNotifications();
   const isAuthor = Boolean(author && author.status === 'approved');
+  const profileHref =
+    isAuthor && profile?.username ? `/mualliflar/${profile.username}` : '/kabinet';
 
   // Also hide inside admin panel (/diyoration)
   if (pathname.startsWith('/diyoration')) {
@@ -63,11 +65,11 @@ export function MobileBottomNav() {
       activePattern: '/muallif',
     },
     {
-      href: user ? '/kabinet' : '/kirish',
+      href: user ? profileHref : '/kirish',
       label: 'Profil',
       icon: User,
       exact: false,
-      activePattern: user ? '/kabinet' : '/kirish',
+      activePattern: user ? profileHref : '/kirish',
     },
   ];
 

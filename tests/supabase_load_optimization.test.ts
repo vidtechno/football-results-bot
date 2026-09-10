@@ -69,7 +69,7 @@ describe('Supabase load optimization', () => {
   it('loads public work data and viewer identity in parallel', () => {
     const page = read('src/app/asarlar/[slug]/page.tsx');
     expect(page).toContain('Promise.all([profilePromise, publicWorkPromise])');
-    expect(page).toContain('Promise.all([accessPromise, followPromise])');
+    expect(page).toMatch(/Promise\.all\(\[\s*accessPromise,\s*followPromise,?\s*\]\)/);
   });
 
   it('renders the cabinet shell without blocking on duplicate server-side user queries', () => {

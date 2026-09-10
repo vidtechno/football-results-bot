@@ -6,23 +6,20 @@ import type { Metadata } from 'next';
 import {
   BookOpen,
   ChevronRight,
-  Eye,
-  Users,
-  Sparkles,
   CheckCircle,
-  Clock,
   Globe,
   Send,
   Instagram,
   Youtube,
   PenTool,
+  PlusCircle,
 } from 'lucide-react';
 import { getPublicAuthor } from '@/lib/db/queries';
-import { WorkCard } from '@/components/work/WorkCard';
 import { FollowButton } from '@/components/social/FollowButton';
 import { AuthorProfileFeed } from '@/components/author/AuthorProfileFeed';
 import { AuthorConnections } from '@/components/author/AuthorConnections';
 import { ProfileShareButton } from '@/components/author/ProfileShareButton';
+import { AuthorOwnerPanel } from '@/components/author/AuthorOwnerPanel';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getCurrentProfile } from '@/lib/supabase/server';
 
@@ -93,27 +90,6 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
     .order('pinned', { ascending: false })
     .order('created_at', { ascending: false });
 
-  // Fetch author's latest published chapters across all works
-  const workIds = works.map((w) => w.id);
-  let recentChapters: any[] = [];
-  if (workIds.length > 0) {
-    const { data: chaps } = await admin
-      .from('chapters')
-      .select('id, work_id, chapter_number, title, slug, published_at, created_at')
-      .eq('status', 'published')
-      .in('work_id', workIds)
-      .order('published_at', { ascending: false })
-      .limit(6);
-
-    if (chaps && chaps.length > 0) {
-      const workMap = new Map(works.map((w) => [w.id, w]));
-      recentChapters = chaps.map((c) => ({
-        ...c,
-        work: workMap.get(c.work_id),
-      }));
-    }
-  }
-
   // Parse and prepare social links whitelist
   const rawSocials = (profile?.social_links as any) || {};
   const socialsList: { key: string; label: string; url: string; icon: React.ReactNode }[] = [];
@@ -173,53 +149,55 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
         <span className="text-[#1C1917]">{author.pen_name}</span>
       </nav>
 
-      {/* Author Card */}
-      <div className="bg-white rounded-3xl border border-[#EAE5DD] p-5 sm:p-8 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
-          {/* Avatar */}
-          <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white flex items-center justify-center text-3xl font-black font-sans shadow-md shadow-[#B45309]/15 overflow-hidden shrink-0">
+      {/* Author identity */}
+      <section className="relative overflow-hidden rounded-[32px] border border-[#E7E0D5] bg-white shadow-[0_22px_60px_-42px_rgba(28,25,23,0.45)]">
+        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-emerald-950 via-emerald-800 to-amber-700 sm:h-32" />
+        <div className="absolute right-[-5rem] top-[-8rem] h-64 w-64 rounded-full border-[38px] border-white/10" />
+        <div className="relative grid gap-6 px-5 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20 lg:grid-cols-[128px_minmax(0,1fr)_330px] lg:items-end">
+          <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-[28px] border-4 border-white bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white shadow-xl sm:h-32 sm:w-32 lg:mx-0">
             {profile?.avatar_url ? (
               <Image
                 src={profile.avatar_url}
                 alt={author.pen_name}
                 fill
                 className="object-cover"
-                sizes="(max-width: 640px) 96px, 112px"
+                sizes="128px"
               />
             ) : (
-              <span>{author.pen_name.slice(0, 1).toUpperCase()}</span>
+              <span className="absolute inset-0 flex items-center justify-center text-4xl font-black">
+                {author.pen_name.slice(0, 1).toUpperCase()}
+              </span>
             )}
           </div>
 
-          <div className="space-y-3 flex-1">
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-[#FEF3C7] text-[#92400E] text-xs font-black uppercase tracking-wide border border-[#FDE68A]">
+          <div className="min-w-0 space-y-3 text-center lg:text-left">
+            <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-900">
                 <CheckCircle className="w-3.5 h-3.5 text-amber-700" />
                 <span>Tasdiqlangan muallif</span>
               </span>
               {profile?.username && (
-                <span className="text-xs text-[#78716C] font-medium">@{profile.username}</span>
+                <span className="text-xs font-bold text-stone-500">@{profile.username}</span>
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black font-sans text-[#1C1917] tracking-tight">
+            <h1 className="text-3xl font-black tracking-[-0.035em] text-stone-950 sm:text-4xl">
               {author.pen_name}
             </h1>
 
-            <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed font-medium max-w-xl">
+            <p className="mx-auto max-w-2xl text-sm font-medium leading-relaxed text-stone-600 lg:mx-0">
               {author.biography || 'Muallif hali o‘zi haqida ma’lumot qoldirmagan.'}
             </p>
 
-            {/* Social Links */}
             {socialsList.length > 0 && (
-              <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1 lg:justify-start">
                 {socialsList.map((s) => (
                   <a
                     key={s.key}
                     href={s.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-stone-100 hover:bg-amber-50 hover:text-amber-900 border border-stone-200 text-stone-700 text-xs font-bold transition-all shadow-2xs"
+                    className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-stone-200 bg-stone-50 px-3 text-xs font-bold text-stone-700 transition-colors hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900"
                   >
                     {s.icon}
                     <span>{s.label}</span>
@@ -228,45 +206,26 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
               </div>
             )}
 
-            {/* Instagram-inspired, book-platform statistics */}
-            <div className="pt-2 flex flex-wrap items-stretch justify-center sm:justify-start gap-2">
-              <a
-                href="#asarlar"
-                className="min-h-[68px] min-w-[92px] rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-center hover:border-amber-300 hover:bg-amber-50 transition-colors"
-              >
-                <strong className="block text-xl text-stone-950">{totalWorks}</strong>
-                <span className="text-[11px] font-semibold text-stone-500">Asarlar</span>
-              </a>
-              <AuthorConnections
-                authorId={author.user_id}
-                followers={followerCount}
-                following={followingCount}
-              />
-              <div className="min-h-[68px] min-w-[92px] rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-center">
-                <strong className="block text-xl text-stone-950">
-                  {totalReads.toLocaleString('uz-UZ')}
-                </strong>
-                <span className="text-[11px] font-semibold text-stone-500">Mutolaa</span>
-              </div>
-            </div>
-
-            {/* Follow Action */}
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+            <div className="grid grid-cols-2 gap-2 pt-2 sm:flex sm:flex-wrap sm:justify-center lg:justify-start">
               {isOwnProfile ? (
                 <>
                   <Link
                     href="/muallif"
-                    className="inline-flex items-center gap-1.5 px-5 py-2 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs transition-colors shadow-2xs min-h-[44px]"
+                    className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 text-xs font-black text-white transition-colors hover:bg-emerald-900"
                   >
-                    <PenTool className="w-4 h-4" />
-                    <span>Muallif studiyasi</span>
+                    <PenTool className="h-4 w-4" /> Muallif studiyasi
+                  </Link>
+                  <Link
+                    href="/muallif/asar/yangi"
+                    className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-black text-white transition-colors hover:bg-amber-700"
+                  >
+                    <PlusCircle className="h-4 w-4" /> Asar yaratish
                   </Link>
                   <Link
                     href="/sozlamalar?tab=profile"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-colors min-h-[44px]"
+                    className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-xs font-black text-stone-700 transition-colors hover:bg-stone-50"
                   >
-                    <PenTool className="w-3.5 h-3.5" />
-                    <span>Profilni tahrirlash</span>
+                    Profilni tahrirlash
                   </Link>
                   <ProfileShareButton authorName={author.pen_name} />
                 </>
@@ -279,51 +238,35 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
               )}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* So‘nggi chiqqan boblar */}
-      {recentChapters.length > 0 && (
-        <section className="bg-white rounded-3xl border border-[#EAE5DD] p-5 sm:p-7 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-600" />
-              <h2 className="font-sans font-black text-lg text-stone-900">
-                So‘nggi chiqqan boblar
-              </h2>
+          <div className="grid grid-cols-2 gap-2 rounded-3xl border border-stone-200/80 bg-[#FAF8F5] p-2.5 shadow-inner sm:grid-cols-4 lg:grid-cols-2">
+            <a
+              href="#asarlar"
+              className="flex min-h-[78px] flex-col items-center justify-center rounded-2xl bg-white px-3 text-center shadow-xs transition-colors hover:bg-amber-50"
+            >
+              <strong className="text-2xl font-black text-stone-950">{totalWorks}</strong>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                Asarlar
+              </span>
+            </a>
+            <AuthorConnections
+              authorId={author.user_id}
+              followers={followerCount}
+              following={followingCount}
+            />
+            <div className="flex min-h-[78px] flex-col items-center justify-center rounded-2xl bg-white px-3 text-center shadow-xs">
+              <strong className="text-2xl font-black text-stone-950">
+                {totalReads.toLocaleString('uz-UZ')}
+              </strong>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                Mutolaa
+              </span>
             </div>
-            <span className="text-[11px] text-stone-500 font-bold">
-              {recentChapters.length} ta yangi bob
-            </span>
           </div>
+        </div>
+      </section>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {recentChapters.map((chap) => (
-              <Link
-                key={chap.id}
-                href={`/asarlar/${chap.work?.slug || chap.work_id}/${chap.slug || chap.id}`}
-                className="group block p-3.5 rounded-2xl bg-stone-50 hover:bg-amber-50/60 border border-stone-200/80 hover:border-amber-300/80 transition-all shadow-2xs"
-              >
-                <div className="flex items-center justify-between text-[11px] text-stone-500 font-medium mb-1">
-                  <span className="truncate max-w-[140px] font-bold text-amber-800">
-                    {chap.work?.title}
-                  </span>
-                  <span>
-                    {new Date(chap.published_at || chap.created_at).toLocaleDateString('uz-UZ')}
-                  </span>
-                </div>
-                <h3 className="font-sans font-bold text-sm text-stone-900 group-hover:text-amber-900 transition-colors line-clamp-1">
-                  {chap.chapter_number}-bob: {chap.title}
-                </h3>
-                <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-amber-700 group-hover:text-amber-800">
-                  <span>Mutolaa qilish</span>
-                  <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+      {isOwnProfile && <AuthorOwnerPanel />}
 
       {/* Author Works & Posts Feed with Tabs and Sharing */}
       <section id="asarlar" className="space-y-4 scroll-mt-24">

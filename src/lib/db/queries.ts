@@ -1016,7 +1016,7 @@ export const getPublicAuthor = requestCache(async function getPublicAuthor(ident
         .select(
           `
       *,
-      profile:profiles(id, display_name, username, avatar_url, social_links)
+      profile:profiles(id, display_name, username, avatar_url, bio, social_links)
     `,
         )
         .or(`user_id.eq.${identifier},id.eq.${identifier}`)
@@ -1038,7 +1038,7 @@ export const getPublicAuthor = requestCache(async function getPublicAuthor(ident
         .select(
           `
           *,
-          profile:profiles(id, display_name, username, avatar_url, social_links)
+          profile:profiles(id, display_name, username, avatar_url, bio, social_links)
         `,
         )
         .eq('user_id', profile.id)

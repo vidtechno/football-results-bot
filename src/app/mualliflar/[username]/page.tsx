@@ -150,11 +150,9 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
       </nav>
 
       {/* Author identity */}
-      <section className="relative overflow-hidden rounded-[32px] border border-[#E7E0D5] bg-white shadow-[0_22px_60px_-42px_rgba(28,25,23,0.45)]">
-        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-emerald-950 via-emerald-800 to-amber-700 sm:h-32" />
-        <div className="absolute right-[-5rem] top-[-8rem] h-64 w-64 rounded-full border-[38px] border-white/10" />
-        <div className="relative grid gap-6 px-5 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20 lg:grid-cols-[128px_minmax(0,1fr)_330px] lg:items-end">
-          <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-[28px] border-4 border-white bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white shadow-xl sm:h-32 sm:w-32 lg:mx-0">
+      <section className="rounded-[30px] border border-[#E7E0D5] bg-white p-5 shadow-[0_22px_60px_-42px_rgba(28,25,23,0.38)] sm:p-8">
+        <div className="grid gap-6 lg:grid-cols-[112px_minmax(0,1fr)] lg:items-start">
+          <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-[26px] border border-stone-200 bg-stone-100 text-stone-800 shadow-md lg:mx-0">
             {profile?.avatar_url ? (
               <Image
                 src={profile.avatar_url}
@@ -186,7 +184,7 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
             </h1>
 
             <p className="mx-auto max-w-2xl text-sm font-medium leading-relaxed text-stone-600 lg:mx-0">
-              {author.biography || 'Muallif hali o‘zi haqida ma’lumot qoldirmagan.'}
+              {profile?.bio || author.biography || 'Muallif hali o‘zi haqida ma’lumot qoldirmagan.'}
             </p>
 
             {socialsList.length > 0 && (
@@ -205,6 +203,29 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
                 ))}
               </div>
             )}
+
+            <div className="overflow-x-auto py-1 no-scrollbar">
+              <div className="mx-auto flex w-max min-w-full items-center justify-center divide-x divide-stone-200 lg:mx-0 lg:min-w-0 lg:justify-start">
+                <a
+                  href="#asarlar"
+                  className="flex min-h-[52px] min-w-[82px] flex-col items-center justify-center px-3 text-center transition-colors hover:text-amber-800"
+                >
+                  <strong className="text-xl font-black text-stone-950">{totalWorks}</strong>
+                  <span className="text-[11px] font-semibold text-stone-500">Asarlar</span>
+                </a>
+                <AuthorConnections
+                  authorId={author.user_id}
+                  followers={followerCount}
+                  following={followingCount}
+                />
+                <div className="flex min-h-[52px] min-w-[82px] flex-col items-center justify-center px-3 text-center">
+                  <strong className="text-xl font-black text-stone-950">
+                    {totalReads.toLocaleString('uz-UZ')}
+                  </strong>
+                  <span className="text-[11px] font-semibold text-stone-500">Mutolaa</span>
+                </div>
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2 sm:flex sm:flex-wrap sm:justify-center lg:justify-start">
               {isOwnProfile ? (
@@ -236,31 +257,6 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
                   initialFollowerCount={followerCount}
                 />
               )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 rounded-3xl border border-stone-200/80 bg-[#FAF8F5] p-2.5 shadow-inner sm:grid-cols-4 lg:grid-cols-2">
-            <a
-              href="#asarlar"
-              className="flex min-h-[78px] flex-col items-center justify-center rounded-2xl bg-white px-3 text-center shadow-xs transition-colors hover:bg-amber-50"
-            >
-              <strong className="text-2xl font-black text-stone-950">{totalWorks}</strong>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Asarlar
-              </span>
-            </a>
-            <AuthorConnections
-              authorId={author.user_id}
-              followers={followerCount}
-              following={followingCount}
-            />
-            <div className="flex min-h-[78px] flex-col items-center justify-center rounded-2xl bg-white px-3 text-center shadow-xs">
-              <strong className="text-2xl font-black text-stone-950">
-                {totalReads.toLocaleString('uz-UZ')}
-              </strong>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Mutolaa
-              </span>
             </div>
           </div>
         </div>

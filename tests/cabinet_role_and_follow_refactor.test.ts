@@ -59,6 +59,15 @@ describe('author follow integrity and public profile', () => {
     expect(connections).toContain("type: 'followers' | 'following'");
   });
 
+  it('uses the edited account bio as the public author biography', () => {
+    const page = read('src/app/mualliflar/[username]/page.tsx');
+    const queries = read('src/lib/db/queries.ts');
+    const profileRoute = read('src/app/api/user/profile/route.ts');
+    expect(queries).toContain('avatar_url, bio, social_links');
+    expect(page).toContain('profile?.bio || author.biography');
+    expect(profileRoute).toContain('authorUpdates.biography = updates.bio');
+  });
+
   it('keeps recent chapters off the public profile and shows private cabinet data only to its owner', () => {
     const page = read('src/app/mualliflar/[username]/page.tsx');
     const ownerPanel = read('src/components/author/AuthorOwnerPanel.tsx');

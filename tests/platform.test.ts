@@ -1236,9 +1236,7 @@ describe('Manual Balance Top-up Journey, Manbora Public ID & Admin Management', 
 
     it('returns default fallback admin username when environment variable is not set', () => {
       const defaultUsername = getAdminTelegramUsername();
-      expect(defaultUsername).toBeDefined();
-      expect(typeof defaultUsername).toBe('string');
-      expect(defaultUsername.length).toBeGreaterThan(0);
+      expect(defaultUsername).toBe('manbora_admin');
     });
   });
 

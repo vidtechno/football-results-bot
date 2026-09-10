@@ -73,15 +73,8 @@ export function generateTelegramTopupMessage(params: TelegramTopupMessageParams)
   return lines.join('\n');
 }
 
-/**
- * Returns the administrative Telegram contact username configured via environment.
- * Falls back to a placeholder identifier without exposing personal secrets in source code.
- */
+/** Returns Manbora's single official payment and support Telegram account. */
 export function getAdminTelegramUsername(): string {
-  const envUsername = process.env.NEXT_PUBLIC_ADMIN_TELEGRAM_USERNAME;
-  if (envUsername && envUsername.trim() !== '') {
-    return envUsername.trim().replace(/^@/, '');
-  }
   return 'manbora_admin';
 }
 

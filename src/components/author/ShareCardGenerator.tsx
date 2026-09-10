@@ -27,6 +27,11 @@ export interface ShareCardGeneratorProps {
   initialChapterId?: string | null;
 }
 
+export const PROMO_CARD_DIMENSIONS = {
+  story: { width: 1080, height: 1920 },
+  post: { width: 1080, height: 1350 },
+} as const;
+
 /**
  * Builds canonical promotional URL for works or chapters.
  * Strictly guarantees https://manbora.uz (never localhost, www, or vercel).
@@ -83,8 +88,7 @@ export function ShareCardGenerator({
     setGenerateError(null);
 
     const isStory = format === "story";
-    const width = isStory ? 1080 : 1200;
-    const height = isStory ? 1920 : 628;
+    const { width, height } = PROMO_CARD_DIMENSIONS[format];
 
     canvas.width = width;
     canvas.height = height;
@@ -274,15 +278,15 @@ export function ShareCardGenerator({
         ctx.font = "500 22px system-ui, sans-serif";
         ctx.fillText("Manbora — o‘zbek adabiyoti va hikoyalari platformasi", width / 2, 1780);
       } else {
-        // Horizontal Post Layout (1200x628)
-        const coverW = 240;
-        const coverH = 350;
+        // Telegram / social feed portrait layout (1080x1350, 4:5)
+        const coverW = 300;
+        const coverH = 450;
         const coverX = 80;
-        const coverY = 140;
+        const coverY = 230;
 
         ctx.save();
         ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-        ctx.shadowBlur = 30;
+        ctx.shadowBlur = 35;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 15;
 
@@ -292,7 +296,7 @@ export function ShareCardGenerator({
           ctx.fillStyle = "#38322E";
           ctx.fillRect(coverX, coverY, coverW, coverH);
           ctx.fillStyle = "#EAE5DD";
-          ctx.font = "bold 20px serif";
+          ctx.font = "bold 24px serif";
           ctx.textAlign = "center";
           ctx.fillText(work.title, coverX + coverW / 2, coverY + coverH / 2);
         }
@@ -302,52 +306,52 @@ export function ShareCardGenerator({
         ctx.lineWidth = 2;
         ctx.strokeRect(coverX, coverY, coverW, coverH);
 
-        const textX = 360;
+        const textX = 430;
         ctx.textAlign = "left";
 
         // Title
         ctx.fillStyle = "#FAF8F5";
-        ctx.font = "bold 38px 'Playfair Display', Georgia, serif";
-        ctx.fillText(work.title, textX, 200, 480);
+        ctx.font = "bold 44px 'Playfair Display', Georgia, serif";
+        ctx.fillText(work.title, textX, 300, 570);
 
         // Chapter Subtitle if "Yangi bob"
         if (cardType === "chapter" && selectedChapter) {
           ctx.fillStyle = "#38BDF8";
-          ctx.font = "bold 20px system-ui, sans-serif";
+          ctx.font = "bold 22px system-ui, sans-serif";
           ctx.fillText(
             `Yangi bob: ${selectedChapter.chapterNumber}-bob. ${selectedChapter.title || ""}`,
             textX,
-            238,
-            480
+            350,
+            570
           );
         }
 
         // Author
         ctx.fillStyle = "#F59E0B";
-        ctx.font = "bold 22px system-ui, sans-serif";
-        ctx.fillText(`Muallif: ${work.authorPenName}`, textX, cardType === "chapter" ? 275 : 245);
+        ctx.font = "bold 24px system-ui, sans-serif";
+        ctx.fillText(`Muallif: ${work.authorPenName}`, textX, cardType === "chapter" ? 405 : 365, 570);
 
         // Quote
         if (quote.trim()) {
           ctx.fillStyle = "#D6D3D1";
-          ctx.font = "italic 20px Georgia, serif";
-          ctx.fillText(`“${quote.trim()}”`, textX, cardType === "chapter" ? 335 : 315, 480);
+          ctx.font = "italic 23px Georgia, serif";
+          ctx.fillText(`“${quote.trim()}”`, textX, cardType === "chapter" ? 485 : 455, 570);
         }
 
         // Reading URL badge
         ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
         ctx.beginPath();
-        ctx.roundRect(textX, 450, 340, 52, 14);
+        ctx.roundRect(textX, 610, 440, 58, 14);
         ctx.fill();
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = "bold 18px system-ui, sans-serif";
-        ctx.fillText("manbora.uz da mutolaa qiling", textX + 20, 483);
+        ctx.font = "bold 20px system-ui, sans-serif";
+        ctx.fillText("manbora.uz da mutolaa qiling", textX + 22, 648);
 
-        // QR Code Card on Right Side (safe within 1200x628)
-        const qrX = 890;
-        const qrY = 130;
-        const qrW = 240;
-        const qrH = 370;
+        // Large QR area with an intact quiet zone for reliable phone scanning.
+        const qrX = 80;
+        const qrY = 790;
+        const qrW = 920;
+        const qrH = 390;
 
         ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
         ctx.beginPath();
@@ -360,22 +364,27 @@ export function ShareCardGenerator({
         // White card with quiet zone
         ctx.fillStyle = "#FFFFFF";
         ctx.beginPath();
-        ctx.roundRect(qrX + 20, qrY + 20, 200, 200, 16);
+        ctx.roundRect(qrX + 35, qrY + 35, 300, 300, 20);
         ctx.fill();
-        ctx.drawImage(qrImg, qrX + 20, qrY + 20, 200, 200);
+        ctx.drawImage(qrImg, qrX + 45, qrY + 45, 280, 280);
 
-        ctx.textAlign = "center";
+        ctx.textAlign = "left";
         ctx.fillStyle = "#FAF8F5";
-        ctx.font = "bold 17px system-ui, sans-serif";
-        ctx.fillText(cardType === "chapter" ? "Bobni o‘qish" : "Hoziroq o‘qing", qrX + qrW / 2, qrY + 260);
+        ctx.font = "bold 30px system-ui, sans-serif";
+        ctx.fillText(cardType === "chapter" ? "Bobni o‘qing" : "Hoziroq o‘qing", qrX + 390, qrY + 130);
 
         ctx.fillStyle = "#A8A29E";
-        ctx.font = "500 14px system-ui, sans-serif";
-        ctx.fillText("Kamerani qarating", qrX + qrW / 2, qrY + 290);
+        ctx.font = "500 21px system-ui, sans-serif";
+        ctx.fillText("Telefon kamerasini QR-kodga qarating", qrX + 390, qrY + 180);
 
         ctx.fillStyle = "#F59E0B";
-        ctx.font = "bold 15px monospace";
-        ctx.fillText("manbora.uz", qrX + qrW / 2, qrY + 325);
+        ctx.font = "bold 24px monospace";
+        ctx.fillText("manbora.uz", qrX + 390, qrY + 235);
+
+        ctx.fillStyle = "#78716C";
+        ctx.font = "500 20px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Manbora — o‘zbek adabiyoti va hikoyalari platformasi", width / 2, 1270);
       }
 
       setIsReady(true);
@@ -514,7 +523,7 @@ export function ShareCardGenerator({
                 >
                   Telegram / Post
                   <span className="block text-[10px] font-normal text-stone-500 mt-0.5">
-                    1200 × 628 (1.91:1)
+                    1080 × 1350 (4:5)
                   </span>
                 </button>
               </div>

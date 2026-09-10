@@ -13,7 +13,10 @@ import {
   sanitizeWebsite,
   validateAndSanitizeSocialLinks,
 } from '@/lib/utils/social';
-import { buildCanonicalPromoUrl } from '@/components/author/ShareCardGenerator';
+import {
+  buildCanonicalPromoUrl,
+  PROMO_CARD_DIMENSIONS,
+} from '@/components/author/ShareCardGenerator';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 
@@ -2072,6 +2075,11 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
   });
 
   describe('54. Promo Card Canonical QR Code Generation and Decodability', () => {
+    it('uses a true 4:5 portrait size for Telegram posts', () => {
+      expect(PROMO_CARD_DIMENSIONS.post).toEqual({ width: 1080, height: 1350 });
+      expect(PROMO_CARD_DIMENSIONS.post.width / PROMO_CARD_DIMENSIONS.post.height).toBe(4 / 5);
+    });
+
     it('builds exact canonical work URL (never localhost, www, or vercel)', () => {
       const url = buildCanonicalPromoUrl('bekatdagi-soat');
       expect(url).toBe('https://manbora.uz/asarlar/bekatdagi-soat');
@@ -2231,5 +2239,4 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
     });
   });
 });
-
 

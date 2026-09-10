@@ -128,6 +128,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           .select(
             `
             *,
+            author:author_profiles (
+              pen_name,
+              profile:profiles (display_name)
+            ),
             work_genres (
               genre:genres (*)
             )
@@ -1534,7 +1538,10 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           slug: work.slug || work.id,
           title: work.title,
           coverUrl: work.cover_url,
-          authorPenName: (work as any).author?.pen_name || 'Muallif',
+          authorPenName:
+            (work as any).author?.pen_name ||
+            (work as any).author?.profile?.display_name ||
+            'Manbora muallifi',
         }}
         chapters={chapters.map((c) => ({
           id: c.id,

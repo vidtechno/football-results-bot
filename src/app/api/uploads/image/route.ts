@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import {
   sanitizeAndProcessImage,
@@ -169,6 +170,13 @@ export async function POST(request: Request) {
         .from('profiles')
         .update({ avatar_url: uploadResult.publicUrl, updated_at: new Date().toISOString() })
         .eq('id', profile.id);
+
+      revalidateTag('public-catalogue');
+      revalidatePath('/');
+      revalidatePath('/asarlar');
+      revalidatePath('/hikoyalar');
+      revalidatePath('/mualliflar');
+      revalidatePath(`/mualliflar/${profile.username}`);
     }
 
     return NextResponse.json({

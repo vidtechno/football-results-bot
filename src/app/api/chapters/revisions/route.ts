@@ -6,7 +6,10 @@ export async function GET(request: Request) {
   try {
     const profile = await getCurrentProfile(request.headers.get('Authorization'));
     if (!profile) {
-      return NextResponse.json({ success: false, error: 'Avtorizatsiya talab qilinadi' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Avtorizatsiya talab qilinadi' },
+        { status: 401 },
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -14,7 +17,10 @@ export async function GET(request: Request) {
     const workId = searchParams.get('workId');
 
     if (!chapterId && !workId) {
-      return NextResponse.json({ success: false, error: 'Bob yoki asar ID ko‘rsatilmadi' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Bob yoki asar ID ko‘rsatilmadi' },
+        { status: 400 },
+      );
     }
 
     const adminClient = createAdminClient();
@@ -68,7 +74,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, revisions: [] });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'Server xatosi' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: err.message || 'Server xatosi' },
+      { status: 500 },
+    );
   }
 }
 
@@ -76,7 +85,10 @@ export async function POST(request: Request) {
   try {
     const profile = await getCurrentProfile(request.headers.get('Authorization'));
     if (!profile) {
-      return NextResponse.json({ success: false, error: 'Avtorizatsiya talab qilinadi' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Avtorizatsiya talab qilinadi' },
+        { status: 401 },
+      );
     }
 
     const body = await request.json();
@@ -90,26 +102,35 @@ export async function POST(request: Request) {
 
     const { data: chapter } = await adminClient
       .from('chapters')
-      .select('*, work:works(author_id, status)')
+      .select('*, work:works(author_id, status, access_type)')
       .eq('id', chapterId)
       .single();
 
     const workAuthorId = (chapter?.work as any)?.author_id;
     if (!chapter || workAuthorId !== profile.id) {
-      return NextResponse.json({ success: false, error: 'Faqat o‘zingizning asaringizdagi bobni tahrirlashingiz mumkin' }, { status: 403 });
+      return NextResponse.json(
+        { success: false, error: 'Faqat o‘zingizning asaringizdagi bobni tahrirlashingiz mumkin' },
+        { status: 403 },
+      );
     }
 
     const title = String(body.title || '').trim();
     if (!title) {
-      return NextResponse.json({ success: false, error: 'Bob sarlavhasi bo‘sh bo‘lishi mumkin emas' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Bob sarlavhasi bo‘sh bo‘lishi mumkin emas' },
+        { status: 400 },
+      );
     }
 
     const rawContent = String(body.content || '');
     const sanitizedContent = sanitizeRichText(rawContent);
     const isFree = Boolean(body.isFree);
-    const price = Number(body.price || 0);
+    const workAccessType = (chapter.work as any)?.access_type;
+    const chapterIsFree = workAccessType === 'free';
+    const isPreviewFree = workAccessType !== 'free' && isFree;
 
-    const isPublished = chapter.status === 'published' || (chapter.work as any)?.status === 'published';
+    const isPublished =
+      chapter.status === 'published' || (chapter.work as any)?.status === 'published';
 
     // If chapter is draft and work is not published, update directly
     if (!isPublished) {
@@ -117,19 +138,18 @@ export async function POST(request: Request) {
         .from('chapters')
         .update({
           title,
-          is_free: isFree,
-          price: isFree ? 0 : price,
+          is_free: chapterIsFree,
+          is_preview_free: isPreviewFree,
+          price: 0,
           updated_at: new Date().toISOString(),
         })
         .eq('id', chapterId);
 
-      await adminClient
-        .from('chapter_contents')
-        .upsert({
-          chapter_id: chapterId,
-          content: sanitizedContent,
-          updated_at: new Date().toISOString(),
-        });
+      await adminClient.from('chapter_contents').upsert({
+        chapter_id: chapterId,
+        content: sanitizedContent,
+        updated_at: new Date().toISOString(),
+      });
 
       return NextResponse.json({ success: true, isDraftUpdate: true });
     }
@@ -150,15 +170,17 @@ export async function POST(request: Request) {
         .update({
           title,
           content: sanitizedContent,
-          is_free: isFree,
-          price: isFree ? 0 : price,
+          is_free: chapterIsFree,
+          is_preview_free: isPreviewFree,
+          price: 0,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingRev.id)
         .select()
         .single();
 
-      if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      if (error)
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       revisionResult = data;
     } else {
       const { data, error } = await adminClient
@@ -169,25 +191,31 @@ export async function POST(request: Request) {
           author_id: profile.id,
           title,
           content: sanitizedContent,
-          is_free: isFree,
-          price: isFree ? 0 : price,
+          is_free: chapterIsFree,
+          is_preview_free: isPreviewFree,
+          price: 0,
           status: 'pending_review',
         })
         .select()
         .single();
 
-      if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      if (error)
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       revisionResult = data;
     }
 
     return NextResponse.json({
       success: true,
       isRevision: true,
-      message: 'Nashr qilingan bobga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
+      message:
+        'Nashr qilingan bobga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
       revision: revisionResult,
     });
   } catch (err: any) {
     console.error('Chapter revision error:', err);
-    return NextResponse.json({ success: false, error: err.message || 'Server xatosi' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: err.message || 'Server xatosi' },
+      { status: 500 },
+    );
   }
 }

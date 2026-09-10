@@ -338,7 +338,11 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     setChapterNumber(chap.chapter_number);
     setChapterTitle(chap.title);
     setChapterContent(rawContent);
-    setIsFree(chap.is_free);
+    setIsFree(
+      work?.access_type === 'paid_full_work'
+        ? Boolean(chap.is_preview_free)
+        : Boolean(chap.is_free),
+    );
     setChapterStatus((chap.status as any) || 'published');
     setScheduledAt(chap.scheduled_at ? new Date(chap.scheduled_at).toISOString().slice(0, 16) : '');
     setAutosaveStatus('idle');

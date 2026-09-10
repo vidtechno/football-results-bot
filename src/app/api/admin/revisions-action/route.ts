@@ -37,7 +37,12 @@ export async function GET(request: Request) {
       const authorIds = Array.from(new Set(rawWorkRevs.map((r) => r.author_id)));
 
       const [worksRes, authorsRes] = await Promise.all([
-        adminClient.from('works').select('id, title, description, cover_url, type, access_type, full_work_price, age_rating, status, completion_status').in('id', workIds),
+        adminClient
+          .from('works')
+          .select(
+            'id, title, description, cover_url, type, access_type, full_work_price, age_rating, status, completion_status',
+          )
+          .in('id', workIds),
         adminClient.from('profiles').select('id, full_name, email, avatar_url').in('id', authorIds),
       ]);
 
@@ -74,8 +79,14 @@ export async function GET(request: Request) {
       const authorIds = Array.from(new Set(rawChapRevs.map((r) => r.author_id)));
 
       const [chapsRes, contentsRes, worksRes, authorsRes] = await Promise.all([
-        adminClient.from('chapters').select('id, work_id, chapter_number, title, is_free, price, status').in('id', chapIds),
-        adminClient.from('chapter_contents').select('chapter_id, content').in('chapter_id', chapIds),
+        adminClient
+          .from('chapters')
+          .select('id, work_id, chapter_number, title, is_free, is_preview_free, price, status')
+          .in('id', chapIds),
+        adminClient
+          .from('chapter_contents')
+          .select('chapter_id, content')
+          .in('chapter_id', chapIds),
         adminClient.from('works').select('id, title').in('id', workIds),
         adminClient.from('profiles').select('id, full_name, email, avatar_url').in('id', authorIds),
       ]);
@@ -207,13 +218,14 @@ export async function POST(request: Request) {
             updateData.completion_status = revBefore.completion_status;
           }
 
-          await adminClient
-            .from('works')
-            .update(updateData)
-            .eq('id', revBefore.work_id);
+          await adminClient.from('works').update(updateData).eq('id', revBefore.work_id);
 
           // Apply proposed genres if present
-          if (revBefore.genre_ids && Array.isArray(revBefore.genre_ids) && revBefore.genre_ids.length > 0) {
+          if (
+            revBefore.genre_ids &&
+            Array.isArray(revBefore.genre_ids) &&
+            revBefore.genre_ids.length > 0
+          ) {
             await adminClient.from('work_genres').delete().eq('work_id', revBefore.work_id);
             const joins = revBefore.genre_ids.map((gId: string) => ({
               work_id: revBefore.work_id,
@@ -233,20 +245,24 @@ export async function POST(request: Request) {
             .eq('id', revisionId);
 
           const wasOngoing = liveBefore?.completion_status === 'ongoing';
-          const isNowCompleted = (revBefore.completion_status || liveBefore?.completion_status) === 'completed';
+          const isNowCompleted =
+            (revBefore.completion_status || liveBefore?.completion_status) === 'completed';
           transitionOccurred = wasOngoing && isNowCompleted;
         } else {
           targetWorkId = rpcData?.work_id || targetWorkId;
           workSlug = rpcData?.slug || workSlug;
-          const prevStatus = rpcData?.prev_completion_status || liveBefore?.completion_status || 'ongoing';
-          const newStatus = rpcData?.new_completion_status || revBefore.completion_status || 'ongoing';
+          const prevStatus =
+            rpcData?.prev_completion_status || liveBefore?.completion_status || 'ongoing';
+          const newStatus =
+            rpcData?.new_completion_status || revBefore.completion_status || 'ongoing';
           transitionOccurred = prevStatus === 'ongoing' && newStatus === 'completed';
         }
 
         // Send work completion notifications exactly once when transitioning ongoing -> completed
         if (transitionOccurred) {
           try {
-            const { dispatchWorkCompletionNotifications } = await import('@/lib/notifications/inSite');
+            const { dispatchWorkCompletionNotifications } =
+              await import('@/lib/notifications/inSite');
             await dispatchWorkCompletionNotifications(targetWorkId);
           } catch (notifErr) {
             console.error('Error dispatching completion notifications:', notifErr);
@@ -300,7 +316,10 @@ export async function POST(request: Request) {
           .maybeSingle();
 
         if (!revBefore) {
-          return NextResponse.json({ success: false, error: 'Bob tahriri topilmadi' }, { status: 404 });
+          return NextResponse.json(
+            { success: false, error: 'Bob tahriri topilmadi' },
+            { status: 404 },
+          );
         }
 
         const { data: liveChap } = await adminClient
@@ -324,18 +343,17 @@ export async function POST(request: Request) {
             .update({
               title: revBefore.title,
               is_free: revBefore.is_free,
+              is_preview_free: Boolean(revBefore.is_preview_free),
               price: revBefore.price,
               updated_at: new Date().toISOString(),
             })
             .eq('id', revBefore.chapter_id);
 
-          await adminClient
-            .from('chapter_contents')
-            .upsert({
-              chapter_id: revBefore.chapter_id,
-              content: revBefore.content,
-              updated_at: new Date().toISOString(),
-            });
+          await adminClient.from('chapter_contents').upsert({
+            chapter_id: revBefore.chapter_id,
+            content: revBefore.content,
+            updated_at: new Date().toISOString(),
+          });
 
           await adminClient
             .from('chapter_revisions')
@@ -457,6 +475,9 @@ export async function POST(request: Request) {
     }
   } catch (err: any) {
     console.error('Revisions action error:', err);
-    return NextResponse.json({ success: false, error: err.message || 'Server xatosi' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: err.message || 'Server xatosi' },
+      { status: 500 },
+    );
   }
 }

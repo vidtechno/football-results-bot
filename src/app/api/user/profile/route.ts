@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { validateAndSanitizeSocialLinks } from '@/lib/utils/social';
 
@@ -8,15 +9,14 @@ export async function GET(request: Request) {
   try {
     const profile = await getCurrentProfile(request.headers.get('Authorization'));
     if (!profile) {
-      return NextResponse.json({ success: false, error: 'Avtorizatsiya talab etiladi' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Avtorizatsiya talab etiladi' },
+        { status: 401 },
+      );
     }
 
     const admin = createAdminClient();
-    const { data, error } = await admin
-      .from('profiles')
-      .select('*')
-      .eq('id', profile.id)
-      .single();
+    const { data, error } = await admin.from('profiles').select('*').eq('id', profile.id).single();
 
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -33,7 +33,10 @@ export async function PATCH(request: Request) {
   try {
     const profile = await getCurrentProfile(request.headers.get('Authorization'));
     if (!profile) {
-      return NextResponse.json({ success: false, error: 'Avtorizatsiya talab etiladi' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Avtorizatsiya talab etiladi' },
+        { status: 401 },
+      );
     }
 
     const body = await request.json();
@@ -42,17 +45,23 @@ export async function PATCH(request: Request) {
     if (body.display_name !== undefined) {
       const name = String(body.display_name).trim();
       if (!name) {
-        return NextResponse.json({ success: false, error: 'Ism bo‘sh bo‘lishi mumkin emas' }, { status: 400 });
+        return NextResponse.json(
+          { success: false, error: 'Ism bo‘sh bo‘lishi mumkin emas' },
+          { status: 400 },
+        );
       }
       updates.display_name = name.slice(0, 100);
     }
 
     if (body.username !== undefined) {
-      const rawUser = String(body.username).trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+      const rawUser = String(body.username)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '');
       if (rawUser.length < 3) {
         return NextResponse.json(
           { success: false, error: 'Username kamida 3 ta belgidan iborat bo‘lishi kerak' },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -69,7 +78,7 @@ export async function PATCH(request: Request) {
         if (existing) {
           return NextResponse.json(
             { success: false, error: 'Ushbu username allaqachon band qilingan' },
-            { status: 400 }
+            { status: 400 },
           );
         }
       }
@@ -82,7 +91,10 @@ export async function PATCH(request: Request) {
 
     if (body.telegram_username !== undefined) {
       const tg = body.telegram_username
-        ? String(body.telegram_username).trim().replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '')
+        ? String(body.telegram_username)
+            .trim()
+            .replace(/^@/, '')
+            .replace(/[^a-zA-Z0-9_]/g, '')
         : null;
       updates.telegram_username = tg ? tg.slice(0, 50) : null;
     }
@@ -95,16 +107,17 @@ export async function PATCH(request: Request) {
       if (typeof body.social_links !== 'object' || body.social_links === null) {
         return NextResponse.json(
           { success: false, error: 'Ijtimoiy tarmoqlar formati noto‘g‘ri' },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
       const validation = validateAndSanitizeSocialLinks(body.social_links);
       if (!validation.valid) {
-        const firstError = Object.values(validation.errors)[0] || 'Ijtimoiy tarmoq havolalarida xatolik bor';
+        const firstError =
+          Object.values(validation.errors)[0] || 'Ijtimoiy tarmoq havolalarida xatolik bor';
         return NextResponse.json(
           { success: false, error: firstError, errors: validation.errors },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -117,7 +130,10 @@ export async function PATCH(request: Request) {
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ success: false, error: 'Hech qanday o‘zgarish yuborilmadi' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Hech qanday o‘zgarish yuborilmadi' },
+        { status: 400 },
+      );
     }
 
     updates.updated_at = new Date().toISOString();
@@ -133,6 +149,38 @@ export async function PATCH(request: Request) {
     if (updateError) {
       return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
     }
+
+    // Work cards and reader pages use author_profiles.pen_name, while the
+    // account screen edits profiles.display_name. Keep the public identity synced.
+    const authorUpdates: Record<string, string | null> = {};
+    if (updates.display_name !== undefined) authorUpdates.pen_name = updates.display_name;
+    if (updates.bio !== undefined) authorUpdates.biography = updates.bio;
+    if (Object.keys(authorUpdates).length > 0) {
+      authorUpdates.updated_at = updates.updated_at;
+      const { error: authorUpdateError } = await admin
+        .from('author_profiles')
+        .update(authorUpdates)
+        .eq('user_id', profile.id);
+
+      if (authorUpdateError) {
+        console.error('Error syncing public author profile:', authorUpdateError);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Profil saqlandi, ammo ommaviy muallif ma’lumotini yangilab bo‘lmadi',
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    revalidateTag('public-catalogue');
+    revalidatePath('/');
+    revalidatePath('/asarlar');
+    revalidatePath('/hikoyalar');
+    revalidatePath('/mualliflar');
+    revalidatePath(`/mualliflar/${profile.username}`);
+    revalidatePath(`/mualliflar/${updated.username}`);
 
     return NextResponse.json({ success: true, profile: updated });
   } catch (err: unknown) {

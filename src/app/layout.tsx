@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, Source_Serif_4 } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { PublicAppShell } from '@/components/layout/PublicAppShell';
 import { AuthProvider } from '@/components/providers/AuthProvider';
@@ -12,13 +12,6 @@ const inter = Inter({
   variable: '--font-inter',
   display: 'swap',
   weight: ['400', '500', '600', '700', '800'],
-});
-
-const sourceSerif = Source_Serif_4({
-  subsets: ['latin', 'latin-ext'],
-  variable: '--font-source-serif',
-  display: 'swap',
-  weight: ['400', '600', '700', '900'],
 });
 
 export const metadata: Metadata = {
@@ -84,7 +77,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="uz" className={`${inter.variable} ${sourceSerif.variable}`}>
+    <html lang="uz" className={inter.variable}>
       <body className="bg-background text-stone-900 min-h-screen flex flex-col antialiased selection:bg-amber-100 selection:text-amber-950">
         <AuthProvider>
           <NotificationProvider>

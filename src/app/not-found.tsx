@@ -25,7 +25,7 @@ export default function NotFound() {
 
         {/* Heading and Description */}
         <div className="space-y-3">
-          <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black font-sans text-[#1C1917] tracking-tight">
             Sahifa topilmadi
           </h1>
           <p className="text-sm sm:text-base text-[#78716C] leading-relaxed">

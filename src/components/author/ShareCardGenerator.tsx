@@ -118,7 +118,7 @@ export function ShareCardGenerator({
 
       // 3. Brand Header
       ctx.fillStyle = "#F59E0B";
-      ctx.font = "bold 38px 'Playfair Display', Georgia, serif";
+      ctx.font = "800 38px Inter, Arial, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText("MANBORA", width / 2, isStory ? 150 : 65);
 
@@ -188,7 +188,7 @@ export function ShareCardGenerator({
           ctx.fillStyle = "#38322E";
           ctx.fillRect(coverX, coverY, coverW, coverH);
           ctx.fillStyle = "#EAE5DD";
-          ctx.font = "bold 28px serif";
+          ctx.font = "800 28px Inter, Arial, system-ui, sans-serif";
           ctx.textAlign = "center";
           ctx.fillText(work.title, coverX + coverW / 2, coverY + coverH / 2);
         }
@@ -201,7 +201,7 @@ export function ShareCardGenerator({
 
         // Title
         ctx.fillStyle = "#FAF8F5";
-        ctx.font = "bold 44px 'Playfair Display', Georgia, serif";
+        ctx.font = "800 44px Inter, Arial, system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(work.title, width / 2, 940, 920);
 
@@ -233,7 +233,7 @@ export function ShareCardGenerator({
           ctx.stroke();
 
           ctx.fillStyle = "#EAE5DD";
-          ctx.font = "italic 28px Georgia, serif";
+          ctx.font = "italic 600 28px Inter, Arial, system-ui, sans-serif";
           ctx.fillText(`“${quote.trim()}”`, width / 2, quoteY + 115, 760);
         }
 
@@ -296,7 +296,7 @@ export function ShareCardGenerator({
           ctx.fillStyle = "#38322E";
           ctx.fillRect(coverX, coverY, coverW, coverH);
           ctx.fillStyle = "#EAE5DD";
-          ctx.font = "bold 24px serif";
+          ctx.font = "800 24px Inter, Arial, system-ui, sans-serif";
           ctx.textAlign = "center";
           ctx.fillText(work.title, coverX + coverW / 2, coverY + coverH / 2);
         }
@@ -311,7 +311,7 @@ export function ShareCardGenerator({
 
         // Title
         ctx.fillStyle = "#FAF8F5";
-        ctx.font = "bold 44px 'Playfair Display', Georgia, serif";
+        ctx.font = "800 44px Inter, Arial, system-ui, sans-serif";
         ctx.fillText(work.title, textX, 300, 570);
 
         // Chapter Subtitle if "Yangi bob"
@@ -334,7 +334,7 @@ export function ShareCardGenerator({
         // Quote
         if (quote.trim()) {
           ctx.fillStyle = "#D6D3D1";
-          ctx.font = "italic 23px Georgia, serif";
+          ctx.font = "italic 600 23px Inter, Arial, system-ui, sans-serif";
           ctx.fillText(`“${quote.trim()}”`, textX, cardType === "chapter" ? 485 : 455, 570);
         }
 

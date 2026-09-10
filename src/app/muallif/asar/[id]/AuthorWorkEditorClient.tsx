@@ -704,7 +704,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
             </span>
           </div>
 
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight">
+          <h1 className="font-sans text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight">
             {work.title}
           </h1>
 
@@ -841,7 +841,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
       {activeTab === 'chapters' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-serif text-lg font-bold text-stone-900">Mundarija va boblar</h2>
+            <h2 className="font-sans text-lg font-bold text-stone-900">Mundarija va boblar</h2>
 
             <button
               onClick={openNewChapterModal}
@@ -855,7 +855,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           {chapters.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-3xl border border-stone-200 shadow-xs">
               <FileText className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-              <p className="font-serif font-bold text-stone-700 text-sm">
+              <p className="font-sans font-bold text-stone-700 text-sm">
                 Ushbu asarda hali boblar yo‘q
               </p>
               <p className="text-stone-400 text-xs mt-1">Birinchi bobni yozish orqali boshlang</p>
@@ -901,7 +901,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     </div>
 
                     <div className="min-w-0">
-                      <h4 className="font-serif font-bold text-stone-900 text-xs sm:text-sm truncate">
+                      <h4 className="font-sans font-bold text-stone-900 text-xs sm:text-sm truncate">
                         {ch.title}
                       </h4>
                       <span className="text-[11px] text-stone-400 font-medium">
@@ -941,7 +941,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
       {activeTab === 'settings' && (
         <form onSubmit={handleSaveWorkSettings} className="space-y-6">
           <div className="editorial-card p-6 sm:p-8 bg-white rounded-3xl border border-stone-200 shadow-xs space-y-6">
-            <h3 className="font-serif text-lg font-bold text-stone-900 pb-3 border-b border-stone-100">
+            <h3 className="font-sans text-lg font-bold text-stone-900 pb-3 border-b border-stone-100">
               Asar asosiy parametrlari
             </h3>
 
@@ -964,7 +964,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-stone-200 font-serif font-bold text-stone-900 text-sm sm:text-base focus:border-amber-600 outline-hidden"
+                className="w-full px-4 py-3 rounded-xl border border-stone-200 font-sans font-bold text-stone-900 text-sm sm:text-base focus:border-amber-600 outline-hidden"
               />
             </div>
 
@@ -1137,7 +1137,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
       {(activeTab as any) === 'revisions' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-serif text-lg font-bold text-stone-900">
+            <h2 className="font-sans text-lg font-bold text-stone-900">
               Tahrirlar tarixi va moderatsiya
             </h2>
           </div>
@@ -1153,7 +1153,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-stone-100 text-stone-700">
                       Asar tahriri
                     </span>
-                    <span className="font-bold font-serif text-stone-900 text-sm">{rev.title}</span>
+                    <span className="font-bold font-sans text-stone-900 text-sm">{rev.title}</span>
                     <span
                       className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
                         rev.status === 'approved'
@@ -1192,7 +1192,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900">
                       Bob tahriri
                     </span>
-                    <span className="font-bold font-serif text-stone-900 text-sm">{rev.title}</span>
+                    <span className="font-bold font-sans text-stone-900 text-sm">{rev.title}</span>
                     <span
                       className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
                         rev.status === 'approved'
@@ -1230,7 +1230,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-stone-200 p-5 sm:p-8 my-auto space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100 flex-wrap gap-2">
               <div className="flex items-center gap-3">
-                <h3 className="font-serif font-bold text-lg text-stone-900">
+                <h3 className="font-sans font-bold text-lg text-stone-900">
                   {editingChapterId ? 'Bobni tahrirlash' : 'Yangi bob yaratish'}
                 </h3>
                 {autosaveStatus !== 'idle' && (
@@ -1310,7 +1310,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                       setChapterTitle(e.target.value);
                       setIsDirty(true);
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 font-serif font-bold text-stone-900"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 font-sans font-bold text-stone-900"
                     required
                   />
                 </div>
@@ -1462,7 +1462,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-stone-200 p-5 sm:p-6 my-auto space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
               <div>
-                <h3 className="font-serif font-bold text-base text-stone-900">
+                <h3 className="font-sans font-bold text-base text-stone-900">
                   Bob versiyalari tarixi
                 </h3>
                 <p className="text-[11px] text-stone-500">
@@ -1499,7 +1499,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                         <span className="px-2 py-0.5 rounded-md font-mono font-bold bg-amber-100 text-amber-900 text-[10px]">
                           v{v.version_number}
                         </span>
-                        <span className="font-serif font-bold text-stone-900">{v.title}</span>
+                        <span className="font-sans font-bold text-stone-900">{v.title}</span>
                       </div>
                       <div className="text-[11px] text-stone-500 mt-1 flex items-center gap-2">
                         <span>{v.word_count || 0} ta so‘z</span>

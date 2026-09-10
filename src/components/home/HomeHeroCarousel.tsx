@@ -323,7 +323,7 @@ export function HomeHeroCarousel({
 
         {/* Center Text and Actions */}
         <div key={activeSlide.id} className="hero-copy max-w-2xl lg:max-w-[62%] space-y-2 sm:space-y-3 my-auto">
-          <h2 className="font-serif text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-[-0.035em] leading-[1.08] line-clamp-2 text-balance">
+          <h2 className="font-sans text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-[-0.035em] leading-[1.08] line-clamp-2 text-balance">
             {activeSlide.title}
           </h2>
 

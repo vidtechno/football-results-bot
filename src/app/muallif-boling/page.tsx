@@ -89,7 +89,7 @@ export default async function MuallifBolingPage() {
               <span>Hikoyangiz o‘quvchisini kutmoqda</span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black font-serif tracking-tight leading-[1.15]">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black font-sans tracking-tight leading-[1.15]">
               Yozganingizni javonda emas, <span className="text-amber-300">minglab qalblarda</span>{' '}
               saqlang.
             </h1>
@@ -127,7 +127,7 @@ export default async function MuallifBolingPage() {
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
                   Muallif ulushi
                 </p>
-                <p className="mt-1 font-serif text-5xl font-black text-white">
+                <p className="mt-1 font-sans text-5xl font-black text-white">
                   {authorPercentage}%
                 </p>
               </div>
@@ -173,7 +173,7 @@ export default async function MuallifBolingPage() {
       {/* 2. Platform Advantages / Features */}
       <section className="space-y-8">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <h2 className="text-2xl sm:text-4xl font-serif font-black text-stone-900 tracking-tight">
+          <h2 className="text-2xl sm:text-4xl font-sans font-black text-stone-900 tracking-tight">
             Nega aynan Manbora?
           </h2>
           <p className="text-xs sm:text-sm text-stone-600">
@@ -186,7 +186,7 @@ export default async function MuallifBolingPage() {
             <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
               <BookOpen className="w-6 h-6" />
             </div>
-            <h3 className="font-serif font-bold text-base text-stone-900">Format erkinligi</h3>
+            <h3 className="font-sans font-bold text-base text-stone-900">Format erkinligi</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
               Kitob yoki hikoya nashr eting. Ikkalasida ham bitta yoki bir nechta bob bilan
               ishlashingiz mumkin.
@@ -197,7 +197,7 @@ export default async function MuallifBolingPage() {
             <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700">
               <DollarSign className="w-6 h-6" />
             </div>
-            <h3 className="font-serif font-bold text-base text-stone-900">
+            <h3 className="font-sans font-bold text-base text-stone-900">
               Narx sizning qo‘lingizda
             </h3>
             <p className="text-xs text-stone-600 leading-relaxed">
@@ -210,7 +210,7 @@ export default async function MuallifBolingPage() {
             <div className="w-12 h-12 rounded-2xl bg-sky-100 flex items-center justify-center text-sky-700">
               <TrendingUp className="w-6 h-6" />
             </div>
-            <h3 className="font-serif font-bold text-base text-stone-900">O‘quvchini tushuning</h3>
+            <h3 className="font-sans font-bold text-base text-stone-900">O‘quvchini tushuning</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
               O‘qishlar, tugatish ko‘rsatkichi, kitobxonlar fikri, sotuv va tushumlarni studiyada
               kuzating.
@@ -221,7 +221,7 @@ export default async function MuallifBolingPage() {
             <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700">
               <Zap className="w-6 h-6" />
             </div>
-            <h3 className="font-serif font-bold text-base text-stone-900">Shaffof hisob-kitob</h3>
+            <h3 className="font-sans font-bold text-base text-stone-900">Shaffof hisob-kitob</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
               Har bir xarid va muallif ulushi tizimda qayd etiladi. Mablag‘ni yechish so‘rovini
               studiyadan yuborasiz.
@@ -238,7 +238,7 @@ export default async function MuallifBolingPage() {
             <span>Ijodingiz ustidan nazorat o‘zingizda</span>
           </div>
 
-          <h2 className="text-2xl sm:text-4xl font-serif font-black tracking-tight">
+          <h2 className="text-2xl sm:text-4xl font-sans font-black tracking-tight">
             Asaringiz har doim o‘zingizga tegishli bo‘lib qoladi
           </h2>
 
@@ -273,7 +273,7 @@ export default async function MuallifBolingPage() {
       {/* 4. Interactive Earnings Calculator */}
       <section className="space-y-4">
         <div className="text-center max-w-xl mx-auto space-y-1 mb-8">
-          <h2 className="text-2xl sm:text-3xl font-serif font-black text-stone-900 tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-sans font-black text-stone-900 tracking-tight">
             Daromad taqsimoti va kalkulyator
           </h2>
           <p className="text-xs sm:text-sm text-stone-600">
@@ -288,7 +288,7 @@ export default async function MuallifBolingPage() {
       {/* 5. How It Works (4 Steps) */}
       <section className="space-y-8">
         <div className="text-center max-w-xl mx-auto space-y-1">
-          <h2 className="text-2xl sm:text-3xl font-serif font-black text-stone-900 tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-sans font-black text-stone-900 tracking-tight">
             Nashr jarayoni: 4 oddiy qadam
           </h2>
           <p className="text-xs sm:text-sm text-stone-600">
@@ -301,7 +301,7 @@ export default async function MuallifBolingPage() {
             <span className="w-8 h-8 rounded-xl bg-amber-600 text-stone-950 font-mono font-black text-sm flex items-center justify-center">
               1
             </span>
-            <h3 className="font-serif font-bold text-base text-stone-900">Profil oching</h3>
+            <h3 className="font-sans font-bold text-base text-stone-900">Profil oching</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
               Taxallus, qisqacha biografiya va ijodingiz haqida ma’lumot bilan ariza yuboring.
             </p>
@@ -311,7 +311,7 @@ export default async function MuallifBolingPage() {
             <span className="w-8 h-8 rounded-xl bg-amber-600 text-stone-950 font-mono font-black text-sm flex items-center justify-center">
               2
             </span>
-            <h3 className="font-serif font-bold text-base text-stone-900">Asarni yuklang</h3>
+            <h3 className="font-sans font-bold text-base text-stone-900">Asarni yuklang</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
               Kitob yoki hikoya turini tanlang, muqova, tavsif va boblarni qulay muharrirda joylang.
             </p>
@@ -321,7 +321,7 @@ export default async function MuallifBolingPage() {
             <span className="w-8 h-8 rounded-xl bg-amber-600 text-stone-950 font-mono font-black text-sm flex items-center justify-center">
               3
             </span>
-            <h3 className="font-serif font-bold text-base text-stone-900">Narx belgilang</h3>
+            <h3 className="font-sans font-bold text-base text-stone-900">Narx belgilang</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
               Asarni bepul qiling yoki umumiy narx belgilang. Qaysi boblar bepul bo‘lishini o‘zingiz
               tanlang.
@@ -332,7 +332,7 @@ export default async function MuallifBolingPage() {
             <span className="w-8 h-8 rounded-xl bg-amber-600 text-stone-950 font-mono font-black text-sm flex items-center justify-center">
               4
             </span>
-            <h3 className="font-serif font-bold text-base text-stone-900">Daromad oling</h3>
+            <h3 className="font-sans font-bold text-base text-stone-900">Daromad oling</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
               Moderatsiyadan so‘ng asar katalogga chiqadi. O‘qishlar, fikrlar va daromadni
               studiyadan kuzatasiz.
@@ -344,7 +344,7 @@ export default async function MuallifBolingPage() {
       {/* 6. Moderation & FAQ Rules */}
       <section className="space-y-8">
         <div className="text-center max-w-xl mx-auto space-y-1">
-          <h2 className="text-2xl sm:text-3xl font-serif font-black text-stone-900 tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-sans font-black text-stone-900 tracking-tight">
             Ko‘p so‘raladigan savollar va qoidalar
           </h2>
           <p className="text-xs sm:text-sm text-stone-600">
@@ -404,7 +404,7 @@ export default async function MuallifBolingPage() {
         <div className="w-12 h-12 rounded-2xl bg-amber-600 text-stone-950 flex items-center justify-center mx-auto shadow-sm">
           <PenTool className="w-6 h-6" />
         </div>
-        <h3 className="font-serif font-black text-2xl sm:text-3xl text-stone-900">
+        <h3 className="font-sans font-black text-2xl sm:text-3xl text-stone-900">
           Keyingi o‘qiladigan asar sizniki bo‘lishi mumkin
         </h3>
         <p className="text-xs sm:text-sm text-stone-600 max-w-md mx-auto">

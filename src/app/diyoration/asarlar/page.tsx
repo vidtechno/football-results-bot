@@ -228,7 +228,7 @@ export default function AdminWorksManagementPage() {
                       {w.cover_url ? (
                         <Image src={w.cover_url} alt={w.title} fill className="object-cover" sizes="56px" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-300 font-serif font-black text-sm">
+                        <div className="w-full h-full flex items-center justify-center text-slate-300 font-sans font-black text-sm">
                           M
                         </div>
                       )}
@@ -236,7 +236,7 @@ export default function AdminWorksManagementPage() {
 
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <strong className="text-sm sm:text-base font-serif font-bold text-slate-900">
+                        <strong className="text-sm sm:text-base font-sans font-bold text-slate-900">
                           {w.title}
                         </strong>
                         <span
@@ -353,7 +353,7 @@ export default function AdminWorksManagementPage() {
                   <BookOpen className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-serif font-bold text-slate-900 text-base leading-tight">
+                  <h3 className="font-sans font-bold text-slate-900 text-base leading-tight">
                     {selectedWork.title}
                   </h3>
                   <span className="text-xs text-slate-400">
@@ -379,7 +379,7 @@ export default function AdminWorksManagementPage() {
                   {selectedWork.cover_url ? (
                     <Image src={selectedWork.cover_url} alt={selectedWork.title} fill className="object-cover" sizes="80px" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300 font-serif font-black">
+                    <div className="w-full h-full flex items-center justify-center text-slate-300 font-sans font-black">
                       M
                     </div>
                   )}
@@ -515,7 +515,7 @@ export default function AdminWorksManagementPage() {
                             {ch.chapter_number}.
                           </span>
                           <div>
-                            <strong className="font-serif font-bold text-slate-900 block">{ch.title}</strong>
+                            <strong className="font-sans font-bold text-slate-900 block">{ch.title}</strong>
                             <span className="text-[10px] text-slate-400 font-mono">ID: {ch.id.slice(0, 8)}...</span>
                           </div>
                         </div>

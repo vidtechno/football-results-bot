@@ -488,7 +488,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       {/* Header Profile & Balance Bar */}
       <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#1C1917] text-white flex items-center justify-center font-serif font-black text-xl sm:text-2xl shadow-md shadow-[#1C1917]/10 shrink-0 overflow-hidden">
+          <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#1C1917] text-white flex items-center justify-center font-sans font-black text-xl sm:text-2xl shadow-md shadow-[#1C1917]/10 shrink-0 overflow-hidden">
             {avatarUrl ? (
               <Image src={avatarUrl} alt="Avatar" fill className="object-cover" />
             ) : (
@@ -497,7 +497,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black font-serif text-[#1C1917] tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-black font-sans text-[#1C1917] tracking-tight">
                 {profile?.display_name || <Skeleton className="h-7 w-36" />}
               </h1>
               {isAdmin && (
@@ -635,7 +635,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-amber-600" />
-                <h3 className="font-serif font-black text-lg text-stone-900">Mutolaani davom ettirish</h3>
+                <h3 className="font-sans font-black text-lg text-stone-900">Mutolaani davom ettirish</h3>
               </div>
               <Link
                 href="/kutubxona?tab=reading"
@@ -703,7 +703,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                         )}
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
-                        <h4 className="font-serif font-bold text-xs text-stone-900 truncate">{title}</h4>
+                        <h4 className="font-sans font-bold text-xs text-stone-900 truncate">{title}</h4>
                         {(ch || item.chapterTitle) && (
                           <p className="text-[11px] text-stone-600 truncate">
                             {chNum}-bob: {chTitle}
@@ -730,7 +730,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bookmark className="w-5 h-5 text-amber-600" />
-                <h3 className="font-serif font-black text-lg text-stone-900">Saqlangan xatcho‘plar</h3>
+                <h3 className="font-sans font-black text-lg text-stone-900">Saqlangan xatcho‘plar</h3>
               </div>
               <Link
                 href="/kutubxona?tab=bookmarks"
@@ -771,7 +771,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
                       className="p-3.5 rounded-2xl bg-amber-50/40 border border-amber-200/60 flex items-center justify-between gap-3"
                     >
                       <div className="min-w-0 space-y-0.5">
-                        <h4 className="font-serif font-bold text-xs text-stone-900 truncate">{w?.title || 'Asar'}</h4>
+                        <h4 className="font-sans font-bold text-xs text-stone-900 truncate">{w?.title || 'Asar'}</h4>
                         <p className="text-[11px] text-amber-800 font-semibold truncate">
                           {ch ? `${ch.chapter_number}-bob, ` : ''}{pageNum}-sahifa{b.progress_percent ? ` • ${b.progress_percent}%` : ''}
                         </p>
@@ -794,7 +794,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-amber-600" />
-                <h3 className="font-serif font-black text-lg text-stone-900">Oxirgi hisob operatsiyalari</h3>
+                <h3 className="font-sans font-black text-lg text-stone-900">Oxirgi hisob operatsiyalari</h3>
               </div>
               <button
                 type="button"
@@ -841,7 +841,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
               <User className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-serif font-black text-lg text-stone-900">Profil ma’lumotlari</h2>
+              <h2 className="font-sans font-black text-lg text-stone-900">Profil ma’lumotlari</h2>
               <p className="text-xs text-stone-500">Shaxsiy identifikatoringiz va ijtimoiy bog‘lanishlaringiz</p>
             </div>
           </div>
@@ -1035,7 +1035,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
       {activeTab === 'finances' && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 shadow-xs">
-            <h3 className="font-serif font-black text-lg text-stone-900 mb-4">Balans va to‘ldirishlar</h3>
+            <h3 className="font-sans font-black text-lg text-stone-900 mb-4">Balans va to‘ldirishlar</h3>
             <div className="divide-y divide-stone-100">
               {topups.length === 0 ? (
                 <p className="text-xs text-stone-500 py-4 text-center">To‘ldirish so‘rovlari mavjud emas.</p>
@@ -1065,7 +1065,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           </div>
 
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 shadow-xs">
-            <h3 className="font-serif font-black text-lg text-stone-900 mb-4">Sotib olingan asarlar va boblar</h3>
+            <h3 className="font-sans font-black text-lg text-stone-900 mb-4">Sotib olingan asarlar va boblar</h3>
             <div className="divide-y divide-stone-100">
               {purchases.length === 0 ? (
                 <p className="text-xs text-stone-500 py-4 text-center">Hozircha sotib olingan asarlar yo‘q.</p>
@@ -1086,7 +1086,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           </div>
 
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 shadow-xs">
-            <h3 className="font-serif font-black text-lg text-stone-900 mb-4">Hisob operatsiyalari jurnali</h3>
+            <h3 className="font-sans font-black text-lg text-stone-900 mb-4">Hisob operatsiyalari jurnali</h3>
             <TransactionHistoryTable transactions={transactions} />
           </div>
         </div>
@@ -1100,7 +1100,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
               <Bell className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-serif font-black text-lg text-stone-900">Bildirishnoma sozlamalari</h2>
+              <h2 className="font-sans font-black text-lg text-stone-900">Bildirishnoma sozlamalari</h2>
               <p className="text-xs text-stone-500">Qaysi turdagi xabarnomalarni olishni o‘zingiz boshqaring</p>
             </div>
           </div>
@@ -1178,7 +1178,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
         <div className="space-y-6 max-w-2xl">
           {/* Email Update */}
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs space-y-4">
-            <h3 className="font-serif font-black text-lg text-stone-900 flex items-center gap-2">
+            <h3 className="font-sans font-black text-lg text-stone-900 flex items-center gap-2">
               <User className="w-5 h-5 text-amber-600" />
               <span>Email manzilini o‘zgartirish</span>
             </h3>
@@ -1222,7 +1222,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
 
           {/* Password Update */}
           <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs space-y-4">
-            <h3 className="font-serif font-black text-lg text-stone-900 flex items-center gap-2">
+            <h3 className="font-sans font-black text-lg text-stone-900 flex items-center gap-2">
               <Lock className="w-5 h-5 text-amber-600" />
               <span>Parolni yangilash</span>
             </h3>
@@ -1272,7 +1272,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
           {/* Session Termination */}
           <div className="bg-white rounded-3xl border border-rose-200/80 p-6 sm:p-8 shadow-xs flex items-center justify-between gap-4">
             <div>
-              <h3 className="font-serif font-bold text-base text-stone-900">Sessiyani yakunlash</h3>
+              <h3 className="font-sans font-bold text-base text-stone-900">Sessiyani yakunlash</h3>
               <p className="text-xs text-stone-500">Ushbu qurilmadagi hisobingizdan xavfsiz chiqish</p>
             </div>
             <button
@@ -1295,7 +1295,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
           >
             <Clock className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-serif font-black text-base text-stone-900">Mutolaadagi asarlar</h4>
+            <h4 className="font-sans font-black text-base text-stone-900">Mutolaadagi asarlar</h4>
             <p className="text-xs text-stone-500">Oxirgi o‘qiyotgan sahifalaringiz va mutolaa jurnalingiz</p>
           </Link>
 
@@ -1304,7 +1304,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
           >
             <Bookmark className="w-6 h-6 text-amber-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-serif font-black text-base text-stone-900">Xatcho‘plar</h4>
+            <h4 className="font-sans font-black text-base text-stone-900">Xatcho‘plar</h4>
             <p className="text-xs text-stone-500">Belgilab qo‘yilgan aniq sahifalar va boblar</p>
           </Link>
 
@@ -1313,7 +1313,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
           >
             <Lock className="w-6 h-6 text-emerald-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-serif font-black text-base text-stone-900">Sotib olingan asarlar</h4>
+            <h4 className="font-sans font-black text-base text-stone-900">Sotib olingan asarlar</h4>
             <p className="text-xs text-stone-500">Doimiy kirish huquqiga ega bo‘lgan kitob va boblaringiz</p>
           </Link>
 
@@ -1322,7 +1322,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
           >
             <Heart className="w-6 h-6 text-rose-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-serif font-black text-base text-stone-900">Sevimli asarlar</h4>
+            <h4 className="font-sans font-black text-base text-stone-900">Sevimli asarlar</h4>
             <p className="text-xs text-stone-500">Siz sevib mutolaa qiladigan va yurakcha bosgan asarlar</p>
           </Link>
 
@@ -1331,7 +1331,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             className="p-6 rounded-3xl bg-white border border-[#EAE5DD] hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
           >
             <Users className="w-6 h-6 text-sky-600 group-hover:scale-110 transition-transform" />
-            <h4 className="font-serif font-black text-base text-stone-900">Kuzatilayotgan mualliflar</h4>
+            <h4 className="font-sans font-black text-base text-stone-900">Kuzatilayotgan mualliflar</h4>
             <p className="text-xs text-stone-500">Siz obuna bo‘lgan mualliflar va ularning yangiliklari</p>
           </Link>
 
@@ -1340,7 +1340,7 @@ function KabinetContent({ initialProgress = [], initialBookmarks = [] }: Kabinet
             className="p-6 rounded-3xl bg-amber-50/70 border border-amber-200 hover:border-amber-400 transition-colors shadow-xs space-y-2 group"
           >
             <PenTool className="w-6 h-6 text-amber-700 group-hover:scale-110 transition-transform" />
-            <h4 className="font-serif font-black text-base text-stone-900">Muallif bo‘ling</h4>
+            <h4 className="font-sans font-black text-base text-stone-900">Muallif bo‘ling</h4>
             <p className="text-xs text-stone-600">O‘z kitoblaringizni nashr qiling va 80% daromad oling</p>
           </Link>
         </div>

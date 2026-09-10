@@ -123,7 +123,7 @@ export function GenreOnboardingModal() {
             <Sparkles className="w-6 h-6 text-amber-700" />
           </div>
 
-          <h2 className="text-2xl font-black font-serif text-stone-900 tracking-tight">
+          <h2 className="text-2xl font-black font-sans text-stone-900 tracking-tight">
             Nimalarni o‘qishni yoqtirasiz?
           </h2>
 

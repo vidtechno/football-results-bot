@@ -89,7 +89,7 @@ export function BookmarkItemCard({ bookmark }: BookmarkItemCardProps) {
           </button>
         </div>
 
-        <h3 className="font-serif font-bold text-stone-900 text-sm truncate">{w.title}</h3>
+        <h3 className="font-sans font-bold text-stone-900 text-sm truncate">{w.title}</h3>
         <p className="text-xs text-stone-500 truncate">{getPublicWorkAuthorName(w)}</p>
 
         {ch && (

@@ -294,7 +294,7 @@ export function HomeDiscoveryTabs({
             {activeTab === 'siz-uchun' ? (
               <div className="max-w-md mx-auto space-y-3">
                 <Sparkles className="w-9 h-9 text-amber-500 mx-auto" />
-                <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
+                <h3 className="font-sans font-black text-stone-900 text-base sm:text-lg">
                   Hozircha sizga mos tavsiyalar topilmadi
                 </h3>
                 <p className="text-xs text-stone-500 leading-relaxed">
@@ -320,7 +320,7 @@ export function HomeDiscoveryTabs({
               emptyReason === 'guest' || !user ? (
                 <div className="max-w-md mx-auto space-y-3">
                   <LogIn className="w-9 h-9 text-emerald-600 mx-auto" />
-                  <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
+                  <h3 className="font-sans font-black text-stone-900 text-base sm:text-lg">
                     Kuzatuvlaringizni ko‘rish uchun tizimga kiring
                   </h3>
                   <p className="text-xs text-stone-500 leading-relaxed">
@@ -346,7 +346,7 @@ export function HomeDiscoveryTabs({
               ) : emptyReason === 'only_ineligible' ? (
                 <div className="max-w-md mx-auto space-y-3">
                   <Bookmark className="w-9 h-9 text-stone-400 mx-auto" />
-                  <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
+                  <h3 className="font-sans font-black text-stone-900 text-base sm:text-lg">
                     Kuzatayotganlaringizda yangi asarlar yo‘q
                   </h3>
                   <p className="text-xs text-stone-500 leading-relaxed">
@@ -371,7 +371,7 @@ export function HomeDiscoveryTabs({
               ) : (
                 <div className="max-w-md mx-auto space-y-3">
                   <Users className="w-9 h-9 text-stone-400 mx-auto" />
-                  <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
+                  <h3 className="font-sans font-black text-stone-900 text-base sm:text-lg">
                     Siz hali birorta muallif yoki asarni kuzatmadingiz
                   </h3>
                   <p className="text-xs text-stone-500 leading-relaxed">
@@ -398,7 +398,7 @@ export function HomeDiscoveryTabs({
             ) : (
               <div className="max-w-md mx-auto space-y-3">
                 <BookOpen className="w-9 h-9 text-stone-300 mx-auto" />
-                <h3 className="font-serif font-black text-stone-900 text-base sm:text-lg">
+                <h3 className="font-sans font-black text-stone-900 text-base sm:text-lg">
                   Ushbu bo‘limda hozircha asarlar mavjud emas
                 </h3>
                 <p className="text-xs text-stone-500 leading-relaxed">

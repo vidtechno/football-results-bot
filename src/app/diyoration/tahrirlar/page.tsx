@@ -218,7 +218,7 @@ export default function AdminRevisionsPage() {
                 <div key={rev.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors">
                   <div className="space-y-1.5 min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <strong className="text-sm font-serif font-bold text-slate-900">
+                      <strong className="text-sm font-sans font-bold text-slate-900">
                         {rev.title}
                       </strong>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-900">
@@ -299,7 +299,7 @@ export default function AdminRevisionsPage() {
           <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl p-6 border border-slate-200 shadow-2xl flex flex-col overflow-hidden space-y-4 my-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="font-serif font-bold text-slate-900 text-base">
+                <h3 className="font-sans font-bold text-slate-900 text-base">
                   {selectedRevision.itemType === 'work' ? 'Asar tahririni solishtirish' : 'Bob tahririni solishtirish'}
                 </h3>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">

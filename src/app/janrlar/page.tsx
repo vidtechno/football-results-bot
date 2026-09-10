@@ -60,7 +60,7 @@ export default async function JanrlarPage() {
       <div className="genre-hero relative overflow-hidden rounded-3xl border border-stone-200 bg-white px-6 py-8 sm:px-10 sm:py-10">
         <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-amber-100/70 blur-3xl" />
         <div className="relative space-y-2 max-w-2xl">
-          <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight flex items-center gap-2.5">
+          <h1 className="text-2xl sm:text-3xl font-black font-sans text-[#1C1917] tracking-tight flex items-center gap-2.5">
             <Layers className="w-7 h-7 text-amber-600" />
             <span>O‘zingizga mos mutolaani toping</span>
           </h1>
@@ -88,7 +88,7 @@ export default async function JanrlarPage() {
                   <GroupIcon className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="font-serif text-xl font-black text-stone-900 sm:text-2xl">
+                  <h2 className="font-sans text-xl font-black text-stone-900 sm:text-2xl">
                     {group.title}
                   </h2>
                   <p className="text-xs text-stone-500">{group.description}</p>
@@ -113,7 +113,7 @@ export default async function JanrlarPage() {
                         </div>
                         <div className="mt-3 flex items-end justify-between gap-3">
                           <div>
-                            <h3 className="font-serif text-base font-bold text-stone-900">
+                            <h3 className="font-sans text-base font-bold text-stone-900">
                               {genre.name}
                             </h3>
                             <p className="mt-0.5 line-clamp-1 text-[11px] text-stone-500">

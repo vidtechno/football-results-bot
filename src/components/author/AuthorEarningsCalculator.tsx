@@ -26,7 +26,7 @@ export function AuthorEarningsCalculator({ commissionPercentage = 20 }: AuthorEa
           <Calculator className="w-6 h-6" />
         </div>
         <div>
-          <h3 className="font-serif font-black text-xl text-stone-900">Daromad kalkulyatori</h3>
+          <h3 className="font-sans font-black text-xl text-stone-900">Daromad kalkulyatori</h3>
           <p className="text-xs text-stone-500">
             Asaringiz narxi va xaridlar soniga qarab taxminiy daromadingizni hisoblang
           </p>

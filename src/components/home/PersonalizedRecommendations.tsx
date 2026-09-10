@@ -81,7 +81,7 @@ export function PersonalizedRecommendations() {
             <Sparkles className="w-4 h-4 text-amber-700" />
           </div>
           <div>
-            <h2 className="text-xl sm:text-2xl font-black font-serif text-stone-900 tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-black font-sans text-stone-900 tracking-tight">
               Siz uchun tavsiyalar
             </h2>
             <p className="text-[11px] text-stone-500 font-medium">

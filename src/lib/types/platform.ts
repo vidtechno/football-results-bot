@@ -25,7 +25,7 @@ export type PayoutStatus =
 
 export interface ReadingPreferences {
   theme: 'light' | 'sepia' | 'dark';
-  fontFamily: 'serif' | 'sans';
+  fontFamily: 'inter' | 'system';
   fontSize: number;
   lineHeight: 'normal' | 'relaxed' | 'loose';
   contentWidth: 'narrow' | 'medium' | 'wide';

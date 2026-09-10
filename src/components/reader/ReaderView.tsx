@@ -148,7 +148,7 @@ function getStoredLocalProgress(workId: string): {
 }
 
 type ReaderTheme = 'light' | 'sepia' | 'dark';
-type FontFamily = 'serif' | 'sans';
+type FontFamily = 'inter' | 'system';
 type LineHeight = 'normal' | 'relaxed' | 'loose';
 type ContentWidth = 'narrow' | 'medium' | 'wide';
 
@@ -168,7 +168,7 @@ export function ReaderView({
 
   // Reader Preferences (Persisted locally, default modern Sans-serif)
   const [theme, setTheme] = useState<ReaderTheme>('light');
-  const [fontFamily, setFontFamily] = useState<FontFamily>('sans');
+  const [fontFamily, setFontFamily] = useState<FontFamily>('inter');
   const [fontSize, setFontSize] = useState<number>(18);
   const [lineHeight, setLineHeight] = useState<LineHeight>('relaxed');
   const [contentWidth, setContentWidth] = useState<ContentWidth>('medium');
@@ -288,7 +288,8 @@ export function ReaderView({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.theme) setTheme(parsed.theme);
-        if (parsed.fontFamily) setFontFamily(parsed.fontFamily);
+        if (parsed.fontFamily === 'system') setFontFamily('system');
+        else setFontFamily('inter');
         if (parsed.fontSize) setFontSize(Number(parsed.fontSize));
         if (parsed.lineHeight) setLineHeight(parsed.lineHeight);
         if (parsed.contentWidth) setContentWidth(parsed.contentWidth);
@@ -1003,32 +1004,32 @@ export function ReaderView({
                 <button
                   type="button"
                   onClick={() => {
-                    setFontFamily('serif');
-                    savePrefs({ fontFamily: 'serif' });
+                    setFontFamily('inter');
+                    savePrefs({ fontFamily: 'inter' });
                   }}
                   className={clsx(
-                    'py-2 px-3 rounded-xl border text-xs font-serif font-bold transition-all',
-                    fontFamily === 'serif'
+                    'py-2 px-3 rounded-xl border text-xs font-sans font-bold transition-all',
+                    fontFamily === 'inter'
                       ? 'bg-amber-100/80 border-amber-400 text-stone-900 shadow-xs'
                       : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400',
                   )}
                 >
-                  Klassik (Serif)
+                  Inter
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setFontFamily('sans');
-                    savePrefs({ fontFamily: 'sans' });
+                    setFontFamily('system');
+                    savePrefs({ fontFamily: 'system' });
                   }}
                   className={clsx(
                     'py-2 px-3 rounded-xl border text-xs font-sans font-bold transition-all',
-                    fontFamily === 'sans'
+                    fontFamily === 'system'
                       ? 'bg-amber-100/80 border-amber-400 text-stone-900 shadow-xs'
                       : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400',
                   )}
                 >
-                  Zamonaviy (Sans)
+                  Tizim shrifti
                 </button>
               </div>
             </div>
@@ -1395,9 +1396,9 @@ export function ReaderView({
                 lineHeight:
                   lineHeight === 'normal' ? 1.55 : lineHeight === 'relaxed' ? 1.85 : 2.15,
                 fontFamily:
-                  fontFamily === 'serif'
-                    ? 'var(--font-serif-family)'
-                    : 'var(--font-sans-family)',
+                  fontFamily === 'inter'
+                    ? 'var(--font-sans-family)'
+                    : 'Arial, Helvetica, system-ui, sans-serif',
               }}
               className="reader-article selection:bg-amber-200 selection:text-amber-950 font-normal leading-relaxed space-y-6 min-h-[300px]"
               dangerouslySetInnerHTML={{ __html: paginated.pages[currentPage - 1] || '' }}

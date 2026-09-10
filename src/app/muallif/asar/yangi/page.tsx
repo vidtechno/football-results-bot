@@ -97,7 +97,7 @@ export default function YangiAsarPage() {
           <PenTool className="w-8 h-8" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-black font-serif text-stone-900">
+          <h1 className="text-2xl sm:text-3xl font-black font-sans text-stone-900">
             Mualliflik maqomi talab etiladi
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
@@ -190,7 +190,7 @@ export default function YangiAsarPage() {
             <BookOpen className="w-5 h-5 text-amber-700" />
           </div>
           <div>
-            <h1 className="font-serif font-black text-xl sm:text-2xl text-stone-900">
+            <h1 className="font-sans font-black text-xl sm:text-2xl text-stone-900">
               Yangi asar yaratish
             </h1>
             <p className="text-xs text-stone-500 font-medium">
@@ -236,7 +236,7 @@ export default function YangiAsarPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Masalan: Yulduzli tunlar"
-            className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 text-stone-900 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-serif"
+            className="w-full px-4 py-3 rounded-2xl bg-stone-50 border border-stone-200 text-stone-900 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-sans"
           />
         </div>
 

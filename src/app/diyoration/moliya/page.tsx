@@ -105,7 +105,7 @@ export default function AdminFinancialLedgerPage() {
             {loading ? (
               <Skeleton className="h-7 w-28 rounded bg-emerald-800/60 my-0.5" />
             ) : (
-              <p className="font-serif text-xl sm:text-2xl font-black text-white mt-0.5">
+              <p className="font-sans text-xl sm:text-2xl font-black text-white mt-0.5">
                 {formatUZS(platformRevenue)}
               </p>
             )}
@@ -211,14 +211,14 @@ export default function AdminFinancialLedgerPage() {
                       </td>
                       <td className="py-3.5 px-4">
                         <span
-                          className={`font-serif font-black text-sm ${
+                          className={`font-sans font-black text-sm ${
                             isPositive ? 'text-emerald-700' : 'text-rose-700'
                           }`}
                         >
                           {isPositive ? '+' : ''}{formatUZS(tx.amount)}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 font-serif font-bold text-slate-700">
+                      <td className="py-3.5 px-4 font-sans font-bold text-slate-700">
                         {formatUZS(tx.balance_after)}
                       </td>
                       <td className="py-3.5 px-5 text-right text-slate-400 text-[11px]">

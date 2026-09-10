@@ -57,7 +57,7 @@ export default function AdminReportsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold font-serif text-stone-900 flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold font-sans text-stone-900 flex items-center gap-2.5">
             <Flag className="w-6 h-6 text-rose-600" />
             <span>Foydalanuvchilar shikoyatlari</span>
           </h1>
@@ -132,7 +132,7 @@ export default function AdminReportsPage() {
               </div>
 
               <div>
-                <h4 className="font-serif font-bold text-stone-900 text-sm">{report.reason}</h4>
+                <h4 className="font-sans font-bold text-stone-900 text-sm">{report.reason}</h4>
                 {report.details && (
                   <p className="text-xs text-stone-600 mt-1 leading-relaxed bg-[#FAF8F5] p-3 rounded-2xl border border-stone-200">
                     {report.details}

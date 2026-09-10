@@ -161,7 +161,7 @@ export function PaywallUnlockCard({
           </div>
         )}
 
-        <h3 className="font-serif text-lg sm:text-xl font-bold text-stone-900 mb-2">
+        <h3 className="font-sans text-lg sm:text-xl font-bold text-stone-900 mb-2">
           {isFullWork ? 'Ushbu kitob to‘liq pullik asar hisoblanadi' : 'Ushbu bob pullik kontent hisoblanadi'}
         </h3>
         <p className="text-stone-500 text-xs sm:text-sm mb-6 leading-relaxed max-w-md mx-auto">
@@ -176,7 +176,7 @@ export function PaywallUnlockCard({
             <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
               {isFullWork ? 'Kitob narxi (to‘liq asar)' : 'Bob narxi'}
             </span>
-            <p className="font-serif text-lg sm:text-xl font-bold text-amber-900">
+            <p className="font-sans text-lg sm:text-xl font-bold text-amber-900">
               {formatUZS(price)}
             </p>
           </div>
@@ -187,7 +187,7 @@ export function PaywallUnlockCard({
                 <Wallet className="w-3.5 h-3.5 text-stone-400" />
                 Sizning balansingiz
               </span>
-              <p className="font-serif text-base sm:text-lg font-bold text-stone-800">
+              <p className="font-sans text-base sm:text-lg font-bold text-stone-800">
                 {formatUZS(currentBalance)}
               </p>
             </div>
@@ -216,7 +216,7 @@ export function PaywallUnlockCard({
         {showConfirm && (
           <div className="mb-6 p-4 rounded-2xl bg-amber-50/80 border border-amber-300 text-left space-y-3 animate-in fade-in duration-150">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-serif font-bold text-stone-900">
+              <span className="text-xs font-sans font-bold text-stone-900">
                 Xaridni tasdiqlash
               </span>
               <button

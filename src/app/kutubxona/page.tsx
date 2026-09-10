@@ -71,7 +71,7 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
           <Bookmark className="w-8 h-8" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-black font-serif text-stone-900">
+          <h1 className="text-2xl sm:text-3xl font-black font-sans text-stone-900">
             Shaxsiy kutubxonangiz
           </h1>
           <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
@@ -242,7 +242,7 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
 
       {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight flex items-center gap-2.5">
+        <h1 className="text-2xl sm:text-3xl font-black font-sans text-[#1C1917] tracking-tight flex items-center gap-2.5">
           <Bookmark className="w-7 h-7 text-amber-600" />
           <span>Mening kutubxonam</span>
         </h1>
@@ -347,7 +347,7 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
                 <EmptyIcon className="w-7 h-7" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="font-serif font-bold text-stone-900 text-base sm:text-lg">{state.title}</h3>
+                <h3 className="font-sans font-bold text-stone-900 text-base sm:text-lg">{state.title}</h3>
                 <p className="text-xs sm:text-sm text-stone-600 max-w-sm mx-auto leading-relaxed">
                   {state.description}
                 </p>
@@ -399,7 +399,7 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-1.5">
-                    <h3 className="font-serif font-bold text-stone-900 text-sm truncate">{w?.title}</h3>
+                    <h3 className="font-sans font-bold text-stone-900 text-sm truncate">{w?.title}</h3>
                     <p className="text-xs text-stone-500 truncate">{authorName}</p>
                     {chapterTitle && (
                       <p className="text-[11px] text-amber-800 font-semibold truncate">
@@ -480,7 +480,7 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
                     <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black uppercase">
                       Cheksiz kirish
                     </span>
-                    <h3 className="font-serif font-bold text-stone-900 text-sm truncate">{w?.title}</h3>
+                    <h3 className="font-sans font-bold text-stone-900 text-sm truncate">{w?.title}</h3>
                     {ch ? (
                       <p className="text-xs text-stone-500 truncate">{ch.chapter_number}-bob: {ch.title}</p>
                     ) : (
@@ -519,7 +519,7 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
                   className="bg-white p-5 rounded-3xl border border-[#EAE5DD] shadow-xs flex flex-col justify-between space-y-3"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-500 text-white font-serif font-black flex items-center justify-center text-lg overflow-hidden shrink-0 shadow-xs">
+                    <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-500 text-white font-sans font-black flex items-center justify-center text-lg overflow-hidden shrink-0 shadow-xs">
                       {prof?.avatar_url ? (
                         <Image src={prof.avatar_url} alt={author.pen_name} fill className="object-cover" sizes="56px" />
                       ) : (
@@ -528,7 +528,7 @@ export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-serif font-bold text-stone-900 text-sm truncate">{author.pen_name}</h3>
+                      <h3 className="font-sans font-bold text-stone-900 text-sm truncate">{author.pen_name}</h3>
                       {prof?.username && <p className="text-xs text-stone-500 truncate">@{prof.username}</p>}
                     </div>
                   </div>

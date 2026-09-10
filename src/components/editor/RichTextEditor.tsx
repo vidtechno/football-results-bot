@@ -112,7 +112,7 @@ export function RichTextEditor({
       editorProps: {
         attributes: {
           class:
-            'prose prose-stone max-w-none focus:outline-hidden min-h-[380px] p-5 font-serif text-base leading-relaxed text-stone-900',
+            'prose prose-stone max-w-none focus:outline-hidden min-h-[380px] p-5 font-sans text-base leading-relaxed text-stone-900',
         },
       },
       onCreate: ({ editor }) => {

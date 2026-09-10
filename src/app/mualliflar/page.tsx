@@ -46,7 +46,7 @@ export default async function AuthorsDirectoryPage() {
           <PenTool className="w-3.5 h-3.5" />
           <span>Ijodkorlar maydoni</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-black font-serif text-[#1C1917] tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-black font-sans text-[#1C1917] tracking-tight">
           Platforma mualliflari
         </h1>
         <p className="text-sm text-[#78716C] font-medium max-w-2xl">
@@ -58,7 +58,7 @@ export default async function AuthorsDirectoryPage() {
       {authors.length === 0 ? (
         <div className="bg-[#FAF8F5] border border-[#EAE5DD] rounded-3xl p-12 text-center space-y-4">
           <Users className="w-12 h-12 text-[#A8A29E] mx-auto" />
-          <h3 className="text-lg font-bold text-[#1C1917] font-serif">Hozircha mualliflar mavjud emas</h3>
+          <h3 className="text-lg font-bold text-[#1C1917] font-sans">Hozircha mualliflar mavjud emas</h3>
           <p className="text-sm text-[#78716C] max-w-md mx-auto">
             Siz birinchilardan bo‘lib o‘z asarlaringizni Manbora platformasida e’lon qilishingiz mumkin.
           </p>
@@ -83,7 +83,7 @@ export default async function AuthorsDirectoryPage() {
                 className="group bg-white rounded-3xl border border-[#EAE5DD] p-6 hover:shadow-md hover:border-[#D6CEC4] transition-all flex flex-col justify-between space-y-4"
               >
                 <div className="flex items-center gap-4">
-                  <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white flex items-center justify-center text-xl font-bold font-serif shadow-xs overflow-hidden flex-shrink-0">
+                  <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white flex items-center justify-center text-xl font-bold font-sans shadow-xs overflow-hidden flex-shrink-0">
                     {profile?.avatar_url ? (
                       <Image
                         src={profile.avatar_url}
@@ -98,7 +98,7 @@ export default async function AuthorsDirectoryPage() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-bold font-serif text-[#1C1917] group-hover:text-[#B45309] transition-colors truncate">
+                    <h3 className="text-base font-bold font-sans text-[#1C1917] group-hover:text-[#B45309] transition-colors truncate">
                       {author.pen_name}
                     </h3>
                     {profile?.username && (

@@ -71,7 +71,7 @@ export default async function QidiruvPage({ searchParams }: QidiruvPageProps) {
 
       {/* Header */}
       <div className="space-y-2 text-center max-w-xl mx-auto pt-2 sm:pt-4">
-        <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-black font-sans text-[#1C1917] tracking-tight">
           Asarlarni qidirish
         </h1>
         <p className="text-xs sm:text-sm text-[#78716C] font-medium">
@@ -213,7 +213,7 @@ export default async function QidiruvPage({ searchParams }: QidiruvPageProps) {
       {works.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-[#EAE5DD] shadow-xs space-y-3">
           <Search className="w-10 h-10 text-stone-300 mx-auto" />
-          <h3 className="font-serif font-bold text-stone-800 text-base">Hech qanday asar topilmadi</h3>
+          <h3 className="font-sans font-bold text-stone-800 text-base">Hech qanday asar topilmadi</h3>
           <p className="text-xs text-stone-500 max-w-sm mx-auto">
             {query
               ? `"${query}" so‘rovi bo‘yicha asar topilmadi. So‘zni to‘g‘ri yozganingizni tekshiring yoki janrlar bo‘yicha qidiring.`

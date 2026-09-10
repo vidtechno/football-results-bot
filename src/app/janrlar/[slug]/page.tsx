@@ -86,7 +86,7 @@ export default async function GenreDetailPage({ params, searchParams }: GenreDet
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight flex items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-black font-sans text-[#1C1917] tracking-tight flex items-center gap-2.5">
               <Tag className="w-6 h-6 text-amber-600" />
               <span>{genre.name}</span>
             </h1>
@@ -173,7 +173,7 @@ export default async function GenreDetailPage({ params, searchParams }: GenreDet
       {works.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-[#EAE5DD] shadow-xs space-y-3">
           <BookOpen className="w-10 h-10 text-stone-300 mx-auto" />
-          <h3 className="font-serif font-bold text-stone-800 text-base">Bu janrda asarlar topilmadi</h3>
+          <h3 className="font-sans font-bold text-stone-800 text-base">Bu janrda asarlar topilmadi</h3>
           <p className="text-xs text-stone-500 max-w-sm mx-auto">
             Ushbu janr bo‘yicha hozircha chop etilgan asarlar mavjud emas yoki filtrlarga mos kelmadi.
           </p>

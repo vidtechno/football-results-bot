@@ -191,7 +191,7 @@ export function UnifiedAuthCard({ initialRedirect = '/kabinet', defaultMode = 'l
           /* LOGIN TAB */
           <div>
             <div className="text-center space-y-1 mb-6">
-              <h1 className="text-2xl font-black font-serif text-stone-900 tracking-tight">
+              <h1 className="text-2xl font-black font-sans text-stone-900 tracking-tight">
                 Xush kelibsiz
               </h1>
               <p className="text-xs text-stone-500">
@@ -284,7 +284,7 @@ export function UnifiedAuthCard({ initialRedirect = '/kabinet', defaultMode = 'l
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-xl font-bold font-serif text-stone-900">
+                  <h3 className="text-xl font-bold font-sans text-stone-900">
                     Ro‘yxatdan o‘tdingiz!
                   </h3>
                   <p className="text-xs text-stone-600 max-w-xs mx-auto">
@@ -303,7 +303,7 @@ export function UnifiedAuthCard({ initialRedirect = '/kabinet', defaultMode = 'l
             ) : (
               <div>
                 <div className="text-center space-y-1 mb-6">
-                  <h1 className="text-2xl font-black font-serif text-stone-900 tracking-tight">
+                  <h1 className="text-2xl font-black font-sans text-stone-900 tracking-tight">
                     {roleParam === 'author' ? 'Muallif sifatida qo‘shiling' : 'Ro‘yxatdan o‘tish'}
                   </h1>
                   <p className="text-xs text-stone-500">

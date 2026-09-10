@@ -287,7 +287,7 @@ export default function AdminPayoutRequestsPage() {
                 >
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-serif font-black text-slate-900 text-base">
+                      <span className="font-sans font-black text-slate-900 text-base">
                         {formatUZS(p.requested_amount)}
                       </span>
                       <span
@@ -420,7 +420,7 @@ export default function AdminPayoutRequestsPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Summa:</span>
-                <strong className="font-serif text-emerald-700">{formatUZS(actionModal.amount)}</strong>
+                <strong className="font-sans text-emerald-700">{formatUZS(actionModal.amount)}</strong>
               </div>
             </div>
 

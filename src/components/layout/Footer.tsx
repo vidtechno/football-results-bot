@@ -11,7 +11,7 @@ export function Footer() {
           <div className="space-y-2 max-w-md">
             <Link
               href="/"
-              className="inline-flex font-serif text-2xl font-black italic tracking-[-0.035em] text-stone-900 transition-colors hover:text-emerald-800"
+              className="inline-flex font-sans text-2xl font-black italic tracking-[-0.035em] text-stone-900 transition-colors hover:text-emerald-800"
             >
               Manbora
             </Link>

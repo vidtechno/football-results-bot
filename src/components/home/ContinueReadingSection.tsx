@@ -179,7 +179,7 @@ export function ContinueReadingSection() {
                   </span>
                 </div>
 
-                <h3 className="text-base sm:text-lg font-black font-serif text-stone-900 truncate">
+                <h3 className="text-base sm:text-lg font-black font-sans text-stone-900 truncate">
                   {primaryItem.workTitle}
                 </h3>
 

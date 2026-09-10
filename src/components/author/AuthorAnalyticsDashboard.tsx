@@ -408,7 +408,7 @@ export default function AuthorAnalyticsDashboard() {
                     return (
                       <div key={wf.workId} className="space-y-3 pt-3 border-t first:border-t-0 border-[#F0EBE1]">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-serif font-bold text-sm text-[#1A1A1A] flex items-center gap-2">
+                          <h4 className="font-sans font-bold text-sm text-[#1A1A1A] flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-amber-600" />
                             <span>{wf.workTitle}</span>
                           </h4>

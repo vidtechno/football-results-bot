@@ -78,7 +78,7 @@ export function Navbar() {
           aria-label="Manbora Bosh Sahifa"
         >
           <div className="flex flex-col justify-center">
-            <span className="font-serif text-2xl sm:text-[1.7rem] font-black italic text-[#1C1917] tracking-[-0.035em] leading-none transition-colors group-hover:text-emerald-800">
+            <span className="font-sans text-2xl sm:text-[1.7rem] font-black italic text-[#1C1917] tracking-[-0.035em] leading-none transition-colors group-hover:text-emerald-800">
               Manbora
             </span>
             <span className="hidden sm:block text-[9px] text-emerald-800 font-bold tracking-wider uppercase leading-tight pt-0.5">

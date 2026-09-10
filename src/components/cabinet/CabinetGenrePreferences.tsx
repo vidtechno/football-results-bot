@@ -180,7 +180,7 @@ export function CabinetGenrePreferences() {
           <Sparkles className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="font-serif text-lg font-black text-stone-900">
+          <h2 className="font-sans text-lg font-black text-stone-900">
             Sevimli adabiy janrlar
           </h2>
           <p className="text-xs text-stone-500">

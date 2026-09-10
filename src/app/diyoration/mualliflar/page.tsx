@@ -248,12 +248,12 @@ export default function AdminAuthorsManagementPage() {
               return (
                 <div key={a.user_id} className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors">
                   <div className="flex items-start gap-3.5">
-                    <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-950 flex items-center justify-center font-serif font-black text-sm shrink-0 border border-amber-200">
+                    <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-950 flex items-center justify-center font-sans font-black text-sm shrink-0 border border-amber-200">
                       {a.pen_name?.charAt(0).toUpperCase() || 'M'}
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <strong className="text-sm font-serif font-bold text-slate-900">
+                        <strong className="text-sm font-sans font-bold text-slate-900">
                           {a.pen_name}
                         </strong>
                         <span className="text-xs text-slate-500 font-medium">
@@ -354,11 +354,11 @@ export default function AdminAuthorsManagementPage() {
             {/* Drawer Header */}
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-600 text-white font-serif font-black text-base flex items-center justify-center">
+                <div className="w-10 h-10 rounded-2xl bg-amber-600 text-white font-sans font-black text-base flex items-center justify-center">
                   {selectedAuthor.pen_name?.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="font-serif font-bold text-slate-900 text-base leading-tight">
+                  <h3 className="font-sans font-bold text-slate-900 text-base leading-tight">
                     {selectedAuthor.pen_name}
                   </h3>
                   <span className="text-xs text-slate-400 font-mono">
@@ -388,7 +388,7 @@ export default function AdminAuthorsManagementPage() {
                     <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-800 block">
                       Yechib olish mumkin (Available)
                     </span>
-                    <p className="font-serif text-xl sm:text-2xl font-black text-emerald-950 mt-1">
+                    <p className="font-sans text-xl sm:text-2xl font-black text-emerald-950 mt-1">
                       {formatUZS(authorDetails.author?.balances?.available || 0)}
                     </p>
                   </div>
@@ -397,7 +397,7 @@ export default function AdminAuthorsManagementPage() {
                     <span className="text-[10px] uppercase tracking-wider font-bold text-stone-500 block">
                       Band qilingan (Reserved)
                     </span>
-                    <p className="font-serif text-xl sm:text-2xl font-black text-stone-800 mt-1">
+                    <p className="font-sans text-xl sm:text-2xl font-black text-stone-800 mt-1">
                       {formatUZS(authorDetails.author?.balances?.reserved || 0)}
                     </p>
                   </div>
@@ -485,7 +485,7 @@ export default function AdminAuthorsManagementPage() {
                       {authorDetails.author?.works?.map((w: any) => (
                         <div key={w.id} className="p-3.5 flex items-center justify-between gap-3 text-xs">
                           <div>
-                            <strong className="font-serif font-bold text-slate-900 block">{w.title}</strong>
+                            <strong className="font-sans font-bold text-slate-900 block">{w.title}</strong>
                             <span className="text-[10px] text-slate-400">
                               {w.type === 'serialized_story' ? 'Serial' : 'Kitob'} • {formatUzbekDate(w.created_at)}
                             </span>
@@ -513,7 +513,7 @@ export default function AdminAuthorsManagementPage() {
                       {authorDetails.author?.payouts?.map((p: any) => (
                         <div key={p.id} className="p-3.5 flex items-center justify-between gap-3 text-xs">
                           <div>
-                            <strong className="font-serif font-bold text-slate-900">{formatUZS(p.requested_amount)}</strong>
+                            <strong className="font-sans font-bold text-slate-900">{formatUZS(p.requested_amount)}</strong>
                             <span className="text-[10px] text-slate-400 block">{formatUzbekDate(p.created_at)}</span>
                           </div>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-slate-100 text-slate-700">

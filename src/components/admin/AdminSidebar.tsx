@@ -65,7 +65,7 @@ export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: Adm
           <div className="flex items-center gap-3">
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-serif text-xl font-black italic tracking-[-0.035em] text-slate-900">Manbora</span>
+                <span className="font-sans text-xl font-black italic tracking-[-0.035em] text-slate-900">Manbora</span>
                 <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">ADMIN</span>
               </div>
               <span className="text-[11px] text-slate-400 font-bold block">Boshqaruv Tizimi</span>

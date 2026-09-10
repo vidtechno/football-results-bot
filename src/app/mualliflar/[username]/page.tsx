@@ -169,7 +169,7 @@ export default async function AuthorPublicProfilePage({
       <div className="bg-white rounded-3xl border border-[#EAE5DD] p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
           {/* Avatar */}
-          <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white flex items-center justify-center text-3xl font-black font-serif shadow-md shadow-[#B45309]/15 overflow-hidden shrink-0">
+          <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-tr from-[#B45309] to-[#D97706] text-white flex items-center justify-center text-3xl font-black font-sans shadow-md shadow-[#B45309]/15 overflow-hidden shrink-0">
             {profile?.avatar_url ? (
               <Image
                 src={profile.avatar_url}
@@ -196,7 +196,7 @@ export default async function AuthorPublicProfilePage({
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black font-sans text-[#1C1917] tracking-tight">
               {author.pen_name}
             </h1>
 
@@ -266,7 +266,7 @@ export default async function AuthorPublicProfilePage({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-600" />
-              <h2 className="font-serif font-black text-lg text-stone-900">
+              <h2 className="font-sans font-black text-lg text-stone-900">
                 So‘nggi chiqqan boblar
               </h2>
             </div>
@@ -290,7 +290,7 @@ export default async function AuthorPublicProfilePage({
                     {new Date(chap.published_at || chap.created_at).toLocaleDateString('uz-UZ')}
                   </span>
                 </div>
-                <h3 className="font-serif font-bold text-sm text-stone-900 group-hover:text-amber-900 transition-colors line-clamp-1">
+                <h3 className="font-sans font-bold text-sm text-stone-900 group-hover:text-amber-900 transition-colors line-clamp-1">
                   {chap.chapter_number}-bob: {chap.title}
                 </h3>
                 <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-amber-700 group-hover:text-amber-800">

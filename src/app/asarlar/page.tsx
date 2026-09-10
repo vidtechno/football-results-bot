@@ -85,7 +85,7 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
 
       {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight flex items-center gap-2.5">
+        <h1 className="text-2xl sm:text-3xl font-black font-sans text-[#1C1917] tracking-tight flex items-center gap-2.5">
           <Compass className="w-7 h-7 text-amber-600" />
           <span>Asarlar katalogi</span>
         </h1>
@@ -329,7 +329,7 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
       {works.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-[#EAE5DD] shadow-xs space-y-3">
           <BookOpen className="w-10 h-10 text-stone-300 mx-auto" />
-          <h3 className="font-serif font-bold text-stone-800 text-base">Asarlar topilmadi</h3>
+          <h3 className="font-sans font-bold text-stone-800 text-base">Asarlar topilmadi</h3>
           <p className="text-xs text-stone-500 max-w-sm mx-auto">
             Qidiruv so‘rovi yoki tanlangan filtrlar bo‘yicha asar topilmadi. Boshqa filtrlarni sinab
             ko‘ring.

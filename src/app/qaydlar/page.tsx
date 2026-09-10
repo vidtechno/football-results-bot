@@ -19,7 +19,7 @@ export default async function NotesPage() {
     <h1 className="flex items-center gap-3 text-3xl font-black"><Highlighter className="h-8 w-8 text-amber-600" /> Qaydlarim</h1>
     <p className="mt-2 text-stone-500">Saqlagan iqtiboslaringiz, highlight va shaxsiy izohlaringiz barcha qurilmalarda sinxron turadi.</p>
     <div className="mt-8 space-y-4">{(data || []).map((item: any) => <article key={item.id} className={`rounded-2xl border-l-4 p-5 text-stone-900 ${colors[item.color] || colors.yellow}`}>
-      <blockquote className="font-serif text-lg italic">“{item.quote}”</blockquote>{item.note && <p className="mt-3 flex gap-2 text-sm"><StickyNote className="mt-0.5 h-4 w-4 shrink-0" />{item.note}</p>}
+      <blockquote className="font-sans text-lg italic">“{item.quote}”</blockquote>{item.note && <p className="mt-3 flex gap-2 text-sm"><StickyNote className="mt-0.5 h-4 w-4 shrink-0" />{item.note}</p>}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-stone-600"><span>{item.work?.title} · {item.chapter?.chapter_number}-bob · {item.page_number}-sahifa</span><Link className="font-bold text-amber-800" href={`/asarlar/${item.work?.slug}/${item.chapter?.slug}?page=${item.page_number}`}>O‘qishga qaytish →</Link></div>
     </article>)}{!data?.length && <div className="rounded-3xl border border-dashed border-stone-300 p-12 text-center text-stone-500">Hali qayd yo‘q. Kitob o‘qiyotganda matnni belgilang.</div>}</div>
   </main>;

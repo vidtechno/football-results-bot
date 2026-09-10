@@ -174,7 +174,7 @@ function DashboardContent() {
           {loading ? (
             <Skeleton className="h-8 w-20 rounded-xl my-1.5" />
           ) : (
-            <p className="font-serif text-2xl sm:text-3xl font-black text-slate-900 mt-2">
+            <p className="font-sans text-2xl sm:text-3xl font-black text-slate-900 mt-2">
               {stats.totalUsers}
             </p>
           )}
@@ -196,7 +196,7 @@ function DashboardContent() {
           {loading ? (
             <Skeleton className="h-8 w-16 rounded-xl my-1.5" />
           ) : (
-            <p className="font-serif text-2xl sm:text-3xl font-black text-slate-900 mt-2">
+            <p className="font-sans text-2xl sm:text-3xl font-black text-slate-900 mt-2">
               {stats.approvedAuthors}
             </p>
           )}
@@ -224,7 +224,7 @@ function DashboardContent() {
           {loading ? (
             <Skeleton className="h-8 w-16 rounded-xl my-1.5" />
           ) : (
-            <p className="font-serif text-2xl sm:text-3xl font-black text-slate-900 mt-2">
+            <p className="font-sans text-2xl sm:text-3xl font-black text-slate-900 mt-2">
               {stats.publishedWorks}
             </p>
           )}
@@ -246,7 +246,7 @@ function DashboardContent() {
           {loading ? (
             <Skeleton className="h-8 w-28 rounded-xl my-1.5" />
           ) : (
-            <p className="font-serif text-xl sm:text-2xl font-black text-purple-900 mt-2 truncate">
+            <p className="font-sans text-xl sm:text-2xl font-black text-purple-900 mt-2 truncate">
               {formatUZS(stats.platformRevenue)}
             </p>
           )}
@@ -345,7 +345,7 @@ function DashboardContent() {
 
       {/* Direct Section Shortcuts */}
       <div className="space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 font-serif">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 font-sans">
           Tezkor Boshqaruv Bo‘limlari
         </h2>
 

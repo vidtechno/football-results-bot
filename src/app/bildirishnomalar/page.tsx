@@ -44,7 +44,7 @@ export default async function BildirishnomalarPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-black font-serif text-[#1C1917] tracking-tight flex items-center gap-2.5">
+          <h1 className="text-2xl sm:text-3xl font-black font-sans text-[#1C1917] tracking-tight flex items-center gap-2.5">
             <Bell className="w-7 h-7 text-amber-600" />
             <span>Bildirishnomalar</span>
           </h1>
@@ -56,7 +56,7 @@ export default async function BildirishnomalarPage() {
       {list.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-[#EAE5DD] shadow-xs space-y-3">
           <Bell className="w-10 h-10 text-stone-300 mx-auto" />
-          <h3 className="font-serif font-bold text-stone-800 text-base">Hozircha bildirishnomalar yo‘q</h3>
+          <h3 className="font-sans font-bold text-stone-800 text-base">Hozircha bildirishnomalar yo‘q</h3>
           <p className="text-xs text-stone-500 max-w-sm mx-auto">
             Siz kuzatayotgan asarlarning yangi boblari, aksiyalar va to‘lovlar haqida shu yerda xabardor bo‘lasiz.
           </p>
@@ -101,7 +101,7 @@ export default async function BildirishnomalarPage() {
 
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="font-serif font-bold text-xs sm:text-sm text-stone-900 truncate">
+                    <h4 className="font-sans font-bold text-xs sm:text-sm text-stone-900 truncate">
                       {n.title}
                     </h4>
                     <span className="text-[11px] text-stone-400 shrink-0">

@@ -352,7 +352,7 @@ export default function AdminUsersManagementPage() {
                           {u.role}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 font-black font-serif text-slate-900">
+                      <td className="py-3.5 px-4 font-black font-sans text-slate-900">
                         {formatUZS(u.balance)}
                       </td>
                       <td className="py-3.5 px-4 text-slate-400 text-[11px]">
@@ -409,7 +409,7 @@ export default function AdminUsersManagementPage() {
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-slate-400 font-bold block">Balans:</span>
-                      <span className="font-serif font-black text-slate-900">{formatUZS(u.balance)}</span>
+                      <span className="font-sans font-black text-slate-900">{formatUZS(u.balance)}</span>
                     </div>
                   </div>
 
@@ -502,7 +502,7 @@ export default function AdminUsersManagementPage() {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Kitobxon Hamyon Balansi
                     </span>
-                    <p className="font-serif text-2xl sm:text-3xl font-black mt-0.5 text-amber-400">
+                    <p className="font-sans text-2xl sm:text-3xl font-black mt-0.5 text-amber-400">
                       {formatUZS(userDetail.balance)}
                     </p>
                   </div>
@@ -624,7 +624,7 @@ export default function AdminUsersManagementPage() {
                                 </span>
                               </div>
                               <div className="text-right">
-                                <span className={`font-black font-serif text-sm ${isCredit ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                <span className={`font-black font-sans text-sm ${isCredit ? 'text-emerald-600' : 'text-rose-600'}`}>
                                   {isCredit ? '+' : ''}{formatUZS(tx.amount)}
                                 </span>
                                 <span className="text-[10px] text-slate-400 block">
@@ -654,13 +654,13 @@ export default function AdminUsersManagementPage() {
                         {userDetail.purchases.map((p: any) => (
                           <div key={p.id} className="p-3.5 flex items-center justify-between gap-3 text-xs">
                             <div>
-                              <strong className="font-bold text-slate-900 block font-serif">{p.work?.title}</strong>
+                              <strong className="font-bold text-slate-900 block font-sans">{p.work?.title}</strong>
                               <span className="text-[11px] text-slate-500">
                                 {p.purchase_type === 'full_work' ? 'To‘liq asar' : `${p.chapter?.chapter_number}-bob: ${p.chapter?.title}`}
                               </span>
                             </div>
                             <div className="text-right">
-                              <span className="font-black font-serif text-amber-900">{formatUZS(p.gross_amount)}</span>
+                              <span className="font-black font-sans text-amber-900">{formatUZS(p.gross_amount)}</span>
                               <span className="text-[10px] text-slate-400 block">{formatUzbekDate(p.created_at)}</span>
                             </div>
                           </div>
@@ -676,7 +676,7 @@ export default function AdminUsersManagementPage() {
                     <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 grid grid-cols-2 gap-3">
                       <div>
                         <span className="text-[10px] text-amber-800 font-bold uppercase block">Taxallus</span>
-                        <strong className="font-serif text-sm font-bold text-stone-900">{userDetail.author.pen_name}</strong>
+                        <strong className="font-sans text-sm font-bold text-stone-900">{userDetail.author.pen_name}</strong>
                       </div>
                       <div className="text-right">
                         <span className="text-[10px] text-amber-800 font-bold uppercase block">Holat</span>
@@ -686,13 +686,13 @@ export default function AdminUsersManagementPage() {
                       </div>
                       <div>
                         <span className="text-[10px] text-stone-500 font-medium block">Yechib olish mumkin:</span>
-                        <span className="font-serif font-bold text-emerald-700 text-sm">
+                        <span className="font-sans font-bold text-emerald-700 text-sm">
                           {formatUZS(userDetail.author.balances?.available || 0)}
                         </span>
                       </div>
                       <div className="text-right">
                         <span className="text-[10px] text-stone-500 font-medium block">Band qilingan (Reserved):</span>
-                        <span className="font-serif font-bold text-stone-700 text-sm">
+                        <span className="font-sans font-bold text-stone-700 text-sm">
                           {formatUZS(userDetail.author.balances?.reserved || 0)}
                         </span>
                       </div>
@@ -702,7 +702,7 @@ export default function AdminUsersManagementPage() {
                       <span className="text-[11px] font-bold text-slate-400 uppercase block">Muallif asarlari ({userDetail.author.works?.length || 0})</span>
                       {userDetail.author.works?.map((w: any) => (
                         <div key={w.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                          <span className="font-serif font-bold text-slate-900">{w.title}</span>
+                          <span className="font-sans font-bold text-slate-900">{w.title}</span>
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-200 text-slate-700 uppercase">
                             {w.status}
                           </span>
@@ -817,7 +817,7 @@ export default function AdminUsersManagementPage() {
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-slate-400 block font-bold">Joriy balans</span>
-                    <span className="font-serif font-black text-slate-900">{formatUZS(currentBal)}</span>
+                    <span className="font-sans font-black text-slate-900">{formatUZS(currentBal)}</span>
                   </div>
                 </div>
 
@@ -888,7 +888,7 @@ export default function AdminUsersManagementPage() {
                   </div>
                   <div className="flex justify-between text-stone-900 font-bold">
                     <span>Kutilayotgan yangi balans:</span>
-                    <span className="font-serif text-sm">{formatUZS(expectedBal)}</span>
+                    <span className="font-sans text-sm">{formatUZS(expectedBal)}</span>
                   </div>
                 </div>
 

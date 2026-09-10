@@ -12,9 +12,7 @@
   --font-reading-sans:
     var(--font-inter), Inter, Arial, Helvetica, system-ui, -apple-system, BlinkMacSystemFont,
     'Segoe UI', sans-serif;
-  --font-reading-serif: var(--font-source-serif), 'Source Serif 4', Georgia, serif;
   --font-sans-family: var(--font-ui);
-  --font-serif-family: var(--font-reading-serif);
 }
 
 html,

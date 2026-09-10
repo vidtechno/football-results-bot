@@ -295,7 +295,7 @@ export function ChapterCommentsSection({
             <MessageSquare className="w-4 h-4 text-amber-800" />
           </div>
           <div>
-            <h3 className="font-serif font-black text-lg text-stone-900 tracking-tight">
+            <h3 className="font-sans font-black text-lg text-stone-900 tracking-tight">
               Bob yuzasidan fikrlar
             </h3>
             <p className="text-[11px] text-stone-500 font-medium">

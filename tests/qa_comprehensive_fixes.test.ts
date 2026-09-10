@@ -692,7 +692,7 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
   });
 
   describe('13. Font Configuration & CSS Variable Integrity', () => {
-    it('Ensures font variables are distinct and non-cyclic in globals.css and layout.tsx', async () => {
+    it('uses Inter without serif-family fallbacks', async () => {
       const fs = await import('fs');
       const path = await import('path');
 
@@ -707,11 +707,12 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
 
       // Must not contain circular reference --font-ui: var(--font-ui)
       expect(globalsCss.includes('--font-ui: var(--font-ui)')).toBe(false);
-      expect(globalsCss.includes('--font-serif: var(--font-serif)')).toBe(false);
+      expect(globalsCss.toLowerCase()).not.toContain('georgia');
+      expect(globalsCss.toLowerCase()).not.toContain('source serif');
 
-      // Must configure font variables in layout.tsx
+      // Inter is the sole bundled site font.
       expect(layoutTsx.includes('--font-inter')).toBe(true);
-      expect(layoutTsx.includes('--font-source-serif')).toBe(true);
+      expect(layoutTsx.includes('Source_Serif')).toBe(false);
     });
   });
 
@@ -2239,4 +2240,3 @@ describe('QA Comprehensive Fixes & Security Access Tests', () => {
     });
   });
 });
-

@@ -26,10 +26,10 @@ describe('Public profile and free chapter synchronization', () => {
     expect(revisions).toContain('is_preview_free: isPreviewFree');
   });
 
-  it('applies the preview flag during both RPC and fallback approval', () => {
+  it('verifies the preview flag after RPC approval', () => {
     const migration = read('supabase/migrations/038_fix_public_author_and_free_preview.sql');
     const adminRoute = read('src/app/api/admin/revisions-action/route.ts');
     expect(migration).toContain('is_preview_free = v_rev.is_preview_free');
-    expect(adminRoute).toContain('is_preview_free: Boolean(revBefore.is_preview_free)');
+    expect(adminRoute).toContain('await verifyApprovedChapterPreview(adminClient, revisionId)');
   });
 });

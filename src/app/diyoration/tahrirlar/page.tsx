@@ -448,7 +448,7 @@ export default function AdminRevisionsPage() {
                         {selectedRevision.liveChapter?.title || '—'}
                       </p>
                       <p className="text-[11px] text-slate-500 mt-1">
-                        {selectedRevision.liveChapter?.is_free ? 'Bepul bob' : `Pulli: ${formatUZS(selectedRevision.liveChapter?.price || 0)}`}
+                        {(selectedRevision.work?.access_type === 'free' || selectedRevision.liveChapter?.is_preview_free) ? 'Bepul bob' : 'Kitob xaridiga kiradi'}
                       </p>
                     </div>
                     <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
@@ -459,7 +459,7 @@ export default function AdminRevisionsPage() {
                         {selectedRevision.title}
                       </p>
                       <p className="text-[11px] text-amber-900 mt-1 font-semibold">
-                        {selectedRevision.is_free ? 'Bepul bob' : `Pulli: ${formatUZS(selectedRevision.price || 0)}`}
+                        {(selectedRevision.work?.access_type === 'free' || selectedRevision.is_preview_free) ? 'Bepul bob' : 'Kitob xaridiga kiradi'}
                       </p>
                     </div>
                   </div>

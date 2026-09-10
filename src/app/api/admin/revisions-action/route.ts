@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { verifyApprovedChapterPreview } from '@/lib/services/chapterApproval';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { verifyAdminProfile } from '@/lib/admin/auth';
 
@@ -87,7 +88,7 @@ export async function GET(request: Request) {
           .from('chapter_contents')
           .select('chapter_id, content')
           .in('chapter_id', chapIds),
-        adminClient.from('works').select('id, title').in('id', workIds),
+        adminClient.from('works').select('id, title, access_type').in('id', workIds),
         adminClient.from('profiles').select('id, full_name, email, avatar_url').in('id', authorIds),
       ]);
 
@@ -337,34 +338,14 @@ export async function POST(request: Request) {
         });
 
         if (rpcErr) {
-          // Direct fallback
-          await adminClient
-            .from('chapters')
-            .update({
-              title: revBefore.title,
-              is_free: revBefore.is_free,
-              is_preview_free: Boolean(revBefore.is_preview_free),
-              price: revBefore.price,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', revBefore.chapter_id);
-
-          await adminClient.from('chapter_contents').upsert({
-            chapter_id: revBefore.chapter_id,
-            content: revBefore.content,
-            updated_at: new Date().toISOString(),
-          });
-
-          await adminClient
-            .from('chapter_revisions')
-            .update({
-              status: 'approved',
-              moderator_id: moderatorId,
-              reviewed_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', revisionId);
+          // Never bypass an RPC rejection with unchecked, non-atomic writes.
+          throw new Error('Bob tahririni tasdiqlab bo‘lmadi: ' + rpcErr.message);
         }
+
+        // Older databases can return success without copying is_preview_free.
+        // Verify the persisted approval and reconcile only that exact version.
+        await verifyApprovedChapterPreview(adminClient, revisionId);
+        revalidateTag('public-catalogue');
 
         // Revalidate exact affected public paths
         try {

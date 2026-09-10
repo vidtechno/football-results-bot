@@ -9,7 +9,7 @@ export function getPublicWorkAuthorName(work: PublicWork): string {
     return work.original_author_name?.trim() || 'Original muallif ko‘rsatilmagan';
   }
 
-  return work.author?.pen_name?.trim() || work.author?.profile?.display_name?.trim() || 'Muallif';
+  return work.author?.profile?.display_name?.trim() || work.author?.pen_name?.trim() || 'Muallif';
 }
 
 export function getPublicWorkAuthorUsername(work: PublicWork): string | null {

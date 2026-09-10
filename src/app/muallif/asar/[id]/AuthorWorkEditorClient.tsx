@@ -333,6 +333,11 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
   }
 
   function openEditChapterModal(chap: Chapter) {
+    // Reopen the pending proposal, not the live version awaiting moderation.
+    const pending = chapterRevisions.find(
+      (revision) => revision.chapter_id === chap.id && revision.status === 'pending_review',
+    );
+    if (pending) chap = { ...chap, ...pending, id: chap.id, status: chap.status };
     const rawContent = chap.content || '';
     setEditingChapterId(chap.id);
     setChapterNumber(chap.chapter_number);
@@ -382,14 +387,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     const currentTrimmedTitle = chapterTitle.trim();
     const currentTrimmedContent = chapterContent.trim();
 
-    // Do not autosave if current values are identical to last saved snapshot
-    if (
-      lastSavedSnapshotRef.current &&
-      lastSavedSnapshotRef.current.title === currentTrimmedTitle &&
-      lastSavedSnapshotRef.current.content === currentTrimmedContent
-    ) {
-      return;
-    }
+    // isDirty also covers free-preview and scheduling changes, not just text.
 
     setAutosaveStatus('idle');
 
@@ -903,7 +901,9 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                         {ch.title}
                       </h4>
                       <span className="text-[11px] text-stone-400 font-medium">
-                        {ch.is_free ? 'Bepul mutolaa' : `Pullik (${formatUZS(ch.price)})`}
+                        {work.access_type === 'free' || ch.is_preview_free
+                          ? 'Bepul mutolaa'
+                          : 'Kitob xaridiga kiradi'}
                       </span>
                     </div>
                   </div>

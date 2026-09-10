@@ -6,7 +6,7 @@ const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
 
 describe('Homepage discovery shelves', () => {
-  it('shows at most four cards and routes every shelf to a catalogue filter', () => {
+  it('shows at most six cards and routes every shelf to a catalogue filter', () => {
     const home = read('src/app/page.tsx');
     const tabs = read('src/components/home/HomeDiscoveryTabs.tsx');
     for (const collection of [
@@ -18,8 +18,8 @@ describe('Homepage discovery shelves', () => {
       expect(home).toContain(`collection=${collection}`);
     }
     expect(home).toContain('collection=15_daqiqa&type=serialized_story');
-    expect(tabs).toContain('works.slice(0, 4)');
-    expect(tabs).toContain('lg:grid-cols-4');
+    expect(tabs).toContain('works.slice(0, 6)');
+    expect(tabs).toContain('lg:grid-cols-6');
   });
 
   it('maintains read and sales ranks without homepage aggregate queries', () => {

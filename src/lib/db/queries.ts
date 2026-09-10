@@ -890,6 +890,7 @@ export async function getPaginatedCatalogue(options?: {
         break;
       case 'eng_kop_oqilgan':
         q = q
+          .gt('unique_readers_count', 0)
           .order('unique_readers_count', { ascending: false })
           .order('view_count', { ascending: false });
         break;
@@ -918,7 +919,7 @@ export async function getPaginatedCatalogue(options?: {
         q = q.eq('completion_status', 'completed');
         break;
       case '15_daqiqa':
-        q = q.eq('type', 'serialized_story').lte('total_words', 3500);
+        q = q.eq('type', 'serialized_story').gt('total_words', 0).lte('total_words', 3500);
         break;
       case 'bepul':
         q = q.eq('access_type', 'free');

@@ -270,8 +270,8 @@ export function HomeDiscoveryTabs({
       >
         {/* State 1: Loading Skeleton */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4.5">
+            {Array.from({ length: 6 }).map((_, i) => (
               <WorkCardSkeleton key={i} />
             ))}
           </div>
@@ -417,8 +417,8 @@ export function HomeDiscoveryTabs({
           </div>
         ) : (
           /* State 4: Valid Results Grid */
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
-            {works.slice(0, 4).map((work) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4.5">
+            {works.slice(0, 6).map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
           </div>

@@ -45,6 +45,6 @@ describe('admin-curated translated works', () => {
     expect(home).toContain('Dunyo adabiyoti o‘zbek tilida');
     expect(home).toContain('href="/tarjima-asarlar"');
     expect(home).toContain('translatedWorks.length > 0');
-    expect(home).toContain('.slice(0, 4)');
+    expect(home).toContain('.slice(0, 6)');
   });
 });

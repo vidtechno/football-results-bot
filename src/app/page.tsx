@@ -68,33 +68,34 @@ export default async function HomePage() {
     .sort(byNewest)
     .slice(0, 8);
   const popularWorks = [...originalWorks].sort(byPopular).slice(0, 10);
-  const mostReadWorks = [...originalWorks]
-    .filter((work) => Number(work.unique_readers_count || work.view_count || 0) > 0)
+  const mostReadWorks = [...allWorks]
+    .filter((work) => Number(work.unique_readers_count || 0) > 0)
     .sort(
       (a, b) =>
-        Number(b.unique_readers_count || b.view_count || 0) -
-        Number(a.unique_readers_count || a.view_count || 0),
+        Number(b.unique_readers_count || 0) -
+        Number(a.unique_readers_count || 0),
     )
-    .slice(0, 4);
-  const bestsellerWorks = originalWorks
+    .slice(0, 6);
+  const bestsellerWorks = allWorks
     .filter((work) => work.access_type === 'paid_full_work' && Number(work.sales_count || 0) > 0)
     .sort((a, b) => Number(b.sales_count || 0) - Number(a.sales_count || 0))
-    .slice(0, 4);
-  const readerLovedWorks = originalWorks
+    .slice(0, 6);
+  const readerLovedWorks = allWorks
     .filter((work) => Number(work.rating_count || 0) > 0)
     .sort(
       (a, b) =>
         Number(b.average_rating || 0) - Number(a.average_rating || 0) ||
         Number(b.rating_count || 0) - Number(a.rating_count || 0),
     )
-    .slice(0, 4);
-  const quickStoryWorks = storyWorks
-    .filter((work) => Number(work.total_words || 0) <= 3500)
-    .slice(0, 4);
+    .slice(0, 6);
+  const quickStoryWorks = allWorks
+    .filter((work) => work.type === 'serialized_story' && Number(work.total_words || 0) > 0 && Number(work.total_words) <= 3500)
+    .sort(byNewest)
+    .slice(0, 6);
   const translatedWorks = allWorks
     .filter((work) => work.is_translation)
     .sort(byNewest)
-    .slice(0, 4);
+    .slice(0, 6);
   const discoveryNewWorks = [...allWorks].sort(byNewest).slice(0, 10);
 
   // Hero carousel candidates
@@ -102,7 +103,7 @@ export default async function HomePage() {
     recentUpdatedWorks.find((w) => w.type === 'serialized_story') || recentUpdatedWorks[0] || null;
   const heroEditor = featuredWorks[0] || popularWorks[0] || null;
   const heroPopular = popularWorks[0] || recentUpdatedWorks[0] || null;
-  const section1Works = recentUpdatedWorks.slice(0, 4);
+  const section1Works = recentUpdatedWorks.slice(0, 6);
   const section3Works = bestsellerWorks;
   const section4Works = quickStoryWorks;
   const section5Works = mostReadWorks;
@@ -170,7 +171,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
             {translatedWorks.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
@@ -204,7 +205,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
             {section1Works.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
@@ -238,7 +239,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
             {section3Works.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
@@ -272,7 +273,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
             {section4Works.map((work) => (
               <WorkCard
                 key={work.id}
@@ -314,7 +315,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
             {section5Works.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
@@ -455,7 +456,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
             {section8Works.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}

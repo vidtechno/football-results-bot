@@ -11,7 +11,7 @@ Ishlab chiqilgan texnologiyalar: **Next.js 14 (App Router)**, **TypeScript**, **
 1. **Kitobxonlar uchun**:
    - Badiiy adabiyot, detektiv, fantastika, romantika, tarixiy va boshqa janrlardagi asarlarni qulay qidirish va saralash.
    - Chalg‘ituvchi elementlarsiz, shrift o‘lchami va intervalini moslash mumkin bo‘lgan mutolaa sahifasi.
-   - Qulay hisob to‘ldirish tizimi: tanlangan summa bo‘yicha so‘rov yaratish va Telegram orqali (@diyorbek_anorboyev) chek yuborish.
+   - Qulay hisob to‘ldirish tizimi: tanlangan summa bo‘yicha so‘rov yaratish va Telegram orqali (@manbora_admin) chek yuborish.
    - Shaxsiy kabinetda hamyon balansi, xaridlar, saqlangan asarlar va mutolaa tarixi.
 
 2. **Mualliflar uchun (Muallif Studiyasi)**:

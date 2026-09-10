@@ -270,7 +270,7 @@ INSERT INTO public.platform_settings (key, value)
 VALUES
   ('commission_percentage', '20'::jsonb),
   ('minimum_payout', '100000'::jsonb),
-  ('telegram_support_username', '"diyorbek_anorboyev"'::jsonb),
+  ('telegram_support_username', '"manbora_admin"'::jsonb),
   ('allowed_topup_amounts', '[10000, 25000, 50000, 100000, 200000, 500000]'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 

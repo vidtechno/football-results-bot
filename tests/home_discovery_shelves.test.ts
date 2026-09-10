@@ -31,4 +31,26 @@ describe('Homepage discovery shelves', () => {
     expect(migration).toContain('refresh_work_reader_count');
     expect(migration).toContain('refresh_work_sales_count');
   });
+
+  it('keeps the requested homepage shelf order', () => {
+    const home = read('src/app/page.tsx');
+    expect(home).toContain('order-1 space-y-4');
+    expect(home).toContain('order-2');
+    expect(home).toContain('order-3 space-y-4');
+    expect(home).toContain('order-4 space-y-4');
+    expect(home.indexOf('Bestsellerlar')).toBeGreaterThan(-1);
+    expect(home.indexOf('Dunyo adabiyoti o‘zbek tilida')).toBeGreaterThan(-1);
+    expect(home.indexOf('Eng ko‘p o‘qilgan')).toBeGreaterThan(-1);
+  });
+
+  it('uses the official Manbora Telegram contact everywhere', () => {
+    const footer = read('src/components/layout/Footer.tsx');
+    const telegram = read('src/lib/utils/telegram.ts');
+    const settings = read('src/app/diyoration/settings/page.tsx');
+    const migration = read('supabase/migrations/040_update_official_telegram_contact.sql');
+    for (const source of [footer, telegram, settings, migration]) {
+      expect(source).toContain('manbora_admin');
+      expect(source).not.toContain('diyorbek_anorboyev');
+    }
+  });
 });

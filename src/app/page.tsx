@@ -110,7 +110,7 @@ export default async function HomePage() {
   const section8Works = readerLovedWorks;
 
   return (
-    <div className="home-page relative space-y-10 sm:space-y-14">
+    <div className="home-page relative flex flex-col gap-y-10 sm:gap-y-14">
       <div className="home-ambient home-ambient-one" aria-hidden="true" />
       <div className="home-ambient home-ambient-two" aria-hidden="true" />
       {/* Semantic H1 for platform primary hierarchy & SEO accessibility */}
@@ -136,18 +136,22 @@ export default async function HomePage() {
       />
 
       {/* 1. Dynamic Hero Carousel (up to 4 slides with Continue Reading, Recently Updated, Editor's Choice, Author CTA) */}
-      <HomeHeroCarousel
-        recentlyUpdatedWork={heroRecent}
-        editorChoiceWork={heroEditor}
-        popularWork={heroPopular}
-      />
+      <div className="order-0">
+        <HomeHeroCarousel
+          recentlyUpdatedWork={heroRecent}
+          editorChoiceWork={heroEditor}
+          popularWork={heroPopular}
+        />
+      </div>
 
       {/* 2. Horizontal Discovery Tabs (Yangi, Siz uchun, Ommabop, Kuzatayotganlarim) */}
-      <HomeDiscoveryTabs initialWorks={discoveryNewWorks} popularWorks={popularWorks} />
+      <div className="order-2">
+        <HomeDiscoveryTabs initialWorks={discoveryNewWorks} popularWorks={popularWorks} />
+      </div>
 
       {/* Curated translations uploaded by the Manbora administration */}
       {translatedWorks.length > 0 && (
-        <section className="space-y-4">
+        <section className="order-3 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-indigo-100 text-indigo-900">
@@ -181,7 +185,7 @@ export default async function HomePage() {
 
       {/* SECTION 1: Yaqinda yangilangan (Recently Updated Works) */}
       {section1Works.length > 0 && (
-        <section className="space-y-4">
+        <section className="order-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
@@ -215,7 +219,7 @@ export default async function HomePage() {
 
       {/* Bestseller works */}
       {section3Works.length > 0 && (
-        <section className="space-y-4">
+        <section className="order-1 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-amber-100 text-amber-900">
@@ -249,7 +253,7 @@ export default async function HomePage() {
 
       {/* Quick stories */}
       {section4Works.length > 0 && (
-        <section className="space-y-4">
+        <section className="order-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
@@ -291,7 +295,7 @@ export default async function HomePage() {
 
       {/* Most read */}
       {section5Works.length > 0 && (
-        <section className="space-y-4">
+        <section className="order-4 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
@@ -325,7 +329,7 @@ export default async function HomePage() {
 
       {/* SECTION 6: Janrlar bo‘yicha (Browse by Genre) */}
       {genres.length > 0 && (
-        <section className="space-y-4">
+        <section className="order-8 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
@@ -365,7 +369,7 @@ export default async function HomePage() {
 
       {/* SECTION 7: Yangi mualliflar (Featured / New Authors) */}
       {authors.length > 0 && (
-        <section className="space-y-4">
+        <section className="order-9 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
@@ -432,7 +436,7 @@ export default async function HomePage() {
 
       {/* Reader favourites */}
       {section8Works.length > 0 && (
-        <section className="space-y-4">
+        <section className="order-7 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
@@ -465,7 +469,7 @@ export default async function HomePage() {
       )}
 
       {/* SECTION 9: Final Author CTA Card */}
-      <section className="p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-emerald-900 via-stone-900 to-[#1C1917] text-white relative overflow-hidden shadow-md">
+      <section className="order-10 p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-emerald-900 via-stone-900 to-[#1C1917] text-white relative overflow-hidden shadow-md">
         <div className="max-w-2xl space-y-4 relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold">
             <PenTool className="w-3.5 h-3.5" />

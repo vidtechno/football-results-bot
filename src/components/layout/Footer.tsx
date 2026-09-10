@@ -46,13 +46,13 @@ export function Footer() {
               Shaxsiy kabinet
             </Link>
             <a
-              href="https://t.me/diyorbek_anorboyev"
+              href="https://t.me/manbora_admin"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-emerald-800 hover:text-emerald-900 font-bold"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>Qo‘llab-quvvatlash (@diyorbek_anorboyev)</span>
+              <span>Qo‘llab-quvvatlash (@manbora_admin)</span>
             </a>
           </div>
         </div>

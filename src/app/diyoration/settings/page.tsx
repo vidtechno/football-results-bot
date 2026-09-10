@@ -8,7 +8,7 @@ import { formatUzbekDate } from '@/lib/utils/formatters';
 export default function AdminSettingsPage() {
   const [commission, setCommission] = useState('20');
   const [minPayout, setMinPayout] = useState('100000');
-  const [telegram, setTelegram] = useState('diyorbek_anorboyev');
+  const [telegram, setTelegram] = useState('manbora_admin');
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

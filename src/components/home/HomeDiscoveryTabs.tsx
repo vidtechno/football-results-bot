@@ -3,7 +3,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Sparkles, TrendingUp, Clock, Bookmark, Info, Users, BookOpen, RotateCcw, ArrowRight, LogIn } from 'lucide-react';
+import {
+  Sparkles,
+  TrendingUp,
+  Clock,
+  Bookmark,
+  Info,
+  Users,
+  BookOpen,
+  RotateCcw,
+  ArrowRight,
+  LogIn,
+} from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
@@ -35,13 +46,14 @@ export function HomeDiscoveryTabs({
     initialTab === 'yangi' && initialWorks.length > 0
       ? initialWorks
       : initialTab === 'ommabop' && popularWorks.length > 0
-      ? popularWorks
-      : []
+        ? popularWorks
+        : [],
   );
   const [loading, setLoading] = useState<boolean>(
-    (initialTab === 'siz-uchun' || initialTab === 'kuzatayotganlarim') ||
-    (initialTab === 'yangi' && initialWorks.length === 0) ||
-    (initialTab === 'ommabop' && popularWorks.length === 0)
+    initialTab === 'siz-uchun' ||
+      initialTab === 'kuzatayotganlarim' ||
+      (initialTab === 'yangi' && initialWorks.length === 0) ||
+      (initialTab === 'ommabop' && popularWorks.length === 0),
   );
   const [error, setError] = useState<string | null>(null);
   const [emptyReason, setEmptyReason] = useState<string | null>(null);
@@ -71,7 +83,9 @@ export function HomeDiscoveryTabs({
       setEmptyReason(null);
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         const headers: Record<string, string> = {};
         if (session?.access_token) {
           headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -132,7 +146,8 @@ export function HomeDiscoveryTabs({
     const handlePopState = () => {
       const currentUrl = new URL(window.location.href);
       const tabParam = currentUrl.searchParams.get('tab') as DiscoveryTabKey | null;
-      const targetTab: DiscoveryTabKey = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'yangi';
+      const targetTab: DiscoveryTabKey =
+        tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'yangi';
       setActiveTab(targetTab);
       loadTabData(targetTab);
     };
@@ -220,10 +235,7 @@ export function HomeDiscoveryTabs({
               )}
             >
               <Icon
-                className={clsx(
-                  'w-3.5 h-3.5',
-                  isActive ? 'text-emerald-200' : 'text-stone-400',
-                )}
+                className={clsx('w-3.5 h-3.5', isActive ? 'text-emerald-200' : 'text-stone-400')}
               />
               <span>{tab.label}</span>
             </button>
@@ -236,10 +248,15 @@ export function HomeDiscoveryTabs({
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-xs text-amber-900">
           <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
-            <strong>Ommabop tavsiyalar to‘plami:</strong> Siz tizimga kirmagansiz. Sevimli janrlaringiz va o‘qish tarixingiz asosida shaxsiy saralashni olish uchun{' '}
-            <Link href={`/kirish?returnUrl=${encodeURIComponent('/?tab=siz-uchun')}`} className="underline font-bold hover:text-amber-950">
+            <strong>Ommabop tavsiyalar to‘plami:</strong> Siz tizimga kirmagansiz. Sevimli
+            janrlaringiz va o‘qish tarixingiz asosida shaxsiy saralashni olish uchun{' '}
+            <Link
+              href={`/kirish?returnUrl=${encodeURIComponent('/?tab=siz-uchun')}`}
+              className="underline font-bold hover:text-amber-950"
+            >
               tizimga kiring
-            </Link>.
+            </Link>
+            .
           </p>
         </div>
       )}
@@ -253,8 +270,8 @@ export function HomeDiscoveryTabs({
       >
         {/* State 1: Loading Skeleton */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
-            {Array.from({ length: 5 }).map((_, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
+            {Array.from({ length: 4 }).map((_, i) => (
               <WorkCardSkeleton key={i} />
             ))}
           </div>
@@ -307,7 +324,8 @@ export function HomeDiscoveryTabs({
                     Kuzatuvlaringizni ko‘rish uchun tizimga kiring
                   </h3>
                   <p className="text-xs text-stone-500 leading-relaxed">
-                    Kuzatayotgan asarlaringiz va mualliflaringiz yangilanishlarini ko‘rish uchun profilingizga kiring.
+                    Kuzatayotgan asarlaringiz va mualliflaringiz yangilanishlarini ko‘rish uchun
+                    profilingizga kiring.
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                     <Link
@@ -357,7 +375,8 @@ export function HomeDiscoveryTabs({
                     Siz hali birorta muallif yoki asarni kuzatmadingiz
                   </h3>
                   <p className="text-xs text-stone-500 leading-relaxed">
-                    Yangi boblar va asarlar haqida birinchilardan bo‘lib xabar olish uchun sevimli mualliflaringizni kuzatib boring.
+                    Yangi boblar va asarlar haqida birinchilardan bo‘lib xabar olish uchun sevimli
+                    mualliflaringizni kuzatib boring.
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                     <Link
@@ -398,8 +417,8 @@ export function HomeDiscoveryTabs({
           </div>
         ) : (
           /* State 4: Valid Results Grid */
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
-            {works.map((work) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
+            {works.slice(0, 4).map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
           </div>

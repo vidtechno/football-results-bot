@@ -7,9 +7,13 @@ const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
 
 describe('Supabase load optimization', () => {
   it('removes the public online counter and its polling endpoint', () => {
-    expect(fs.existsSync(path.join(root, 'src/components/analytics/OnlineUsersBadge.tsx'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'src/components/analytics/OnlineUsersBadge.tsx'))).toBe(
+      false,
+    );
     expect(fs.existsSync(path.join(root, 'src/app/api/analytics/online/route.ts'))).toBe(false);
-    expect(read('src/app/api/admin/analytics/route.ts')).not.toContain("from('analytics_presence')");
+    expect(read('src/app/api/admin/analytics/route.ts')).not.toContain(
+      "from('analytics_presence')",
+    );
   });
 
   it('uses Realtime as primary notifications transport with a slow hidden-tab-safe fallback', () => {
@@ -46,7 +50,10 @@ describe('Supabase load optimization', () => {
 
   it('keeps public navigation out of the middleware auth waterfall', () => {
     const middleware = read('src/middleware.ts');
-    const publicBranch = middleware.slice(middleware.indexOf('if (!isProtectedPath)'), middleware.indexOf('// Validates user'));
+    const publicBranch = middleware.slice(
+      middleware.indexOf('if (!isProtectedPath)'),
+      middleware.indexOf('// Validates user'),
+    );
     expect(publicBranch).not.toContain('auth.getSession');
     expect(publicBranch).not.toContain('auth.getUser');
   });
@@ -55,7 +62,7 @@ describe('Supabase load optimization', () => {
     const queries = read('src/lib/db/queries.ts');
     expect(queries).toContain('getCachedPublicWorkBySlug');
     expect(queries).toContain('getCachedPublicChapters');
-    expect(queries).toContain("['public-work-by-slug-v2'], { revalidate: 60");
+    expect(queries).toMatch(/\['public-work-by-slug-v2'\],[\s\S]{0,30}\{ revalidate: 60/);
     expect(queries).toContain('is_preview_free');
   });
 

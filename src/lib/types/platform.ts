@@ -8,10 +8,7 @@ export type LibrarySavedState = 'reading' | 'completed' | 'want_to_read';
 export type PurchaseType = 'full_work' | 'chapter';
 export type PurchaseStatus = 'active' | 'refunded';
 export type AccountType =
-  | 'reader_credit'
-  | 'author_earnings_available'
-  | 'author_earnings_reserved'
-  | 'platform_revenue';
+  'reader_credit' | 'author_earnings_available' | 'author_earnings_reserved' | 'platform_revenue';
 export type TransactionType =
   | 'topup'
   | 'purchase_debit'
@@ -24,12 +21,7 @@ export type TransactionType =
 export type ReferenceType = 'topup_request' | 'purchase' | 'payout_request' | 'manual';
 export type TopupStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'cancelled';
 export type PayoutStatus =
-  | 'pending'
-  | 'under_review'
-  | 'approved'
-  | 'paid'
-  | 'rejected'
-  | 'cancelled';
+  'pending' | 'under_review' | 'approved' | 'paid' | 'rejected' | 'cancelled';
 
 export interface ReadingPreferences {
   theme: 'light' | 'sepia' | 'dark';
@@ -128,6 +120,8 @@ export interface Genre {
 export interface Work {
   id: string;
   author_id: string;
+  unique_readers_count?: number;
+  sales_count?: number;
   title: string;
   slug: string;
   description: string | null;

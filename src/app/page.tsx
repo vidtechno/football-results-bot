@@ -3,24 +3,22 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Clock,
-  Sparkles,
-  Star,
   BookOpen,
   TrendingUp,
+  ShoppingBag,
+  Heart,
   Layers,
   Users,
-  CheckCircle2,
   ArrowRight,
   ChevronRight,
   PenTool,
   Languages,
 } from 'lucide-react';
-import { getPublishedWorks, getActiveGenres, getRecentChapters } from '@/lib/db/queries';
+import { getPublishedWorks, getActiveGenres } from '@/lib/db/queries';
 import { createCatalogueClient } from '@/lib/supabase/catalogue';
 import { WorkCard } from '@/components/work/WorkCard';
 import { HomeHeroCarousel } from '@/components/home/HomeHeroCarousel';
 import { HomeDiscoveryTabs } from '@/components/home/HomeDiscoveryTabs';
-import { RecentChaptersSection } from '@/components/home/RecentChaptersSection';
 import type { Work, Genre } from '@/lib/types/platform';
 
 export const revalidate = 60; // Fresh catalogue data revalidated every 60 seconds
@@ -29,11 +27,10 @@ export default async function HomePage() {
   const supabase = createCatalogueClient();
 
   // Fetch all necessary catalogue subsets concurrently
-  const [allWorks, recentChapters, genres, authorList] = await Promise.all([
+  const [allWorks, genres, authorList] = await Promise.all([
     // One bounded catalogue read replaces six overlapping works queries. The
     // homepage sections are derived in memory from this shared snapshot.
     getPublishedWorks({ sortBy: 'newest', limit: 60 }),
-    getRecentChapters(8),
     getActiveGenres(),
     supabase
       .from('author_profiles')
@@ -71,60 +68,45 @@ export default async function HomePage() {
     .sort(byNewest)
     .slice(0, 8);
   const popularWorks = [...originalWorks].sort(byPopular).slice(0, 10);
-  const freeWorks = originalWorks
-    .filter((work) => work.access_type === 'free')
-    .sort(byNewest)
-    .slice(0, 8);
+  const mostReadWorks = [...originalWorks]
+    .filter((work) => Number(work.unique_readers_count || work.view_count || 0) > 0)
+    .sort(
+      (a, b) =>
+        Number(b.unique_readers_count || b.view_count || 0) -
+        Number(a.unique_readers_count || a.view_count || 0),
+    )
+    .slice(0, 4);
+  const bestsellerWorks = originalWorks
+    .filter((work) => work.access_type === 'paid_full_work' && Number(work.sales_count || 0) > 0)
+    .sort((a, b) => Number(b.sales_count || 0) - Number(a.sales_count || 0))
+    .slice(0, 4);
+  const readerLovedWorks = originalWorks
+    .filter((work) => Number(work.rating_count || 0) > 0)
+    .sort(
+      (a, b) =>
+        Number(b.average_rating || 0) - Number(a.average_rating || 0) ||
+        Number(b.rating_count || 0) - Number(a.rating_count || 0),
+    )
+    .slice(0, 4);
+  const quickStoryWorks = storyWorks
+    .filter((work) => Number(work.total_words || 0) <= 3500)
+    .slice(0, 4);
   const translatedWorks = allWorks
     .filter((work) => work.is_translation)
     .sort(byNewest)
-    .slice(0, 5);
-  const discoveryNewWorks = [
-    ...recentUpdatedWorks,
-    ...allWorks.filter((work) => !recentUpdatedWorks.some((recent) => recent.id === work.id)),
-  ].slice(0, 10);
+    .slice(0, 4);
+  const discoveryNewWorks = [...allWorks].sort(byNewest).slice(0, 10);
 
   // Hero carousel candidates
   const heroRecent =
     recentUpdatedWorks.find((w) => w.type === 'serialized_story') || recentUpdatedWorks[0] || null;
   const heroEditor = featuredWorks[0] || popularWorks[0] || null;
   const heroPopular = popularWorks[0] || recentUpdatedWorks[0] || null;
-
-  // Deduplication system across sections to prevent repeating identical works in small catalogues
-  const shownWorkIds = new Set<string>();
-
-  // Give translated works their own prominent section and avoid repeating them below.
-  translatedWorks.forEach((work) => shownWorkIds.add(work.id));
-
-  // Hikoyalar must always have a dedicated row on the homepage. Reserve them
-  // before the mixed sections consume the same works during deduplication.
-  const section4Works = storyWorks.slice(0, 5);
-  section4Works.forEach((work) => shownWorkIds.add(work.id));
-
-  const getDeduplicatedSlice = (candidateWorks: Work[], maxCount = 5): Work[] => {
-    // Pick works that have not been displayed yet
-    const unseen = candidateWorks.filter((w) => !shownWorkIds.has(w.id));
-    if (unseen.length > 0) {
-      const selected = unseen.slice(0, maxCount);
-      selected.forEach((w) => shownWorkIds.add(w.id));
-      return selected;
-    }
-    // Strict deduplication: never repeat works across sections; return empty so empty sections are hidden
-    return [];
-  };
-
-  // 1. Yaqinda yangilangan works
-  const section1Works = getDeduplicatedSlice(recentUpdatedWorks, 5);
-
-  // 3. Muharrir tanlovi works (fallback to popular if no featured flag)
-  const editorCandidates = featuredWorks.length > 0 ? featuredWorks : popularWorks;
-  const section3Works = getDeduplicatedSlice(editorCandidates, 5);
-
-  // 5. Eng ko‘p muhokama qilinayotgan
-  const section5Works = getDeduplicatedSlice(popularWorks, 5);
-
-  // 8. Bepul o‘qish
-  const section8Works = getDeduplicatedSlice(freeWorks, 5);
+  const section1Works = recentUpdatedWorks.slice(0, 4);
+  const section3Works = bestsellerWorks;
+  const section4Works = quickStoryWorks;
+  const section5Works = mostReadWorks;
+  const section8Works = readerLovedWorks;
 
   return (
     <div className="home-page relative space-y-10 sm:space-y-14">
@@ -188,7 +170,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {translatedWorks.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
@@ -214,7 +196,7 @@ export default async function HomePage() {
               </div>
             </div>
             <Link
-              href="/asarlar?sort=newest"
+              href="/asarlar?collection=yaqinda_yangilangan"
               className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:underline flex items-center gap-1 shrink-0"
             >
               <span>Barchasi</span>
@@ -222,7 +204,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {section1Works.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
@@ -230,28 +212,25 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* SECTION 2: Shu hafta yangi boblar (Distinct new chapters feed) */}
-      {recentChapters.length > 0 && <RecentChaptersSection chapters={recentChapters} />}
-
-      {/* SECTION 3: Muharrir tanlovi (Editor's Choice) */}
+      {/* Bestseller works */}
       {section3Works.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-amber-100 text-amber-900">
-                <Star className="w-4 h-4 text-amber-700 fill-amber-700" />
+                <ShoppingBag className="w-4 h-4 text-amber-700" />
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-[#1C1917] tracking-tight">
-                  Muharrir tanlovi
+                  Bestsellerlar
                 </h2>
                 <p className="text-xs text-stone-500 font-medium">
-                  Adabiy qimmati va o‘quvchilar e’tirofiga sazovor bo‘lgan sara namunalar
+                  Kitobxonlar eng ko‘p xarid qilgan pullik asarlar
                 </p>
               </div>
             </div>
             <Link
-              href="/asarlar"
+              href="/asarlar?collection=bestseller"
               className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:underline flex items-center gap-1 shrink-0"
             >
               <span>Barchasi</span>
@@ -259,7 +238,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {section3Works.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
@@ -267,7 +246,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* SECTION 4: Dedicated stories catalogue */}
+      {/* Quick stories */}
       {section4Works.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -277,15 +256,15 @@ export default async function HomePage() {
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-[#1C1917] tracking-tight">
-                  Hikoyalar
+                  Tez o‘qiladigan hikoyalar
                 </h2>
                 <p className="text-xs text-stone-500 font-medium">
-                  Qisqa, tugallangan va bobma-bob davom etadigan sara hikoyalar
+                  Bir o‘tirishda mutolaa qilish mumkin bo‘lgan 3 500 so‘zgacha hikoyalar
                 </p>
               </div>
             </div>
             <Link
-              href="/hikoyalar"
+              href="/asarlar?collection=15_daqiqa&type=serialized_story"
               className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:underline flex items-center gap-1 shrink-0"
             >
               <span>Barchasi</span>
@@ -293,7 +272,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {section4Works.map((work) => (
               <WorkCard
                 key={work.id}
@@ -309,7 +288,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* SECTION 5: Eng ko‘p muhokama qilinayotgan (Most Discussed Works) */}
+      {/* Most read */}
       {section5Works.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -319,15 +298,15 @@ export default async function HomePage() {
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-[#1C1917] tracking-tight">
-                  Eng ko‘p muhokama qilinayotgan
+                  Eng ko‘p o‘qilgan
                 </h2>
                 <p className="text-xs text-stone-500 font-medium">
-                  Kitobxonlar faol fikr bildirayotgan va yuqori baholangan asarlar
+                  Eng ko‘p noyob kitobxon mutolaa qilgan asarlar
                 </p>
               </div>
             </div>
             <Link
-              href="/asarlar?sort=popular"
+              href="/asarlar?collection=eng_kop_oqilgan"
               className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:underline flex items-center gap-1 shrink-0"
             >
               <span>Barchasi</span>
@@ -335,7 +314,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {section5Works.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}
@@ -450,25 +429,25 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* SECTION 8: Bepul o‘qish (Free Reading Works) */}
+      {/* Reader favourites */}
       {section8Works.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-xl bg-emerald-100 text-emerald-900">
-                <CheckCircle2 className="w-4 h-4 text-emerald-800" />
+                <Heart className="w-4 h-4 text-rose-700" />
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-[#1C1917] tracking-tight">
-                  Bepul o‘qish
+                  Kitobxonlar sevgan
                 </h2>
                 <p className="text-xs text-stone-500 font-medium">
-                  Barcha boblari to‘liq bepul o‘qiladigan kitoblar va hikoyalar
+                  Kitobxonlar yuqori baholagan va taqriz qoldirgan asarlar
                 </p>
               </div>
             </div>
             <Link
-              href="/asarlar?access=free"
+              href="/asarlar?collection=kitobxonlar_sevgan"
               className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:underline flex items-center gap-1 shrink-0"
             >
               <span>Barchasi</span>
@@ -476,7 +455,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4.5">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {section8Works.map((work) => (
               <WorkCard key={work.id} work={work} context="catalogue" />
             ))}

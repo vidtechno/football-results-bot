@@ -19,9 +19,9 @@ describe('Kitob va hikoya turlari', () => {
 
   it('bosh sahifada hikoyalar uchun kafolatlangan alohida qator ajratadi', () => {
     const home = read('src/app/page.tsx');
-    expect(home).toContain('const section4Works = storyWorks.slice(0, 5)');
-    expect(home).toContain('section4Works.forEach((work) => shownWorkIds.add(work.id))');
-    expect(home).toContain('href="/hikoyalar"');
+    expect(home).toContain('const section4Works = quickStoryWorks');
+    expect(home).toContain('Tez o‘qiladigan hikoyalar');
+    expect(home).toContain('collection=15_daqiqa&type=serialized_story');
   });
 
   it('asar kartochkalarida Kitob yoki Hikoya badgesini chiqaradi', () => {

@@ -156,6 +156,9 @@ export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
           {[
             { id: undefined, label: 'Barcha to‘plamlar' },
             { id: 'ommabop', label: '🔥 Hozir ommabop' },
+            { id: 'eng_kop_oqilgan', label: '📖 Eng ko‘p o‘qilgan' },
+            { id: 'bestseller', label: '🏅 Bestsellerlar' },
+            { id: 'kitobxonlar_sevgan', label: '❤️ Kitobxonlar sevgan' },
             { id: 'yangi_boshlangan', label: '✨ Yangi boshlangan' },
             { id: 'yaqinda_yangilangan', label: '⚡ Yaqinda yangilangan' },
             { id: 'tugallangan', label: '🏁 Tugallangan asarlar' },

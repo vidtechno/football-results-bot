@@ -24,9 +24,10 @@ import type {
 
 import { getRelativeTimeString } from '@/lib/utils/formatters';
 
-const requestCache: <T extends (...args: any[]) => any>(fn: T) => T = typeof (React as any).cache === 'function'
-  ? (React as any).cache
-  : (<T extends (...args: any[]) => any>(fn: T): T => fn);
+const requestCache: <T extends (...args: any[]) => any>(fn: T) => T =
+  typeof (React as any).cache === 'function'
+    ? (React as any).cache
+    : <T extends (...args: any[]) => any>(fn: T): T => fn;
 
 /**
  * Fetch active genres sorted by order.
@@ -63,7 +64,8 @@ export async function getPublishedWorks(options?: {
   const supabase = createCatalogueClient();
   let q = supabase
     .from('works')
-    .select(`
+    .select(
+      `
       id,
       author_id,
       title,
@@ -89,6 +91,8 @@ export async function getPublishedWorks(options?: {
       average_rating,
       rating_count,
       view_count,
+      unique_readers_count,
+      sales_count,
       published_at,
       created_at,
       updated_at,
@@ -106,7 +110,8 @@ export async function getPublishedWorks(options?: {
       work_genres (
         genre:genres (id, name, slug)
       )
-    `)
+    `,
+    )
     .eq('status', 'published');
 
   if (options?.sortBy === 'price_asc') {
@@ -153,7 +158,8 @@ export async function getPublishedWorks(options?: {
   if (error && error.code === '42703') {
     let fallbackQ = supabase
       .from('works')
-      .select(`
+      .select(
+        `
         id,
         author_id,
         title,
@@ -196,12 +202,15 @@ export async function getPublishedWorks(options?: {
         work_genres (
           genre:genres (id, name, slug)
         )
-      `)
+      `,
+      )
       .eq('status', 'published')
       .order('published_at', { ascending: false });
 
     if (options?.query) {
-      fallbackQ = fallbackQ.or(`title.ilike.%${options.query}%,description.ilike.%${options.query}%`);
+      fallbackQ = fallbackQ.or(
+        `title.ilike.%${options.query}%,description.ilike.%${options.query}%`,
+      );
     }
     if (options?.type) {
       fallbackQ = fallbackQ.eq('type', options.type);
@@ -217,7 +226,7 @@ export async function getPublishedWorks(options?: {
     }
 
     const fallbackRes = await fallbackQ;
-    data = fallbackRes.data;
+    data = fallbackRes.data as unknown as typeof data;
     error = fallbackRes.error;
   }
 
@@ -236,11 +245,13 @@ export async function getPublishedWorks(options?: {
 /**
  * Fetch single work by slug with published chapters.
  */
-const getCachedPublicWorkBySlug = unstable_cache(async (slug: string) => {
-  const supabase = createCatalogueClient();
-  const { data } = await supabase
-    .from('works')
-    .select(`
+const getCachedPublicWorkBySlug = unstable_cache(
+  async (slug: string) => {
+    const supabase = createCatalogueClient();
+    const { data } = await supabase
+      .from('works')
+      .select(
+        `
       *,
       author:author_profiles (
         user_id,
@@ -250,23 +261,33 @@ const getCachedPublicWorkBySlug = unstable_cache(async (slug: string) => {
         profile:profiles (id, display_name, username, avatar_url)
       ),
       work_genres (genre:genres (id, name, slug))
-    `)
-    .eq('slug', slug)
-    .eq('status', 'published')
-    .maybeSingle();
-  return data || null;
-}, ['public-work-by-slug-v2'], { revalidate: 60, tags: ['public-catalogue'] });
+    `,
+      )
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .maybeSingle();
+    return data || null;
+  },
+  ['public-work-by-slug-v2'],
+  { revalidate: 60, tags: ['public-catalogue'] },
+);
 
-const getCachedPublicChapters = unstable_cache(async (workId: string) => {
-  const supabase = createCatalogueClient();
-  const { data } = await supabase
-    .from('chapters')
-    .select('id, work_id, chapter_number, title, slug, is_free, is_preview_free, price, status, published_at, created_at, updated_at')
-    .eq('work_id', workId)
-    .eq('status', 'published')
-    .order('chapter_number', { ascending: true });
-  return data || [];
-}, ['public-work-chapters-v2'], { revalidate: 60, tags: ['public-catalogue'] });
+const getCachedPublicChapters = unstable_cache(
+  async (workId: string) => {
+    const supabase = createCatalogueClient();
+    const { data } = await supabase
+      .from('chapters')
+      .select(
+        'id, work_id, chapter_number, title, slug, is_free, is_preview_free, price, status, published_at, created_at, updated_at',
+      )
+      .eq('work_id', workId)
+      .eq('status', 'published')
+      .order('chapter_number', { ascending: true });
+    return data || [];
+  },
+  ['public-work-chapters-v2'],
+  { revalidate: 60, tags: ['public-catalogue'] },
+);
 
 export async function getWorkBySlug(
   slug: string,
@@ -281,7 +302,7 @@ export async function getWorkBySlug(
   if (!workData) {
     return { work: null, chapters: [], chapterAccessMap: {} };
   }
-  const chapters = await getCachedPublicChapters(workData.id) as Chapter[];
+  const chapters = (await getCachedPublicChapters(workData.id)) as Chapter[];
 
   const chapterAccessMap = await getWorkChaptersAccessMap(userId, workData.id, chapters, {
     authorId: workData.author_id,
@@ -332,7 +353,8 @@ const getReaderWorkAndChapters = requestCache(async function getReaderWorkAndCha
   const supabase = createAdminClient();
   const { data: work } = await supabase
     .from('works')
-    .select(`
+    .select(
+      `
       *,
       author:author_profiles (
         user_id,
@@ -354,7 +376,8 @@ const getReaderWorkAndChapters = requestCache(async function getReaderWorkAndCha
         created_at,
         updated_at
       )
-    `)
+    `,
+    )
     .eq('slug', workSlug)
     .eq('chapters.status', 'published')
     .order('chapter_number', { referencedTable: 'chapters', ascending: true })
@@ -370,7 +393,10 @@ const getReaderWorkAndChapters = requestCache(async function getReaderWorkAndCha
   };
 });
 
-export async function getChapterMetadata(workSlug: string, chapterSlug: string): Promise<{
+export async function getChapterMetadata(
+  workSlug: string,
+  chapterSlug: string,
+): Promise<{
   work: Work | null;
   chapter: Pick<Chapter, 'title' | 'chapter_number' | 'slug'> | null;
 }> {
@@ -591,12 +617,12 @@ export async function getChapterForReading(
     if (chEval.reason === 'free') accessReason = 'free';
     else if (chEval.reason === 'author') accessReason = 'author';
     else if (chEval.reason === 'admin_preview') accessReason = 'admin';
-    else if (chEval.reason === 'purchased_chapter' || chEval.reason === 'purchased_full_work') accessReason = 'purchased';
+    else if (chEval.reason === 'purchased_chapter' || chEval.reason === 'purchased_full_work')
+      accessReason = 'purchased';
 
     chapterAccessMap[ch.id] = {
       isFree: chEval.isFree,
-      isPurchased:
-        chEval.reason === 'purchased_chapter' || chEval.reason === 'purchased_full_work',
+      isPurchased: chEval.reason === 'purchased_chapter' || chEval.reason === 'purchased_full_work',
       isLocked: chEval.isLocked,
       price: chEval.price,
       accessReason,
@@ -688,10 +714,12 @@ export async function getApprovedAuthors(limit = 40): Promise<AuthorProfile[]> {
 
   const { data } = await supabase
     .from('author_profiles')
-    .select(`
+    .select(
+      `
       *,
       profile:profiles(id, display_name, username, avatar_url)
-    `)
+    `,
+    )
     .eq('status', 'approved')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -748,6 +776,8 @@ export async function getPaginatedCatalogue(options?: {
     }
   }
 
+  // The general catalogue remains compatible before migration 039; only its
+  // new ranking filters require the counters.
   let q = supabase
     .from('works')
     .select(
@@ -821,10 +851,12 @@ export async function getPaginatedCatalogue(options?: {
 
     if (authorIds.length > 0) {
       q = q.or(
-        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%,author_id.in.(${authorIds.join(',')})`
+        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%,author_id.in.(${authorIds.join(',')})`,
       );
     } else {
-      q = q.or(`title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%`);
+      q = q.or(
+        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%`,
+      );
     }
   }
 
@@ -852,10 +884,32 @@ export async function getPaginatedCatalogue(options?: {
   if (options?.collection) {
     switch (options.collection) {
       case 'ommabop':
-        q = q.order('view_count', { ascending: false }).order('average_rating', { ascending: false });
+        q = q
+          .order('view_count', { ascending: false })
+          .order('average_rating', { ascending: false });
+        break;
+      case 'eng_kop_oqilgan':
+        q = q
+          .order('unique_readers_count', { ascending: false })
+          .order('view_count', { ascending: false });
+        break;
+      case 'bestseller':
+        q = q
+          .eq('access_type', 'paid_full_work')
+          .gt('sales_count', 0)
+          .order('sales_count', { ascending: false });
+        break;
+      case 'kitobxonlar_sevgan':
+        q = q
+          .gt('rating_count', 0)
+          .order('average_rating', { ascending: false })
+          .order('rating_count', { ascending: false });
         break;
       case 'yangi_boshlangan':
-        q = q.eq('type', 'serialized_story').eq('completion_status', 'ongoing').order('published_at', { ascending: false });
+        q = q
+          .eq('type', 'serialized_story')
+          .eq('completion_status', 'ongoing')
+          .order('published_at', { ascending: false });
         break;
       case 'yaqinda_yangilangan':
         q = q.order('updated_at', { ascending: false });
@@ -864,7 +918,7 @@ export async function getPaginatedCatalogue(options?: {
         q = q.eq('completion_status', 'completed');
         break;
       case '15_daqiqa':
-        q = q.or('total_words.lte.3500,type.eq.serialized_story');
+        q = q.eq('type', 'serialized_story').lte('total_words', 3500);
         break;
       case 'bepul':
         q = q.eq('access_type', 'free');
@@ -879,7 +933,9 @@ export async function getPaginatedCatalogue(options?: {
         q = q.order('rating_count', { ascending: false }).order('view_count', { ascending: false });
         break;
       case 'top_haftalik':
-        q = q.order('average_rating', { ascending: false }).order('view_count', { ascending: false });
+        q = q
+          .order('average_rating', { ascending: false })
+          .order('view_count', { ascending: false });
         break;
     }
   } else if (options?.sortBy === 'price_asc') {
@@ -920,14 +976,22 @@ export async function getPaginatedCatalogue(options?: {
 export async function getGenresWithCounts(): Promise<Array<Genre & { works_count: number }>> {
   const supabase = createCatalogueClient();
   const [genresRes, wgRes] = await Promise.all([
-    supabase.from('genres').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
-    supabase.from('work_genres').select('genre_id, work:works!inner(status, is_archived)').eq('work.status', 'published').neq('work.is_archived', true),
+    supabase
+      .from('genres')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
+    supabase
+      .from('work_genres')
+      .select('genre_id, work:works!inner(status, is_archived)')
+      .eq('work.status', 'published')
+      .neq('work.is_archived', true),
   ]);
 
   const genres = (genresRes.data as Genre[]) || [];
   const countsMap = new Map<string, number>();
 
-  for (const wg of (wgRes.data || [])) {
+  for (const wg of wgRes.data || []) {
     countsMap.set(wg.genre_id, (countsMap.get(wg.genre_id) || 0) + 1);
   }
 
@@ -945,15 +1009,19 @@ export const getPublicAuthor = requestCache(async function getPublicAuthor(ident
 
   // Try finding by user_id first, then id
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-  let { data: author } = isUuid ? await supabase
-    .from('author_profiles')
-    .select(`
+  let { data: author } = isUuid
+    ? await supabase
+        .from('author_profiles')
+        .select(
+          `
       *,
       profile:profiles(id, display_name, username, avatar_url, social_links)
-    `)
-    .or(`user_id.eq.${identifier},id.eq.${identifier}`)
-    .eq('status', 'approved')
-    .maybeSingle() : { data: null };
+    `,
+        )
+        .or(`user_id.eq.${identifier},id.eq.${identifier}`)
+        .eq('status', 'approved')
+        .maybeSingle()
+    : { data: null };
 
   // If not found, try finding by username in profiles
   if (!author) {
@@ -966,10 +1034,12 @@ export const getPublicAuthor = requestCache(async function getPublicAuthor(ident
     if (profile) {
       const { data: authorByProfile } = await supabase
         .from('author_profiles')
-        .select(`
+        .select(
+          `
           *,
           profile:profiles(id, display_name, username, avatar_url, social_links)
-        `)
+        `,
+        )
         .eq('user_id', profile.id)
         .eq('status', 'approved')
         .maybeSingle();
@@ -983,10 +1053,12 @@ export const getPublicAuthor = requestCache(async function getPublicAuthor(ident
   const [worksRes, followersRes] = await Promise.all([
     supabase
       .from('works')
-      .select(`
+      .select(
+        `
         *,
         work_genres(genre:genres(*))
-      `)
+      `,
+      )
       .eq('author_id', author.user_id)
       .eq('status', 'published')
       .eq('is_translation', false)
@@ -1063,7 +1135,8 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
   const supabase = createCatalogueClient();
   const { data, error } = await supabase
     .from('chapters')
-    .select(`
+    .select(
+      `
       id,
       title,
       slug,
@@ -1087,7 +1160,8 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
           pen_name
         )
       )
-    `)
+    `,
+    )
     .eq('status', 'published')
     .eq('work.status', 'published')
     .order('published_at', { ascending: false })
@@ -1097,7 +1171,8 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
     // Fallback if join has any syntax nuance on older client
     const fallback = await supabase
       .from('chapters')
-      .select(`
+      .select(
+        `
         id,
         title,
         slug,
@@ -1121,7 +1196,8 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
             pen_name
           )
         )
-      `)
+      `,
+      )
       .eq('status', 'published')
       .order('published_at', { ascending: false })
       .limit(limit);

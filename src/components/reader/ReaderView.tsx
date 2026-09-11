@@ -1320,7 +1320,12 @@ export function ReaderView({
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Sotib olingan</span>
                           </span>
-                        ) : work.access_type === 'free' || access?.isFree || chap.is_free ? (
+                        ) : access?.accessReason === 'plus' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Plus</span>
+                          </span>
+                        ) : (work.access_type === 'free' && !work.is_plus) || access?.isFree || (!work.is_plus && chap.is_free) ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
                             <Unlock className="w-3 h-3" />
                             <span>Bepul</span>

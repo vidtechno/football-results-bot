@@ -82,7 +82,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
       })
     : Promise.resolve(publicWork.chapterAccessMap);
 
-  const isFree = work.access_type === 'free';
+  const isFree = work.access_type === 'free' && !work.is_plus;
   const isPaidFullWork =
     (work.access_type as string) === 'paid_full_work' ||
     (work.access_type as string) === 'paid_book' ||
@@ -371,9 +371,14 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
                         <Unlock className="w-3 h-3 text-emerald-700" />
                         <span>Sotib olingan</span>
                       </span>
+                    ) : access?.accessReason === 'plus' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200/70">
+                        <Unlock className="w-3 h-3 text-amber-700" />
+                        <span>Plus orqali</span>
+                      </span>
                     ) : isFree ||
                       access?.accessReason === 'free' ||
-                      (!isPaidFullWork && ch.is_free) ? (
+                      (!work.is_plus && !isPaidFullWork && ch.is_free) ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
                         <Unlock className="w-3 h-3 text-emerald-700" />
                         <span>Bepul</span>

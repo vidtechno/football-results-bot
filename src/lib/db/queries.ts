@@ -9,6 +9,7 @@ import {
   type ChapterAccessReason,
   type ChapterAccessStatus,
 } from '@/lib/security/access';
+import { hasActivePlus } from '@/lib/plus/access';
 import type {
   Work,
   Chapter,
@@ -523,13 +524,14 @@ export async function getChapterForReading(
   let savedProgress: ChapterReadingData['savedProgress'] = null;
   let isAuthor = false;
   let isAdmin = false;
+  let activePlus = false;
 
   if (userId) {
     isAuthor = work.author_id === userId;
 
     // Parallel fetch of authenticated reader state. The already-resolved profile
     // supplies admin state, so this path does not query profiles a second time.
-    const [entRes, walletRes, progRes] = await Promise.all([
+    const [entRes, walletRes, progRes, plusAccess] = await Promise.all([
       supabase
         .from('entitlements')
         .select('entitlement_type, chapter_id')
@@ -547,7 +549,9 @@ export async function getChapterForReading(
         .eq('user_id', userId)
         .eq('work_id', work.id)
         .maybeSingle(),
+      work.is_plus ? hasActivePlus(userId, supabase) : Promise.resolve(false),
     ]);
+    activePlus = plusAccess;
 
     isAdmin = Boolean(options?.isAdmin);
 
@@ -605,6 +609,9 @@ export async function getChapterForReading(
     isAdmin,
     hasFullWorkEntitlement,
     hasChapterEntitlement: purchasedChapterIds.has(currentChapter.id),
+    workIsPlus: Boolean(work.is_plus),
+    chapterNumber: Number(currentChapter.chapter_number),
+    hasPlusSubscription: activePlus,
   });
 
   // 6. Compute chapter access map for all chapters entirely in-memory (0 extra queries)
@@ -622,6 +629,9 @@ export async function getChapterForReading(
       isAdmin,
       hasFullWorkEntitlement,
       hasChapterEntitlement: purchasedChapterIds.has(ch.id),
+      workIsPlus: Boolean(work.is_plus),
+      chapterNumber: Number(ch.chapter_number),
+      hasPlusSubscription: activePlus,
     });
 
     let accessReason: ChapterAccessStatus['accessReason'] = 'locked';
@@ -630,6 +640,7 @@ export async function getChapterForReading(
     else if (chEval.reason === 'admin_preview') accessReason = 'admin';
     else if (chEval.reason === 'purchased_chapter' || chEval.reason === 'purchased_full_work')
       accessReason = 'purchased';
+    else if (chEval.reason === 'plus') accessReason = 'plus';
 
     chapterAccessMap[ch.id] = {
       isFree: chEval.isFree,

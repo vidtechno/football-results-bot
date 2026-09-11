@@ -57,6 +57,7 @@ export function PaywallUnlockCard({
   const [promo, setPromo] = useState<{ code: string; discount: number; finalPrice: number } | null>(null);
 
   const payablePrice = promo?.finalPrice ?? price;
+  const canPurchase = payablePrice > 0;
   const hasEnoughBalance = currentBalance >= payablePrice;
   const remainingBalance = Math.max(0, currentBalance - payablePrice);
 
@@ -136,7 +137,7 @@ export function PaywallUnlockCard({
           <Lock className="w-7 h-7 text-amber-700" />
         </div>
 
-        {isLoggedIn && isFullWork && (
+        {isLoggedIn && isFullWork && canPurchase && (
           <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-left">
             <label htmlFor="promo-code" className="mb-2 flex items-center gap-2 text-xs font-bold text-emerald-900">
               <BadgePercent className="h-4 w-4" /> Promo-kodingiz bormi?
@@ -176,7 +177,7 @@ export function PaywallUnlockCard({
         {isPlus && <Link href="/plus" className="mb-5 inline-flex min-h-11 items-center rounded-xl bg-amber-500 px-5 text-sm font-black text-stone-950">Manbora Plus’ga ulanish</Link>}
 
         {/* Price & Balance Box */}
-        <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
+        {canPurchase && <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
           <div>
             <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
               {isFullWork ? 'Kitob narxi (to‘liq asar)' : 'Bob narxi'}
@@ -197,7 +198,7 @@ export function PaywallUnlockCard({
               </p>
             </div>
           )}
-        </div>
+        </div>}
 
         {error && (
           <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 text-left">
@@ -218,7 +219,7 @@ export function PaywallUnlockCard({
         )}
 
         {/* Purchase Confirmation Box */}
-        {showConfirm && (
+        {canPurchase && showConfirm && (
           <div className="mb-6 p-4 rounded-2xl bg-amber-50/80 border border-amber-300 text-left space-y-3 animate-in fade-in duration-150">
             <div className="flex items-center justify-between">
               <span className="text-xs font-sans font-bold text-stone-900">
@@ -282,7 +283,7 @@ export function PaywallUnlockCard({
         )}
 
         {/* Action Buttons */}
-        {!isLoggedIn ? (
+        {canPurchase && (!isLoggedIn ? (
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href={redirectUrl}
@@ -325,7 +326,7 @@ export function PaywallUnlockCard({
               <span>Hisobni to‘ldirish</span>
             </button>
           </div>
-        )}
+        ))}
       </div>
 
       {/* Manual Top-up Modal */}

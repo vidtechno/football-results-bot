@@ -133,7 +133,7 @@ export function evaluateCanonicalChapterAccess({
   }
 
   // CANONICAL RULE 1: Fully free work
-  if (workAccessType === 'free') {
+  if (workAccessType === 'free' && !workIsPlus) {
     return {
       canRead: true,
       reason: 'free',
@@ -197,7 +197,7 @@ export function evaluateCanonicalChapterAccess({
   }
 
   // CANONICAL RULE 3: Chapter-by-chapter model
-  if (chapterIsFree) {
+  if (chapterIsFree && !workIsPlus) {
     return {
       canRead: true,
       reason: 'free',
@@ -394,7 +394,7 @@ export async function canReadChapter(
   }
 
   // CANONICAL RULE 1: Fully free work
-  if (work.access_type === 'free') {
+  if (work.access_type === 'free' && !work.is_plus) {
     const { data: contentRec } = await supabase
       .from('chapter_contents')
       .select('content')
@@ -554,7 +554,7 @@ export async function getWorkChaptersAccessMap(
 ): Promise<Record<string, ChapterAccessDetail>> {
   const map: Record<string, ChapterAccessDetail> = {};
   const isAuthor = Boolean(userId && options?.authorId && userId === options.authorId);
-  const isFreeWork = options?.workAccessType === 'free';
+  const isFreeWork = options?.workAccessType === 'free' && !options?.workIsPlus;
 
   // If work is fully free, all chapters are free immediately
   if (isFreeWork) {

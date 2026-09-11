@@ -9,6 +9,8 @@ const base = { workAccessType: 'paid_full_work', fullWorkPrice: 25000, isWorkPub
 describe('Manbora Plus MVP', () => {
   it('opens the first Plus chapter to anonymous readers', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 1 }).canRead).toBe(true));
   it('locks chapter two for anonymous and inactive users', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 2 }).canRead).toBe(false));
+  it('does not let a legacy free work bypass Plus chapter locks', () => expect(evaluateCanonicalChapterAccess({ ...base, workAccessType: 'free', chapterIsFree: true, workIsPlus: true, chapterNumber: 2 }).canRead).toBe(false));
+  it('opens a legacy free Plus work to an active subscriber', () => expect(evaluateCanonicalChapterAccess({ ...base, workAccessType: 'free', chapterIsFree: true, workIsPlus: true, chapterNumber: 2, hasPlusSubscription: true }).reason).toBe('plus'));
   it('opens later chapters to active Plus users', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 2, hasPlusSubscription: true }).reason).toBe('plus'));
   it('keeps permanent purchase access independent of Plus', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 2, hasFullWorkEntitlement: true, hasPlusSubscription: true }).reason).toBe('purchased_full_work'));
   it('treats an expired or inactive Plus state as locked', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 2, hasPlusSubscription: false }).reason).toBe('locked'));
@@ -30,8 +32,11 @@ describe('Manbora Plus MVP', () => {
   });
   it('does not select locked chapter content before server authorization', () => {
     const access = read('src/lib/security/access.ts');
+    const readerQuery = read('src/lib/db/queries.ts');
     expect(access).toContain("if (evalResult.canRead)");
     expect(access).toContain("content: ''");
+    expect(readerQuery).toContain('hasPlusSubscription: activePlus');
+    expect(readerQuery).toContain('workIsPlus: Boolean(work.is_plus)');
   });
   it('provides admin revenue statistics and work toggles', () => {
     const api = read('src/app/api/admin/plus/route.ts');

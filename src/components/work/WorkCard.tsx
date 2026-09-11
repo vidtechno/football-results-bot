@@ -53,7 +53,9 @@ export function WorkCard({
   // Price & Access pill label
   const isFree = work.access_type === 'free';
   const isPaidFull = work.access_type === 'paid_full_work';
-  const priceLabel = isFree
+  const priceLabel = work.is_plus
+    ? 'Plus'
+    : isFree
     ? 'Bepul'
     : isPaidFull
       ? formatUZS(work.full_work_price || 0)

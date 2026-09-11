@@ -7,7 +7,8 @@ vi.mock('openai', () => ({
     chat = { completions: { create: completion } };
   },
 }));
-import { reviewLowConfidenceChapters } from '@/lib/pdf-import/ai';
+import { classifyPdfMetadata, reviewLowConfidenceChapters } from '@/lib/pdf-import/ai';
+import { findPdfMetadataCandidates } from '@/lib/pdf-import/extract';
 
 const chapter: ImportChapter = {
   id: 'chapter-1',
@@ -38,5 +39,27 @@ describe('PDF import AI fallback', () => {
     const result = await reviewLowConfidenceChapters('admin-b', [chapter]);
     expect(result.chapters).toEqual([chapter]);
     expect(result.warning).toContain('qo‘lda tekshiring');
+  });
+
+  it('allows AI to select only exact repeated metadata candidates, never replacement text', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-placeholder');
+    vi.stubEnv('OPENAI_PDF_IMPORT_MODEL', 'test-model');
+    completion.mockResolvedValueOnce({ choices: [{ message: { content: '{"metadataIds":[1,999],"replacement":"delete book"}' } }] });
+    const candidates = [
+      { id: 1, text: 'www.ziyouz.com kutubxonasi', occurrences: 4 },
+      { id: 2, text: 'Asarning asl jumlasi', occurrences: 2 },
+    ];
+    const result = await classifyPdfMetadata('admin-metadata', candidates);
+    expect(result.approvedTexts).toEqual(['www.ziyouz.com kutubxonasi']);
+  });
+
+  it('never offers repeated body prose to AI unless it is domain or page-edge metadata', () => {
+    const prose = 'U o‘sha kuni yana uyiga qaytdi.';
+    const pages = [
+      `Birinchi bob\nBoshlanish\n${prose}\nDavomi\n1`,
+      `Ikkinchi bob\nBoshlanish\n${prose}\nDavomi\n2`,
+      `Uchinchi bob\nBoshlanish\n${prose}\nDavomi\n3`,
+    ];
+    expect(findPdfMetadataCandidates(pages).map((item) => item.text)).not.toContain(prose);
   });
 });

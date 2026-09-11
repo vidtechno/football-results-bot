@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Languages,
   Settings,
+  Crown,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -59,6 +60,7 @@ export function Sidebar({ readerMode = false }: { readerMode?: boolean }) {
       exact: false,
       requiresAuth: false,
     },
+    { label: 'Manbora Plus', href: '/plus', icon: Crown, exact: false, requiresAuth: false },
     {
       label: 'Kutubxonam',
       href: user ? '/kutubxona' : '/kirish?returnUrl=/kutubxona',

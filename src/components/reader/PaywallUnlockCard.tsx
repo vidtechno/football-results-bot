@@ -28,6 +28,7 @@ interface PaywallUnlockCardProps {
   isFullWork?: boolean;
   workTitle?: string;
   currentPath?: string;
+  isPlus?: boolean;
 }
 
 export function PaywallUnlockCard({
@@ -41,6 +42,7 @@ export function PaywallUnlockCard({
   isFullWork = false,
   workTitle,
   currentPath,
+  isPlus = false,
 }: PaywallUnlockCardProps) {
   const { profile, user, balance: authBalance, refreshAuth } = useAuth();
   const currentBalance = typeof authBalance === 'number' ? authBalance : initialBalance;
@@ -162,13 +164,16 @@ export function PaywallUnlockCard({
         )}
 
         <h3 className="font-sans text-lg sm:text-xl font-bold text-stone-900 mb-2">
-          {isFullWork ? 'Ushbu kitob to‘liq pullik asar hisoblanadi' : 'Ushbu bob pullik kontent hisoblanadi'}
+          {isPlus ? '🔒 Manbora Plus bilan davom eting' : isFullWork ? 'Ushbu kitob to‘liq pullik asar hisoblanadi' : 'Ushbu bob pullik kontent hisoblanadi'}
         </h3>
         <p className="text-stone-500 text-xs sm:text-sm mb-6 leading-relaxed max-w-md mx-auto">
-          {isFullWork
+          {isPlus
+            ? 'Ushbu asarning qolgan qismini Manbora Plus obunasi bilan o‘qishingiz mumkin.'
+            : isFullWork
             ? `Muallif ushbu kitob uchun to‘liq yagona xarid narxini belgilagan (${formatUZS(price)}). Xariddan so‘ng asarning barcha joriy va kelajakdagi boblariga cheklovlarsiz va umrbod kirish huquqiga ega bo‘lasiz.`
             : 'Muallif ijodini qo‘llab-quvvatlash va bobni to‘liq mutolaa qilish uchun Manbora balansingizdan ochishingiz mumkin.'}
         </p>
+        {isPlus && <Link href="/plus" className="mb-5 inline-flex min-h-11 items-center rounded-xl bg-amber-500 px-5 text-sm font-black text-stone-950">Manbora Plus’ga ulanish</Link>}
 
         {/* Price & Balance Box */}
         <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-left">

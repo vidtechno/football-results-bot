@@ -135,6 +135,7 @@ export interface Work {
   completion_status: WorkCompletionStatus;
   language: string;
   is_translation?: boolean;
+  is_plus?: boolean;
   original_title?: string | null;
   original_author_name?: string | null;
   credited_author_name?: string | null;

@@ -41,6 +41,7 @@ export async function GET(request: Request) {
           access_type,
           status,
           is_translation,
+          is_plus,
           original_author_name,
           credited_author_name,
           author:author_profiles (

@@ -134,6 +134,7 @@ export async function getRecentReadingProgress(
         cover_url,
         author_id,
         is_translation,
+        is_plus,
         original_author_name,
         credited_author_name,
         access_type,

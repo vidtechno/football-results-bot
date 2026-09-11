@@ -52,6 +52,7 @@ export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: Adm
     { label: 'Asarlar', href: '/diyoration/asarlar', icon: BookOpen },
     { label: 'Tarjima asarlar', href: '/diyoration/tarjima-asarlar', icon: Languages },
     { label: 'PDF kitob import qilish', href: '/diyoration/pdf-import', icon: FileUp },
+    { label: 'Manbora Plus', href: '/diyoration/plus', icon: Zap },
     { label: 'Tahrirlar moderatsiyasi', href: '/diyoration/tahrirlar', icon: FileDiff },
     { label: 'Pul yechish so‘rovlari', href: '/diyoration/yechish-sorovlari', icon: CreditCard },
     { label: 'Moliyaviy tarix', href: '/diyoration/moliya', icon: DollarSign },

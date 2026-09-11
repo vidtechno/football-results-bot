@@ -8,6 +8,7 @@ import { clsx } from 'clsx';
 import { formatUZS } from '@/lib/utils/currency';
 import type { Work } from '@/lib/types/platform';
 import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
+import { PlusBadge } from '@/components/plus/PlusBadge';
 
 interface WorkCardProps {
   work: Work | any;
@@ -144,6 +145,7 @@ export function WorkCard({
               <span>Tarjima asar</span>
             </div>
           )}
+          {work.is_plus && <PlusBadge className="absolute bottom-2 right-2 z-10" />}
 
           {/* Reading Progress Bar (Library / Continue Reading Contexts) */}
           {typeof progressPercent === 'number' && (

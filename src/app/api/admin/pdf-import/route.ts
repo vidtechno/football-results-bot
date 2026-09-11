@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin, logAdminAction } from '@/lib/admin/auth';
 import { createAdminClient } from '@/lib/supabase/server';
 import { detectChapters, validateIntegrity } from '@/lib/pdf-import/detector';
-import { analyzePageFurniture, extractPdf } from '@/lib/pdf-import/extract';
-import { reviewLowConfidenceChapters } from '@/lib/pdf-import/ai';
+import { analyzePageFurniture, extractPdf, findPdfMetadataCandidates } from '@/lib/pdf-import/extract';
+import { classifyPdfMetadata, reviewLowConfidenceChapters } from '@/lib/pdf-import/ai';
 import { sanitizeRichText } from '@/lib/utils/sanitizer';
 import type { ImportChapter } from '@/lib/pdf-import/types';
 
@@ -137,7 +137,8 @@ export async function POST(request: NextRequest) {
       }
       if (extracted.rawText.length > 3_000_000)
         return NextResponse.json({ error: 'PDF matni import uchun juda katta' }, { status: 413 });
-      const furniture = analyzePageFurniture(extracted.pages);
+      const metadataReview = await classifyPdfMetadata(adminProfile.id, findPdfMetadataCandidates(extracted.pages));
+      const furniture = analyzePageFurniture(extracted.pages, metadataReview.approvedTexts);
       const detected = detectChapters(extracted.rawText, furniture.ranges);
       const statistics = {
         ...validateIntegrity(extracted.rawText, detected.chapters, detected.unassignedText),
@@ -156,6 +157,7 @@ export async function POST(request: NextRequest) {
           unassigned_text: detected.unassignedText,
           ignored_metadata: furniture.items,
           statistics,
+          warning: metadataReview.warning,
         })
         .select()
         .single();

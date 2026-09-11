@@ -36,6 +36,7 @@ import { ChapterCommentsSection } from './ChapterCommentsSection';
 import { trackAnalytics } from '@/lib/analytics/client';
 import { CompletionCard } from './CompletionCard';
 import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
+import { PlusBadge } from '@/components/plus/PlusBadge';
 
 interface ReaderViewProps {
   work: Work;
@@ -854,6 +855,7 @@ export function ReaderView({
           >
             <ArrowLeft className="w-4 h-4 flex-shrink-0" />
             <span className="truncate max-w-[180px] sm:max-w-xs">{work.title}</span>
+            {work.is_plus && <PlusBadge className="hidden sm:inline-flex" />}
           </Link>
 
           {/* Reader Controls */}
@@ -1479,6 +1481,7 @@ export function ReaderView({
             isFullWork={isPaidFullWork}
             workTitle={work.title}
             currentPath={`/asarlar/${work.slug}/${currentChapter.slug}`}
+            isPlus={Boolean(work.is_plus)}
           />
         )}
 

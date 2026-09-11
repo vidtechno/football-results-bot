@@ -9,6 +9,7 @@ export default function AdminSettingsPage() {
   const [commission, setCommission] = useState('20');
   const [minPayout, setMinPayout] = useState('100000');
   const [telegram, setTelegram] = useState('manbora_admin');
+  const [plusPrice, setPlusPrice] = useState('30000');
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,6 +34,7 @@ export default function AdminSettingsPage() {
         if (data.settings.telegram_support_username !== undefined) {
           setTelegram(String(data.settings.telegram_support_username));
         }
+        if (data.settings.plus_monthly_price !== undefined) setPlusPrice(String(data.settings.plus_monthly_price));
       }
 
       const { data: logs } = await supabase
@@ -62,6 +64,7 @@ export default function AdminSettingsPage() {
           commissionPercentage: Number(commission),
           minimumPayout: Number(minPayout),
           telegramUsername: telegram.trim(),
+          plusMonthlyPrice: Number(plusPrice),
         }),
       });
 
@@ -127,6 +130,10 @@ export default function AdminSettingsPage() {
 
         <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1.5">Manbora Plus — 30 kunlik narx</label>
+              <input type="number" min="1000" step="1000" value={plusPrice} onChange={(event) => setPlusPrice(event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3" />
+            </div>
             <div>
               <label className="block font-bold text-slate-700 mb-1.5">
                 Platforma komissiyasi (%)

@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { commissionPercentage, minimumPayout, telegramUsername } = body;
+    const { commissionPercentage, minimumPayout, telegramUsername, plusMonthlyPrice } = body;
 
     const supabase = createAdminClient();
 
@@ -62,11 +62,19 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       });
     }
+    if (plusMonthlyPrice !== undefined) {
+      const plusPrice = Math.floor(Number(plusMonthlyPrice));
+      if (!Number.isFinite(plusPrice) || plusPrice < 1000 || plusPrice > 10_000_000)
+        return NextResponse.json({ success: false, error: 'Plus narxi noto‘g‘ri' }, { status: 400 });
+      const { error } = await supabase.from('platform_settings').upsert({ key: 'plus_monthly_price', value: plusPrice, updated_at: new Date().toISOString() });
+      if (error) return NextResponse.json({ success: false, error: 'Plus narxini saqlab bo‘lmadi' }, { status: 500 });
+    }
 
     await logAdminAction(supabase, admin.id, 'update_platform_settings', 'platform_settings', 'global', {
       commissionPercentage,
       minimumPayout,
       telegramUsername,
+      plusMonthlyPrice,
     });
 
     return NextResponse.json({ success: true, message: 'Sozlamalar muvaffaqiyatli saqlandi' });

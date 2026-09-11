@@ -24,6 +24,7 @@ import { getPublicWorkAuthorName, getPublicWorkAuthorUsername } from '@/lib/util
 import { WorkAnalyticsTracker } from '@/components/analytics/WorkAnalyticsTracker';
 import { PublicWorkStats } from '@/components/analytics/PublicWorkStats';
 import { getWorkChaptersAccessMap } from '@/lib/security/access';
+import { PlusBadge } from '@/components/plus/PlusBadge';
 
 export const revalidate = 30;
 
@@ -76,6 +77,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
         authorId: work.author_id,
         workAccessType: work.access_type,
         fullWorkPrice: Number(work.full_work_price || 0),
+        workIsPlus: Boolean(work.is_plus),
         isAdmin: Boolean(profile.is_admin),
       })
     : Promise.resolve(publicWork.chapterAccessMap);
@@ -163,6 +165,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
           <div className="flex-1 space-y-5 w-full">
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center gap-2">
+                {work.is_plus && <PlusBadge />}
                 {work.is_translation && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-sky-50 text-sky-800 border border-sky-200">
                     <Languages className="w-3.5 h-3.5" /> Tarjima asar

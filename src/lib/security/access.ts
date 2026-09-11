@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server';
+import { hasActivePlus } from '@/lib/plus/access';
 
 export type ChapterAccessReason =
   | 'free'
@@ -6,6 +7,7 @@ export type ChapterAccessReason =
   | 'purchased_full_work'
   | 'author'
   | 'admin_preview'
+  | 'plus'
   | 'locked';
 
 export interface ChapterAccessResult {
@@ -27,7 +29,7 @@ export interface ChapterAccessStatus {
   isPurchased: boolean;
   isLocked: boolean;
   price: number;
-  accessReason?: 'free' | 'author' | 'locked' | 'purchased' | 'admin' | 'entitled';
+  accessReason?: 'free' | 'author' | 'locked' | 'purchased' | 'admin' | 'entitled' | 'plus';
 }
 
 export interface CanonicalAccessEvaluation {
@@ -75,6 +77,9 @@ export function evaluateCanonicalChapterAccess({
   isAdmin = false,
   hasFullWorkEntitlement = false,
   hasChapterEntitlement = false,
+  workIsPlus = false,
+  chapterNumber = 0,
+  hasPlusSubscription = false,
 }: {
   workAccessType?: string | null;
   fullWorkPrice?: number | null;
@@ -87,6 +92,9 @@ export function evaluateCanonicalChapterAccess({
   isAdmin?: boolean;
   hasFullWorkEntitlement?: boolean;
   hasChapterEntitlement?: boolean;
+  workIsPlus?: boolean;
+  chapterNumber?: number;
+  hasPlusSubscription?: boolean;
 }): CanonicalAccessEvaluation {
   // 1. Author Access (preview mode)
   if (isAuthor) {
@@ -140,6 +148,10 @@ export function evaluateCanonicalChapterAccess({
     return { canRead: true, reason: 'free', isFree: true, price: 0, isLocked: false, requiresWholeWork: false };
   }
 
+  if (workIsPlus && chapterNumber === 1) {
+    return { canRead: true, reason: 'free', isFree: true, price: 0, isLocked: false, requiresWholeWork: false };
+  }
+
   // CANONICAL RULE 2: Whole-work purchase model
   const isPaidFullWork =
     workAccessType === 'paid_full_work' ||
@@ -168,6 +180,10 @@ export function evaluateCanonicalChapterAccess({
         isLocked: false,
         requiresWholeWork: false,
       };
+    }
+
+    if (workIsPlus && hasPlusSubscription) {
+      return { canRead: true, reason: 'plus', isFree: false, price: 0, isLocked: false, requiresWholeWork: false };
     }
 
     return {
@@ -212,6 +228,10 @@ export function evaluateCanonicalChapterAccess({
       isLocked: false,
       requiresWholeWork: false,
     };
+  }
+
+  if (workIsPlus && hasPlusSubscription) {
+    return { canRead: true, reason: 'plus', isFree: false, price: 0, isLocked: false, requiresWholeWork: false };
   }
 
   return {
@@ -267,7 +287,8 @@ export async function canReadChapter(
         author_id,
         status,
         access_type,
-        full_work_price
+        full_work_price,
+        is_plus
       )
     `)
     .eq('id', chapterId)
@@ -395,11 +416,18 @@ export async function canReadChapter(
     };
   }
 
+  if (work.is_plus && chapter.chapter_number === 1) {
+    const { data: contentRec } = await supabase.from('chapter_contents').select('content').eq('chapter_id', chapter.id).maybeSingle();
+    return { canRead: true, reason: 'free', isFree: true, price: 0, chapterNumber: chapter.chapter_number, title: chapter.title, slug: chapter.slug, workId: work.id, workSlug: work.slug, authorId, content: contentRec?.content || '' };
+  }
+
   // Check entitlements & purchases if authenticated
   let hasFullWorkEntitlement = false;
   let hasChapterEntitlement = false;
+  let activePlus = false;
 
   if (userId) {
+    if (work.is_plus) activePlus = await hasActivePlus(userId, supabase);
     try {
       let entQuery = supabase
         .from('entitlements')
@@ -469,6 +497,9 @@ export async function canReadChapter(
     isAdmin: false,
     hasFullWorkEntitlement,
     hasChapterEntitlement,
+    workIsPlus: Boolean(work.is_plus),
+    chapterNumber: Number(chapter.chapter_number),
+    hasPlusSubscription: activePlus,
   });
 
   let content = '';
@@ -502,7 +533,7 @@ export type ChapterAccessDetail = {
   isPurchased: boolean;
   isLocked: boolean;
   price: number;
-  accessReason: 'free' | 'purchased' | 'entitled' | 'author' | 'admin' | 'locked';
+  accessReason: 'free' | 'purchased' | 'entitled' | 'author' | 'admin' | 'plus' | 'locked';
 };
 
 /**
@@ -511,13 +542,14 @@ export type ChapterAccessDetail = {
 export async function getWorkChaptersAccessMap(
   userId: string | null | undefined,
   workId: string,
-  chapters: Array<{ id: string; is_free?: boolean | null; is_preview_free?: boolean | null; price?: number | null }>,
+  chapters: Array<{ id: string; chapter_number?: number | null; is_free?: boolean | null; is_preview_free?: boolean | null; price?: number | null }>,
   options?: {
     customClient?: any;
     authorId?: string;
     workAccessType?: string;
     fullWorkPrice?: number;
     isAdmin?: boolean;
+    workIsPlus?: boolean;
   },
 ): Promise<Record<string, ChapterAccessDetail>> {
   const map: Record<string, ChapterAccessDetail> = {};
@@ -559,7 +591,8 @@ export async function getWorkChaptersAccessMap(
 
   // Default guest evaluation
   chapters.forEach((ch) => {
-    const isFree = isPaidFullWork ? Boolean(ch.is_preview_free) : Boolean(ch.is_free);
+    const isPlusFirst = Boolean(options?.workIsPlus && Number(ch.chapter_number) === 1);
+    const isFree = isPlusFirst || (isPaidFullWork ? Boolean(ch.is_preview_free) : Boolean(ch.is_free));
     map[ch.id] = {
       isFree,
       isPurchased: false,
@@ -574,6 +607,7 @@ export async function getWorkChaptersAccessMap(
   }
 
   const supabase = options?.customClient || createAdminClient();
+  const activePlus = options?.workIsPlus ? await hasActivePlus(userId, supabase) : false;
 
   // Check admin status
   let isAdmin = Boolean(options?.isAdmin);
@@ -644,10 +678,10 @@ export async function getWorkChaptersAccessMap(
   ]);
 
   chapters.forEach((ch) => {
-    if (hasFullWork || purchasedChapterIds.has(ch.id)) {
+    if (hasFullWork || purchasedChapterIds.has(ch.id) || activePlus) {
       map[ch.id].isPurchased = true;
       map[ch.id].isLocked = false;
-      map[ch.id].accessReason = 'purchased';
+      map[ch.id].accessReason = activePlus && !hasFullWork && !purchasedChapterIds.has(ch.id) ? 'plus' : 'purchased';
     }
   });
 

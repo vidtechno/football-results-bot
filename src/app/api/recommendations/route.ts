@@ -24,6 +24,7 @@ export async function GET(request: Request) {
         age_rating,
         completion_status,
         is_translation,
+        is_plus,
         original_author_name,
         credited_author_name,
         average_rating,

@@ -36,6 +36,9 @@ export function Footer() {
             <Link href="/tarjima-asarlar" className="hover:text-emerald-800 transition-colors">
               Tarjima asarlar
             </Link>
+            <Link href="/plus" className="hover:text-amber-700 transition-colors">
+              Manbora Plus
+            </Link>
             <Link href="/kutubxona" className="hover:text-emerald-800 transition-colors">
               Kutubxonam
             </Link>

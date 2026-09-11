@@ -59,6 +59,7 @@ export async function getPublishedWorks(options?: {
   completionStatus?: 'ongoing' | 'completed';
   sortBy?: 'popular' | 'newest' | 'rating' | 'updated' | 'price_asc' | 'price_desc';
   isFeatured?: boolean;
+  isPlus?: boolean;
   limit?: number;
 }): Promise<Work[]> {
   const supabase = createCatalogueClient();
@@ -80,6 +81,7 @@ export async function getPublishedWorks(options?: {
       completion_status,
       language,
       is_translation,
+      is_plus,
       original_title,
       original_author_name,
       credited_author_name,
@@ -132,6 +134,7 @@ export async function getPublishedWorks(options?: {
   if (options?.isFeatured !== undefined) {
     q = q.eq('is_featured', options.isFeatured);
   }
+  if (options?.isPlus !== undefined) q = q.eq('is_plus', options.isPlus);
 
   if (options?.query) {
     q = q.or(`title.ilike.%${options.query}%,description.ilike.%${options.query}%`);
@@ -175,6 +178,7 @@ export async function getPublishedWorks(options?: {
         completion_status,
         language,
         is_translation,
+        is_plus,
         original_title,
         original_author_name,
         credited_author_name,
@@ -310,6 +314,7 @@ export async function getWorkBySlug(
     authorId: workData.author_id,
     workAccessType: workData.access_type,
     fullWorkPrice: Number(workData.full_work_price || 0),
+    workIsPlus: Boolean(workData.is_plus),
     isAdmin,
   });
 
@@ -803,6 +808,7 @@ export async function getPaginatedCatalogue(options?: {
       completion_status,
       language,
       is_translation,
+      is_plus,
       original_title,
       original_author_name,
       credited_author_name,
@@ -1194,6 +1200,7 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
         access_type,
         type,
         is_translation,
+        is_plus,
         original_author_name,
         credited_author_name,
         status,
@@ -1231,6 +1238,7 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
           access_type,
           type,
           is_translation,
+          is_plus,
           original_author_name,
           credited_author_name,
           status,

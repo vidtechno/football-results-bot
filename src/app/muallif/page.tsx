@@ -18,6 +18,7 @@ import {
   Loader2,
   FileText,
   BarChart3,
+  Trash2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { formatUZS } from '@/lib/utils/currency';
@@ -69,6 +70,8 @@ function MuallifStudioContent() {
   const [newWorkGenre, setNewWorkGenre] = useState<string>('');
   const [savingWork, setSavingWork] = useState(false);
   const [workError, setWorkError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Work | null>(null);
+  const [deletingWork, setDeletingWork] = useState(false);
 
   const loadAuthorData = useCallback(
     async (targetUserId?: string) => {
@@ -124,6 +127,7 @@ function MuallifStudioContent() {
               .from('works')
               .select('*')
               .eq('author_id', userId)
+              .eq('is_archived', false)
               .order('created_at', { ascending: false }),
             supabase
               .from('payout_requests')
@@ -221,6 +225,32 @@ function MuallifStudioContent() {
       setWorkError(err.message || 'Xatolik yuz berdi');
     } finally {
       setSavingWork(false);
+    }
+  }
+
+  async function handleDeleteWork() {
+    if (!deleteTarget) return;
+    setDeletingWork(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch('/api/works/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ workId: deleteTarget.id }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Asarni o‘chirib bo‘lmadi');
+      setWorks((current) => current.filter((work) => work.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (error) {
+      setWorkError(error instanceof Error ? error.message : 'Asarni o‘chirib bo‘lmadi');
+    } finally {
+      setDeletingWork(false);
     }
   }
 
@@ -556,16 +586,26 @@ function MuallifStudioContent() {
                       <span>Boblar va tahrirlash →</span>
                     </Link>
 
-                    {isPub && (
-                      <Link
-                        href={`/asarlar/${w.slug}`}
-                        target="_blank"
-                        className="text-slate-400 hover:text-slate-700"
-                        title="Saytda ko‘rish"
+                    <div className="flex items-center gap-2">
+                      {isPub && (
+                        <Link
+                          href={`/asarlar/${w.slug}`}
+                          target="_blank"
+                          className="text-slate-400 hover:text-slate-700"
+                          title="Saytda ko‘rish"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(w)}
+                        className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-700"
+                        title="Asarni o‘chirish"
                       >
-                        <ExternalLink className="w-4 h-4" />
-                      </Link>
-                    )}
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -655,6 +695,45 @@ function MuallifStudioContent() {
       />
 
       {/* Create New Work Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-8">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-700">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <h3 className="mt-4 text-center text-xl font-black text-slate-950">
+              Asarni o‘chirishni xohlaysizmi?
+            </h3>
+            <p className="mt-2 text-center text-sm font-bold text-slate-700">
+              “{deleteTarget.title}”
+            </p>
+            <p className="mt-3 text-center text-xs leading-relaxed text-slate-500">
+              Bu amalni ortga qaytarib bo‘lmaydi. Pullik asarning xaridlari va moliyaviy tarixi
+              xavfsiz saqlanadi, asar esa saytdan yashiriladi.
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deletingWork}
+                className="rounded-xl bg-slate-100 px-4 py-3 text-xs font-bold text-slate-700"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteWork}
+                disabled={deletingWork}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-700 px-4 py-3 text-xs font-bold text-white disabled:opacity-50"
+              >
+                {deletingWork && <Loader2 className="h-4 w-4 animate-spin" />}
+                O‘chirish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isNewWorkOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-8 max-h-[90vh] overflow-y-auto">

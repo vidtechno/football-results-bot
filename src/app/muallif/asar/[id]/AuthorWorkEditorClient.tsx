@@ -38,7 +38,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/components/providers/AuthProvider';
 import type { Work, Chapter, Genre, WorkRevision } from '@/lib/types/platform';
 import { GENRE_GROUPS } from '@/lib/config/genreGroups';
-import { PdfImportPanel } from '@/components/pdf-import/PdfImportPanel';
+import { DocxImportPanel } from '@/components/docx-import/DocxImportPanel';
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then((mod) => mod.RichTextEditor),
@@ -54,16 +54,16 @@ const RichTextEditor = dynamic(
 
 interface AuthorWorkEditorClientProps {
   workId: string;
-  canUsePdfImport?: boolean;
-  initialPdfOpen?: boolean;
+  canUseDocxImport?: boolean;
+  initialDocxOpen?: boolean;
 }
 
-type EditorTab = 'chapters' | 'settings' | 'revisions' | 'pdf';
+type EditorTab = 'chapters' | 'settings' | 'revisions' | 'docx';
 
 export function AuthorWorkEditorClient({
   workId,
-  canUsePdfImport = false,
-  initialPdfOpen = false,
+  canUseDocxImport = false,
+  initialDocxOpen = false,
 }: AuthorWorkEditorClientProps) {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
@@ -76,7 +76,7 @@ export function AuthorWorkEditorClient({
   const [loading, setLoading] = useState(true);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>(
-    canUsePdfImport && initialPdfOpen ? 'pdf' : 'chapters',
+    canUseDocxImport && initialDocxOpen ? 'docx' : 'chapters',
   );
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -869,18 +869,18 @@ export function AuthorWorkEditorClient({
           <span>Asar sozlamalari & Muqova</span>
         </button>
 
-        {canUsePdfImport && (
+        {canUseDocxImport && (
           <button
             type="button"
-            onClick={() => setActiveTab('pdf')}
+            onClick={() => setActiveTab('docx')}
             className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'pdf'
+              activeTab === 'docx'
                 ? 'bg-emerald-800 text-white shadow-xs'
                 : 'text-stone-600 hover:bg-stone-100'
             }`}
           >
             <FileUp className="w-3.5 h-3.5" />
-            <span>PDF + AI import</span>
+            <span>DOCX import</span>
           </button>
         )}
 
@@ -1008,13 +1008,10 @@ export function AuthorWorkEditorClient({
         </section>
       )}
 
-      {activeTab === 'pdf' && canUsePdfImport && (
-        <PdfImportPanel
+      {activeTab === 'docx' && canUseDocxImport && (
+        <DocxImportPanel
           workId={workId}
           workTitle={work.title}
-          defaultAuthorName={(
-            (work as Work & { credited_author_name?: string }).credited_author_name || ''
-          ).trim()}
           onImported={async () => {
             await loadWorkAndChapters();
             setActiveTab('chapters');

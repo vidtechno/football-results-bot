@@ -36,7 +36,7 @@ export default function YangiAsarPage() {
   const [accessType, setAccessType] = useState<'free' | 'paid_full_work'>('free');
   const [fullWorkPrice, setFullWorkPrice] = useState<string>('15000');
   const [selectedGenreId, setSelectedGenreId] = useState<string>('');
-  const [creationMode, setCreationMode] = useState<'manual' | 'pdf'>('manual');
+  const [creationMode, setCreationMode] = useState<'manual' | 'docx'>('manual');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,7 +92,7 @@ export default function YangiAsarPage() {
   }
 
   // Non-Author State
-  if (user && (!author || author.status !== 'approved')) {
+  if (user && !isAdmin && (!author || author.status !== 'approved')) {
     return (
       <div className="py-16 sm:py-24 max-w-lg mx-auto text-center space-y-6">
         <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-xs">
@@ -167,7 +167,7 @@ export default function YangiAsarPage() {
 
       // Successfully created -> Navigate to work editor
       const createdWork = data.work;
-      router.push(`/muallif/asar/${createdWork.id}${creationMode === 'pdf' ? '?pdf=1' : ''}`);
+      router.push(`/muallif/asar/${createdWork.id}${creationMode === 'docx' ? '?docx=1' : ''}`);
     } catch (err: any) {
       setError(err.message || 'Kutilmagan xatolik yuz berdi');
       setSubmitting(false);
@@ -214,7 +214,7 @@ export default function YangiAsarPage() {
           </div>
         )}
 
-        {isAdmin && (
+        {(isAdmin || author?.status === 'approved') && (
           <div>
             <label className="block text-xs font-bold text-stone-700 mb-2">
               Asarni qanday boshlaysiz?
@@ -237,24 +237,23 @@ export default function YangiAsarPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setCreationMode('pdf')}
+                onClick={() => setCreationMode('docx')}
                 className={`p-4 rounded-2xl border text-left transition-all ${
-                  creationMode === 'pdf'
+                  creationMode === 'docx'
                     ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20'
                     : 'bg-stone-50 border-stone-200 hover:border-stone-300'
                 }`}
               >
                 <FileUp className="w-5 h-5 mb-2 text-emerald-700" />
-                <span className="block text-xs font-bold text-stone-900">PDF orqali import</span>
+                <span className="block text-xs font-bold text-stone-900">DOCX orqali import</span>
                 <span className="block mt-1 text-[11px] text-stone-500">
-                  AI matnni tozalab, boblarni avtomatik ajratadi
+                  Word headinglari va bob patternlari asosida preview yaratadi
                 </span>
               </button>
             </div>
-            {creationMode === 'pdf' && (
+            {creationMode === 'docx' && (
               <p className="mt-2 text-[11px] leading-relaxed text-stone-500">
-                Avval asarning asosiy ma’lumotlari saqlanadi, keyin PDF import muharriri ochiladi.
-                Bu imkoniyat faqat administratorga ko‘rinadi.
+                Avval asarning asosiy ma’lumotlari saqlanadi, keyin DOCX preview muharriri ochiladi.
               </p>
             )}
           </div>
@@ -418,7 +417,7 @@ export default function YangiAsarPage() {
             ) : (
               <>
                 <span>
-                  {creationMode === 'pdf' ? 'Yaratish va PDF yuklash' : 'Asarni yaratish'}
+                  {creationMode === 'docx' ? 'Yaratish va DOCX yuklash' : 'Asarni yaratish'}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </>

@@ -13,7 +13,7 @@ interface PageProps {
     id: string;
   };
   searchParams?: {
-    pdf?: string;
+    docx?: string;
   };
 }
 
@@ -63,11 +63,19 @@ export default async function AuthorWorkEditorPage({ params, searchParams }: Pag
     notFound();
   }
 
+  const { data: authorProfile } = await adminClient
+    .from('author_profiles')
+    .select('status')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const canUseDocxImport =
+    isAdmin || (work.author_id === user.id && authorProfile?.status === 'approved');
+
   return (
     <AuthorWorkEditorClient
       workId={work.id}
-      canUsePdfImport={isAdmin}
-      initialPdfOpen={isAdmin && searchParams?.pdf === '1'}
+      canUseDocxImport={canUseDocxImport}
+      initialDocxOpen={canUseDocxImport && searchParams?.docx === '1'}
     />
   );
 }

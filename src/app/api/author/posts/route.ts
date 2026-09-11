@@ -15,7 +15,11 @@ async function isApprovedAuthor(userId: string) {
     .eq('status', 'approved')
     .limit(1);
 
-  return !error && Boolean(data?.[0]);
+  if (error) {
+    console.error('Author approval lookup failed:', error.code);
+    throw new Error('Muallif holatini tekshirishda server xatosi. Iltimos, qayta urinib ko‘ring.');
+  }
+  return Boolean(data?.[0]);
 }
 
 export async function GET(req: NextRequest) {

@@ -30,7 +30,6 @@ interface AuthorProfileFeedProps {
   posts: AuthorPostItem[];
   authorPenName: string;
   authorUserId?: string;
-  authorId?: string;
 }
 
 export function AuthorProfileFeed({
@@ -38,7 +37,6 @@ export function AuthorProfileFeed({
   posts,
   authorPenName,
   authorUserId,
-  authorId,
 }: AuthorProfileFeedProps) {
   const { user, profile } = useAuth();
   const isAuthorOwner = Boolean(

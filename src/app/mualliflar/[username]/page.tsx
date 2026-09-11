@@ -86,7 +86,8 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
   const { data: authorPosts } = await admin
     .from('author_posts')
     .select('id, content, pinned, created_at')
-    .eq('author_id', author.id)
+    .eq('author_id', author.user_id)
+    .eq('is_published', true)
     .order('pinned', { ascending: false })
     .order('created_at', { ascending: false });
 
@@ -271,7 +272,6 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
           posts={authorPosts || []}
           authorPenName={author.pen_name}
           authorUserId={author.user_id}
-          authorId={author.id}
         />
       </section>
 

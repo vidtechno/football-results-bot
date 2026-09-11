@@ -710,7 +710,7 @@ export async function getAuthorByUsername(username: string): Promise<{
  * Fetch list of approved authors for public directory
  */
 export async function getApprovedAuthors(limit = 40): Promise<AuthorProfile[]> {
-  const supabase = createAdminClient();
+  const supabase = createCatalogueClient();
 
   const { data } = await supabase
     .from('author_profiles')
@@ -1005,109 +1005,132 @@ export async function getGenresWithCounts(): Promise<Array<Genre & { works_count
 /**
  * Fetch public author profile and works by ID, user_id or username
  */
-export const getPublicAuthor = requestCache(async function getPublicAuthor(identifier: string) {
-  const supabase = createAdminClient();
+export const getPublicAuthorIdentity = unstable_cache(
+  async (identifier: string) => {
+    const supabase = createAdminClient();
 
-  // Try finding by user_id first, then id
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-  let { data: author } = isUuid
-    ? await supabase
-        .from('author_profiles')
-        .select(
-          `
+    // Try finding by user_id first, then id
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      identifier,
+    );
+    const { data: author, error: authorError } = isUuid
+      ? await supabase
+          .from('author_profiles')
+          .select(
+            `
       *,
       profile:profiles(id, display_name, username, avatar_url, bio, social_links)
     `,
-        )
-        .or(`user_id.eq.${identifier},id.eq.${identifier}`)
-        .eq('status', 'approved')
-        .maybeSingle()
-    : { data: null };
+          )
+          .or(`user_id.eq.${identifier},id.eq.${identifier}`)
+          .eq('status', 'approved')
+          .maybeSingle()
+      : await supabase
+          .from('author_profiles')
+          .select(
+            `
+          *,
+          profile:profiles!inner(id, display_name, username, avatar_url, bio, social_links)
+        `,
+          )
+          .eq('profile.username', identifier)
+          .eq('status', 'approved')
+          .maybeSingle();
+    if (authorError) throw authorError;
+    return author;
+  },
+  ['public-author-identity-v1'],
+  { revalidate: 60, tags: ['public-catalogue', 'public-authors'] },
+);
 
-  // If not found, try finding by username in profiles
-  if (!author) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', identifier)
-      .maybeSingle();
+const getCachedPublicAuthor = unstable_cache(
+  async function getPublicAuthor(identifier: string) {
+    const supabase = createAdminClient();
+    const author = await getPublicAuthorIdentity(identifier);
+    if (!author) return null;
 
-    if (profile) {
-      const { data: authorByProfile } = await supabase
-        .from('author_profiles')
+    const [worksRes, followersRes, followingRes] = await Promise.all([
+      supabase
+        .from('works')
         .select(
           `
-          *,
-          profile:profiles(id, display_name, username, avatar_url, bio, social_links)
-        `,
-        )
-        .eq('user_id', profile.id)
-        .eq('status', 'approved')
-        .maybeSingle();
-
-      author = authorByProfile;
-    }
-  }
-
-  if (!author) return null;
-
-  const [worksRes, followersRes, followingRes] = await Promise.all([
-    supabase
-      .from('works')
-      .select(
-        `
         *,
         work_genres(genre:genres(*))
       `,
-      )
-      .eq('author_id', author.user_id)
-      .eq('status', 'published')
-      .eq('is_translation', false)
-      .order('published_at', { ascending: false }),
-    supabase
-      .from('author_follows')
-      .select('id', { count: 'exact', head: true })
-      .eq('author_id', author.user_id),
-    supabase
-      .from('author_follows')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', author.user_id),
-  ]);
+        )
+        .eq('author_id', author.user_id)
+        .eq('status', 'published')
+        .eq('is_translation', false)
+        .order('published_at', { ascending: false }),
+      supabase
+        .from('author_follows')
+        .select('id', { count: 'exact', head: true })
+        .eq('author_id', author.user_id),
+      supabase
+        .from('author_follows')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', author.user_id),
+    ]);
 
-  const rawWorks = (worksRes.data as any[]) || [];
-  // Ensure each work carries the author object so WorkCard displays the real author pen name!
-  const works = rawWorks.map((w) => ({
-    ...w,
-    author: {
-      pen_name: author.pen_name,
-      biography: author.biography,
-      user_id: author.user_id,
-    },
-  })) as Work[];
-  const followerCount = followersRes.count || 0;
-  const followingCount = followingRes.count || 0;
+    for (const result of [worksRes, followersRes, followingRes]) {
+      if (result.error) throw result.error;
+    }
+    const rawWorks = (worksRes.data as any[]) || [];
+    // Ensure each work carries the author object so WorkCard displays the real author pen name!
+    const works = rawWorks.map((w) => ({
+      ...w,
+      author: {
+        pen_name: author.pen_name,
+        biography: author.biography,
+        user_id: author.user_id,
+      },
+    })) as Work[];
+    const followerCount = followersRes.count || 0;
+    const followingCount = followingRes.count || 0;
 
-  // Calculate total public reads canonically from reading_progress across published works (excluding author self-reads)
-  const workIds = works.map((w) => w.id);
-  let totalReads = 0;
-  if (workIds.length > 0) {
-    const { count } = await supabase
-      .from('reading_progress')
-      .select('id', { count: 'exact', head: true })
-      .in('work_id', workIds)
-      .neq('user_id', author.user_id);
-    totalReads = count || 0;
-  }
+    // Calculate total public reads canonically from reading_progress across published works (excluding author self-reads)
+    const workIds = works.map((w) => w.id);
+    let totalReads = 0;
+    if (workIds.length > 0) {
+      const { count, error } = await supabase
+        .from('reading_progress')
+        .select('id', { count: 'exact', head: true })
+        .in('work_id', workIds)
+        .neq('user_id', author.user_id);
+      if (error) throw error;
+      totalReads = count || 0;
+    }
 
-  return {
-    author,
-    works,
-    totalWorks: works.length,
-    totalReads,
-    followerCount,
-    followingCount,
-  };
-});
+    return {
+      author,
+      works,
+      totalWorks: works.length,
+      totalReads,
+      followerCount,
+      followingCount,
+    };
+  },
+  ['public-author-profile-v1'],
+  { revalidate: 60, tags: ['public-catalogue', 'public-authors'] },
+);
+
+export const getPublicAuthor = requestCache(getCachedPublicAuthor);
+
+export const getPublicAuthorPosts = unstable_cache(
+  async (authorUserId: string) => {
+    const { data, error } = await createAdminClient()
+      .from('author_posts')
+      .select('id, content, pinned, created_at')
+      .eq('author_id', authorUserId)
+      .eq('is_published', true)
+      .order('pinned', { ascending: false })
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+  ['public-author-posts-v1'],
+  { revalidate: 60, tags: ['public-author-posts'] },
+);
 
 export interface RecentChapterItem {
   id: string;

@@ -9,12 +9,14 @@ describe('author post identity contract', () => {
   it('stores and reads posts by the authenticated author user id', () => {
     const route = read('src/app/api/author/posts/route.ts');
     const page = read('src/app/mualliflar/[username]/page.tsx');
+    const queries = read('src/lib/db/queries.ts');
 
     expect(route).toContain('author_id: profile.id');
     expect(route).not.toContain('author_id: authorProf.id');
     expect(route).toContain(".eq('user_id', userId)");
     expect(route).toContain(".eq('status', 'approved')");
-    expect(page).toContain(".eq('author_id', author.user_id)");
+    expect(page).toContain('getPublicAuthorPosts(author.user_id)');
+    expect(queries).toContain(".eq('author_id', authorUserId)");
     expect(page).not.toContain(".eq('author_id', author.id)");
   });
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
+import { createCatalogueClient } from '@/lib/supabase/catalogue';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,14 +8,18 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const tab = searchParams.get('tab') || 'yangi';
-    const profile = await getCurrentProfile(request.headers.get('Authorization'));
-    const admin = createAdminClient();
+    const isPublicTab = tab === 'yangi' || tab === 'ommabop';
+    const profile = isPublicTab
+      ? null
+      : await getCurrentProfile(request.headers.get('Authorization'));
+    const admin = isPublicTab ? createCatalogueClient() : createAdminClient();
 
     // 1. Yangi: Prioritize recently published or recently updated works (not archived)
     if (tab === 'yangi') {
       const { data, error } = await admin
         .from('works')
-        .select(`
+        .select(
+          `
           *,
           author:author_profiles (
             user_id,
@@ -24,7 +29,8 @@ export async function GET(request: Request) {
             profile:profiles (id, display_name, username, avatar_url)
           ),
           work_genres (genre:genres (*))
-        `)
+        `,
+        )
         .eq('status', 'published')
         .eq('is_archived', false)
         .order('updated_at', { ascending: false })
@@ -39,7 +45,8 @@ export async function GET(request: Request) {
     if (tab === 'ommabop') {
       const { data, error } = await admin
         .from('works')
-        .select(`
+        .select(
+          `
           *,
           author:author_profiles (
             user_id,
@@ -49,7 +56,8 @@ export async function GET(request: Request) {
             profile:profiles (id, display_name, username, avatar_url)
           ),
           work_genres (genre:genres (*))
-        `)
+        `,
+        )
         .eq('status', 'published')
         .eq('is_archived', false)
         .order('view_count', { ascending: false })
@@ -65,7 +73,8 @@ export async function GET(request: Request) {
       // 1. Fetch all candidate published, non-archived works
       const { data: allPublishedWorks, error: worksError } = await admin
         .from('works')
-        .select(`
+        .select(
+          `
           *,
           author:author_profiles (
             user_id,
@@ -75,7 +84,8 @@ export async function GET(request: Request) {
             profile:profiles (id, display_name, username, avatar_url)
           ),
           work_genres (genre:genres (*))
-        `)
+        `,
+        )
         .eq('status', 'published')
         .eq('is_archived', false)
         .order('updated_at', { ascending: false })
@@ -98,7 +108,10 @@ export async function GET(request: Request) {
       // Authenticated reader: evaluate user signals (genres, progress, follows, ratings/reviews)
       const [userGenresRes, readProgressRes, authorFollowsRes, workFollowsRes] = await Promise.all([
         admin.from('user_genre_preferences').select('genre_id').eq('user_id', profile.id),
-        admin.from('reading_progress').select('work_id, is_completed, percentage').eq('user_id', profile.id),
+        admin
+          .from('reading_progress')
+          .select('work_id, is_completed, percentage')
+          .eq('user_id', profile.id),
         admin.from('author_follows').select('author_id').eq('user_id', profile.id),
         admin.from('work_follows').select('work_id').eq('user_id', profile.id),
       ]);
@@ -159,12 +172,15 @@ export async function GET(request: Request) {
 
       scored.sort((a, b) => b.score - a.score);
 
-      const hasUserPreferences = preferredGenreIds.size > 0 || followedAuthorIds.size > 0 || followedWorkIds.size > 0;
+      const hasUserPreferences =
+        preferredGenreIds.size > 0 || followedAuthorIds.size > 0 || followedWorkIds.size > 0;
 
       // Filter to relevant recommendations if user has preferences, or fallback gracefully
       let recommended = scored.slice(0, 8).map((s) => ({
         ...s.work,
-        recommendation_reason: hasUserPreferences ? s.reason : 'Sizga manzur bo‘lishi mumkin bo‘lgan asar',
+        recommendation_reason: hasUserPreferences
+          ? s.reason
+          : 'Sizga manzur bo‘lishi mumkin bo‘lgan asar',
       }));
 
       // If user had preferences but none matched, fallback to top popular/recent works
@@ -179,7 +195,9 @@ export async function GET(request: Request) {
         success: true,
         tab: 'siz-uchun',
         isPersonalized: hasUserPreferences,
-        fallbackReason: hasUserPreferences ? null : 'Janr tanlamagan foydalanuvchilar uchun umumiy tavsiyalar',
+        fallbackReason: hasUserPreferences
+          ? null
+          : 'Janr tanlamagan foydalanuvchilar uchun umumiy tavsiyalar',
         works: recommended,
         emptyReason: recommended.length === 0 ? 'no_recommendations' : null,
       });
@@ -189,7 +207,11 @@ export async function GET(request: Request) {
     if (tab === 'kuzatayotganlarim') {
       if (!profile) {
         return NextResponse.json(
-          { success: false, requiresAuth: true, error: 'Kuzatilayotgan asarlarni ko‘rish uchun tizimga kiring' },
+          {
+            success: false,
+            requiresAuth: true,
+            error: 'Kuzatilayotgan asarlarni ko‘rish uchun tizimga kiring',
+          },
           { status: 401 },
         );
       }
@@ -199,8 +221,12 @@ export async function GET(request: Request) {
         admin.from('work_follows').select('work_id').eq('user_id', profile.id),
       ]);
 
-      const followedAuthorIds = Array.from(new Set((authorFollowsRes.data || []).map((a: any) => a.author_id)));
-      const followedWorkIds = Array.from(new Set((workFollowsRes.data || []).map((w: any) => w.work_id)));
+      const followedAuthorIds = Array.from(
+        new Set((authorFollowsRes.data || []).map((a: any) => a.author_id)),
+      );
+      const followedWorkIds = Array.from(
+        new Set((workFollowsRes.data || []).map((w: any) => w.work_id)),
+      );
 
       if (followedAuthorIds.length === 0 && followedWorkIds.length === 0) {
         return NextResponse.json({
@@ -214,7 +240,8 @@ export async function GET(request: Request) {
       // Query eligible published works that match either followed authors or followed works
       let q = admin
         .from('works')
-        .select(`
+        .select(
+          `
           *,
           author:author_profiles (
             user_id,
@@ -224,12 +251,15 @@ export async function GET(request: Request) {
             profile:profiles (id, display_name, username, avatar_url)
           ),
           work_genres (genre:genres (*))
-        `)
+        `,
+        )
         .eq('status', 'published')
         .eq('is_archived', false);
 
       if (followedAuthorIds.length > 0 && followedWorkIds.length > 0) {
-        q = q.or(`author_id.in.(${followedAuthorIds.join(',')}),id.in.(${followedWorkIds.join(',')})`);
+        q = q.or(
+          `author_id.in.(${followedAuthorIds.join(',')}),id.in.(${followedWorkIds.join(',')})`,
+        );
       } else if (followedAuthorIds.length > 0) {
         q = q.in('author_id', followedAuthorIds);
       } else {
@@ -263,6 +293,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: 'Noma’lum tab' }, { status: 400 });
   } catch (err: any) {
     console.error('Error in /api/home/discovery:', err);
-    return NextResponse.json({ success: false, error: err.message || 'Server xatosi' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: err.message || 'Server xatosi' },
+      { status: 500 },
+    );
   }
 }

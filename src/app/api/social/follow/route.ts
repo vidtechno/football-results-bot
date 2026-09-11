@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -160,6 +161,7 @@ export async function POST(req: NextRequest) {
         .select('id', { count: 'exact', head: true })
         .eq('author_id', targetId);
 
+      revalidateTag('public-authors');
       return NextResponse.json({
         success: true,
         isFollowing,

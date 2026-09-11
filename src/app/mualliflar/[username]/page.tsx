@@ -14,13 +14,12 @@ import {
   PenTool,
   PlusCircle,
 } from 'lucide-react';
-import { getPublicAuthor } from '@/lib/db/queries';
+import { getPublicAuthor, getPublicAuthorIdentity, getPublicAuthorPosts } from '@/lib/db/queries';
 import { FollowButton } from '@/components/social/FollowButton';
 import { AuthorProfileFeed } from '@/components/author/AuthorProfileFeed';
 import { AuthorConnections } from '@/components/author/AuthorConnections';
 import { ProfileShareButton } from '@/components/author/ProfileShareButton';
 import { AuthorOwnerPanel } from '@/components/author/AuthorOwnerPanel';
-import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getCurrentProfile } from '@/lib/supabase/server';
 
 import {
@@ -30,8 +29,8 @@ import {
   sanitizeWebsite,
 } from '@/lib/utils/social';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Viewer identity remains request-specific; only public query results are cached.
+export const revalidate = 60;
 
 interface AuthorPublicProfilePageProps {
   params: {
@@ -53,12 +52,11 @@ function sanitizeSocialUrl(
 export async function generateMetadata({
   params,
 }: AuthorPublicProfilePageProps): Promise<Metadata> {
-  const result = await getPublicAuthor(params.username);
-  if (!result || !result.author) {
+  const author = await getPublicAuthorIdentity(params.username);
+  if (!author) {
     return { title: 'Muallif topilmadi' };
   }
 
-  const { author } = result;
   return {
     title: `${author.pen_name} — Muallif profili`,
     description:
@@ -71,7 +69,12 @@ export async function generateMetadata({
 }
 
 export default async function AuthorPublicProfilePage({ params }: AuthorPublicProfilePageProps) {
-  const result = await getPublicAuthor(params.username);
+  const resultPromise = getPublicAuthor(params.username);
+  const viewerPromise = getCurrentProfile();
+  const postsPromise = getPublicAuthorIdentity(params.username).then((author) =>
+    author ? getPublicAuthorPosts(author.user_id) : [],
+  );
+  const [result, currentViewer] = await Promise.all([resultPromise, viewerPromise]);
 
   if (!result || !result.author) {
     notFound();
@@ -79,17 +82,8 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
 
   const { author, works, totalWorks, totalReads, followerCount, followingCount } = result;
   const profile = author.profile;
-  const currentViewer = await getCurrentProfile();
   const isOwnProfile = currentViewer?.id === author.user_id;
-
-  const admin = getSupabaseAdmin();
-  const { data: authorPosts } = await admin
-    .from('author_posts')
-    .select('id, content, pinned, created_at')
-    .eq('author_id', author.user_id)
-    .eq('is_published', true)
-    .order('pinned', { ascending: false })
-    .order('created_at', { ascending: false });
+  const authorPosts = await postsPromise;
 
   // Parse and prepare social links whitelist
   const rawSocials = (profile?.social_links as any) || {};

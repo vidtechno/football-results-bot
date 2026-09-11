@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { createAdminClient, getCurrentProfile } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
+    revalidateTag('public-author-posts');
     return NextResponse.json({ success: true, post: newPost });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Xatolik yuz berdi' }, { status: 500 });
@@ -161,6 +163,7 @@ export async function PATCH(req: NextRequest) {
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
+    revalidateTag('public-author-posts');
     return NextResponse.json({ success: true, post: updatedPost });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Xatolik yuz berdi' }, { status: 500 });
@@ -200,6 +203,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
+    revalidateTag('public-author-posts');
     return NextResponse.json({ success: true, message: 'Post o‘chirildi' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Xatolik yuz berdi' }, { status: 500 });

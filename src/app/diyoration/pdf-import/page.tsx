@@ -335,8 +335,8 @@ export default function PdfImportPage() {
           {!!session.ignored_metadata?.length && (
             <details className="rounded-2xl border border-slate-200 bg-white p-4">
               <summary className="cursor-pointer text-sm font-bold">
-                Takroriy header/footer ehtimollari ({session.ignored_metadata.length}) — matndan
-                o‘chirilmagan
+                Xavfsiz ajratilgan sahifa header/footerlari ({session.ignored_metadata.length}) —
+                asl PDF nusxasida saqlangan
               </summary>
               <ul className="mt-3 space-y-1 text-xs text-slate-600">
                 {session.ignored_metadata.map((item, index) => (

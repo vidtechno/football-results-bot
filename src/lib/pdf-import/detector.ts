@@ -32,9 +32,36 @@ function confidenceFor(line: string, beforeBlank: boolean, afterBlank: boolean) 
   return Math.min(0.99, score);
 }
 
-export function detectChapters(rawText: string) {
+function withoutRanges(
+  rawText: string,
+  start: number,
+  end: number,
+  ignoredRanges: Array<{ start: number; end: number }>,
+) {
+  let cursor = start;
+  let result = '';
+  for (const range of ignoredRanges) {
+    if (range.end <= start || range.start >= end) continue;
+    const removeStart = Math.max(start, range.start);
+    const removeEnd = Math.min(end, range.end);
+    result += rawText.slice(cursor, removeStart);
+    cursor = Math.max(cursor, removeEnd);
+  }
+  return (result + rawText.slice(cursor, end)).replace(/^[ \t]+|[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+export function detectChapters(
+  rawText: string,
+  ignoredRanges: Array<{ start: number; end: number }> = [],
+) {
   const text = rawText.replace(/\r\n?/g, '\n');
-  const lines = text.split('\n');
+  const masked = [...text];
+  for (const range of ignoredRanges) {
+    for (let index = range.start; index < Math.min(range.end, masked.length); index += 1) {
+      if (masked[index] !== '\n') masked[index] = ' ';
+    }
+  }
+  const lines = masked.join('').split('\n');
   const candidates: Array<{ title: string; start: number; lineEnd: number; confidence: number }> =
     [];
   let offset = 0;
@@ -59,7 +86,7 @@ export function detectChapters(rawText: string) {
     chapters.push({
       id: randomUUID(),
       title: '1-bob',
-      content: text,
+      content: withoutRanges(text, 0, text.length, ignoredRanges),
       sourceText: text,
       order: 1,
       confidence: 0.25,
@@ -67,11 +94,25 @@ export function detectChapters(rawText: string) {
       sourceEnd: text.length,
     });
   } else {
-    if (candidates[0].start > 0) unassignedText = text.slice(0, candidates[0].start);
+    const prefixWithoutFurniture = withoutRanges(
+      text,
+      0,
+      candidates[0].start,
+      ignoredRanges,
+    );
+    if (candidates[0].start > 0 && prefixWithoutFurniture) {
+      unassignedText = text.slice(0, candidates[0].start);
+    }
     candidates.forEach((candidate, index) => {
       const end = candidates[index + 1]?.start ?? text.length;
-      const sourceText = text.slice(candidate.start, end);
-      const content = text.slice(Math.min(candidate.lineEnd + 1, end), end).trim();
+      const sourceStart = index === 0 && !prefixWithoutFurniture ? 0 : candidate.start;
+      const sourceText = text.slice(sourceStart, end);
+      const content = withoutRanges(
+        text,
+        Math.min(candidate.lineEnd + 1, end),
+        end,
+        ignoredRanges,
+      );
       chapters.push({
         id: randomUUID(),
         title: candidate.title,
@@ -79,7 +120,7 @@ export function detectChapters(rawText: string) {
         sourceText,
         order: index + 1,
         confidence: candidate.confidence,
-        sourceStart: candidate.start,
+        sourceStart,
         sourceEnd: end,
       });
     });

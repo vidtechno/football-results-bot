@@ -11,6 +11,7 @@ import {
 import {
   ensureSelectableText,
   extractPdf,
+  analyzePageFurniture,
   findRepeatedPageFurniture,
 } from '@/lib/pdf-import/extract';
 
@@ -33,7 +34,26 @@ describe('production PDF importer', () => {
 
   it('flags repeated page furniture but retains it for review', () => {
     const result = findRepeatedPageFurniture(['Kitob nomi\nA', 'Kitob nomi\nB', 'Kitob nomi\nC']);
-    expect(result).toEqual([{ text: 'Kitob nomi', occurrences: 3, action: 'retained' }]);
+    expect(result).toEqual([
+      { text: 'Kitob nomi', occurrences: 3, action: 'removed_from_content' },
+    ]);
+  });
+
+  it('removes only repeated page-edge furniture from chapter content and retains source bytes', () => {
+    const pages = [
+      "O‘tkan kunlar (roman). Abdulla Qodiriy\n1-BOB\nAsosiy matn\nwww.ziyouz.com kutubxonasi\n1",
+      "O‘tkan kunlar (roman). Abdulla Qodiriy\nDavom matni\nwww.ziyouz.com kutubxonasi\n2",
+      "O‘tkan kunlar (roman). Abdulla Qodiriy\nYakuniy matn\nwww.ziyouz.com kutubxonasi\n3",
+    ];
+    const raw = pages.join('\n\n');
+    const furniture = analyzePageFurniture(pages);
+    const result = detectChapters(raw, furniture.ranges);
+    expect(result.chapters[0].content).toContain('Asosiy matn');
+    expect(result.chapters[0].content).not.toContain('ziyouz.com');
+    expect(result.chapters[0].content).not.toContain('Abdulla Qodiriy');
+    expect(result.chapters[0].sourceText).toContain('ziyouz.com');
+    expect(result.unassignedText).toBe('');
+    expect(validateIntegrity(raw, result.chapters, result.unassignedText).coverage).toBe(1);
   });
 
   it('detects Arabic and Roman chapter headings without dropping source text', () => {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin, logAdminAction } from '@/lib/admin/auth';
 import { createAdminClient } from '@/lib/supabase/server';
 import { detectChapters, validateIntegrity } from '@/lib/pdf-import/detector';
-import { extractPdf, findRepeatedPageFurniture } from '@/lib/pdf-import/extract';
+import { analyzePageFurniture, extractPdf } from '@/lib/pdf-import/extract';
 import { reviewLowConfidenceChapters } from '@/lib/pdf-import/ai';
 import { sanitizeRichText } from '@/lib/utils/sanitizer';
 import type { ImportChapter } from '@/lib/pdf-import/types';
@@ -137,8 +137,8 @@ export async function POST(request: NextRequest) {
       }
       if (extracted.rawText.length > 3_000_000)
         return NextResponse.json({ error: 'PDF matni import uchun juda katta' }, { status: 413 });
-      const detected = detectChapters(extracted.rawText);
-      const repeatedFurniture = findRepeatedPageFurniture(extracted.pages);
+      const furniture = analyzePageFurniture(extracted.pages);
+      const detected = detectChapters(extracted.rawText, furniture.ranges);
       const statistics = {
         ...validateIntegrity(extracted.rawText, detected.chapters, detected.unassignedText),
         pageCount: extracted.pageCount,
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
           pages: extracted.pages,
           chapters: detected.chapters,
           unassigned_text: detected.unassignedText,
-          ignored_metadata: repeatedFurniture,
+          ignored_metadata: furniture.items,
           statistics,
         })
         .select()

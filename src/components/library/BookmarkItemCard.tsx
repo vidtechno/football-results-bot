@@ -19,6 +19,7 @@ interface BookmarkItemCardProps {
       cover_url?: string;
       is_translation?: boolean;
       original_author_name?: string | null;
+      credited_author_name?: string | null;
       author?: {
         pen_name?: string;
       };

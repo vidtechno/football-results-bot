@@ -14,6 +14,10 @@ import {
   analyzePageFurniture,
   findRepeatedPageFurniture,
 } from '@/lib/pdf-import/extract';
+import {
+  getPublicWorkAuthorName,
+  getPublicWorkAuthorUsername,
+} from '@/lib/utils/workAttribution';
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -126,5 +130,19 @@ describe('production PDF importer', () => {
     expect(sql).not.toMatch(/DELETE FROM public\.chapters/);
     expect(sql).not.toMatch(/UPDATE public\.chapters SET/);
     expect(sql).toContain("RAISE EXCEPTION 'INVALID_CHAPTER'");
+  });
+
+  it('uses a plain PDF author credit without exposing the admin profile', () => {
+    const work = {
+      credited_author_name: 'Abdulla Qodiriy',
+      author: { pen_name: 'Manbora jamoasi', profile: { username: 'manbora' } },
+    };
+    expect(getPublicWorkAuthorName(work)).toBe('Abdulla Qodiriy');
+    expect(getPublicWorkAuthorUsername(work)).toBeNull();
+    const route = read('src/app/api/admin/pdf-import/route.ts');
+    const sql = read('supabase/migrations/044_pdf_import_public_author_credit.sql');
+    expect(route).toContain('p_author_name: authorName');
+    expect(sql).toContain('credited_author_name = v_author_name');
+    expect(sql).toContain("'draft'");
   });
 });

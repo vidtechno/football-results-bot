@@ -135,6 +135,7 @@ export async function getRecentReadingProgress(
         author_id,
         is_translation,
         original_author_name,
+        credited_author_name,
         access_type,
         type,
         full_work_price,
@@ -229,9 +230,12 @@ export async function getRecentReadingProgress(
 
     // Author Name resolution
     const authorObj = Array.isArray(w.author) ? w.author[0] : w.author;
-    const authorName = (w.is_translation
-      ? w.original_author_name
-      : authorObj?.pen_name || authorNameMap.get(w.author_id) || 'Muallif').trim();
+    const authorName = (
+      w.credited_author_name ||
+      (w.is_translation
+        ? w.original_author_name
+        : authorObj?.pen_name || authorNameMap.get(w.author_id) || 'Muallif')
+    ).trim();
 
     // Chapter Number resolution
     const rawChapNum = c?.chapter_number ? Number(c.chapter_number) : 1;

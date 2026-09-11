@@ -42,6 +42,7 @@ export async function GET(request: Request) {
           status,
           is_translation,
           original_author_name,
+          credited_author_name,
           author:author_profiles (
             pen_name
           )

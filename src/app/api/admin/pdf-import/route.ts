@@ -208,6 +208,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ session: toClientSession(data) });
     }
     if (action === 'import') {
+      const authorName = String(body.authorName || '').trim();
+      if (authorName.length < 2 || authorName.length > 160)
+        return NextResponse.json(
+          { error: 'Muallif ism-familiyasini to‘g‘ri kiriting' },
+          { status: 400 },
+        );
       const chapters = (session.chapters as ImportChapter[]).sort((a, b) => a.order - b.order);
       const stats = validateIntegrity(session.raw_text, chapters, session.unassigned_text || '');
       if (stats.coverage < 1 || stats.unassignedCharacters > 0)
@@ -230,6 +236,7 @@ export async function POST(request: NextRequest) {
         p_admin_id: adminProfile.id,
         p_work_id: String(body.workId || session.work_id || ''),
         p_chapters: payload,
+        p_author_name: authorName,
       });
       if (error) {
         console.error('Atomic PDF import failed', {

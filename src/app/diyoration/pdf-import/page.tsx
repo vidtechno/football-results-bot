@@ -59,6 +59,7 @@ export default function PdfImportPage() {
   const [works, setWorks] = useState<WorkOption[]>([]);
   const [workId, setWorkId] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [authorName, setAuthorName] = useState('');
   const [session, setSession] = useState<ImportSession | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -82,7 +83,8 @@ export default function PdfImportPage() {
   }, []);
 
   async function extract() {
-    if (!file || !workId) return setError('Asar va PDF faylni tanlang');
+    if (!file || !workId || authorName.trim().length < 2)
+      return setError('Asar, PDF fayl va muallif ism-familiyasini kiriting');
     setBusy('PDF tekshirilmoqda…');
     setError('');
     setNotice('');
@@ -221,7 +223,7 @@ export default function PdfImportPage() {
     const response = await fetch('/api/admin/pdf-import?action=import', {
       method: 'POST',
       headers: await authHeaders(true),
-      body: JSON.stringify({ sessionId: session.id, workId }),
+      body: JSON.stringify({ sessionId: session.id, workId, authorName: authorName.trim() }),
     });
     const data = await response.json();
     setBusy('');
@@ -251,7 +253,7 @@ export default function PdfImportPage() {
         </p>
       </header>
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+        <div className="grid gap-3 sm:grid-cols-2">
           <select
             value={workId}
             onChange={(e) => setWorkId(e.target.value)}
@@ -269,6 +271,13 @@ export default function PdfImportPage() {
             accept="application/pdf,.pdf"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="rounded-xl border p-2 text-sm"
+          />
+          <input
+            value={authorName}
+            onChange={(event) => setAuthorName(event.target.value)}
+            maxLength={160}
+            placeholder="Muallif ism-familiyasi (ommaviy ko‘rinadi)"
+            className="rounded-xl border p-3 text-sm"
           />
           <button
             onClick={extract}

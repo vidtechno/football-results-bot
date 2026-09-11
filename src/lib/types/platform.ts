@@ -137,6 +137,7 @@ export interface Work {
   is_translation?: boolean;
   original_title?: string | null;
   original_author_name?: string | null;
+  credited_author_name?: string | null;
   source_language?: string | null;
   translator_name?: string | null;
   translation_rights_basis?: 'public_domain' | 'licensed' | null;

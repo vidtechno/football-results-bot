@@ -88,7 +88,7 @@ export async function dispatchNewChapterPublicationNotifications(chapterId: stri
     const { data: work, error: workErr } = await admin
       .from('works')
       .select(`
-        id, title, slug, author_id, status,
+        id, title, slug, author_id, status, credited_author_name,
         author:author_profiles(user_id, pen_name)
       `)
       .eq('id', chapter.work_id)
@@ -99,12 +99,14 @@ export async function dispatchNewChapterPublicationNotifications(chapterId: stri
     }
 
     const authorUserId = work.author_id;
-    const authorPenName = (work.author as any)?.pen_name || 'Muallif';
+    const authorPenName = work.credited_author_name || (work.author as any)?.pen_name || 'Muallif';
 
     // 3. Concurrently fetch followers of work and followers of author
     const [workFollowsRes, authorFollowsRes] = await Promise.all([
       admin.from('work_follows').select('user_id').eq('work_id', work.id),
-      admin.from('author_follows').select('user_id').eq('author_id', authorUserId),
+      work.credited_author_name
+        ? Promise.resolve({ data: [] })
+        : admin.from('author_follows').select('user_id').eq('author_id', authorUserId),
     ]);
 
     const recipientIds = new Set<string>();
@@ -212,7 +214,7 @@ export async function dispatchWorkCompletionNotifications(workId: string): Promi
     const { data: work, error: workErr } = await admin
       .from('works')
       .select(`
-        id, title, slug, author_id, status, completion_status,
+        id, title, slug, author_id, status, completion_status, credited_author_name,
         author:author_profiles(user_id, pen_name)
       `)
       .eq('id', workId)
@@ -223,12 +225,14 @@ export async function dispatchWorkCompletionNotifications(workId: string): Promi
     }
 
     const authorUserId = work.author_id;
-    const authorPenName = (work.author as any)?.pen_name || 'Muallif';
+    const authorPenName = work.credited_author_name || (work.author as any)?.pen_name || 'Muallif';
 
     // 2. Concurrently fetch followers and readers
     const [workFollowsRes, authorFollowsRes, libraryItemsRes] = await Promise.all([
       admin.from('work_follows').select('user_id').eq('work_id', work.id),
-      admin.from('author_follows').select('user_id').eq('author_id', authorUserId),
+      work.credited_author_name
+        ? Promise.resolve({ data: [] })
+        : admin.from('author_follows').select('user_id').eq('author_id', authorUserId),
       admin.from('library_items').select('user_id').eq('work_id', work.id),
     ]);
 

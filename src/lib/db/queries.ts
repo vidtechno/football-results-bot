@@ -82,6 +82,7 @@ export async function getPublishedWorks(options?: {
       is_translation,
       original_title,
       original_author_name,
+      credited_author_name,
       source_language,
       translator_name,
       translation_rights_basis,
@@ -176,6 +177,7 @@ export async function getPublishedWorks(options?: {
         is_translation,
         original_title,
         original_author_name,
+        credited_author_name,
         source_language,
         translator_name,
         translation_rights_basis,
@@ -422,6 +424,7 @@ export async function getWorkMetadataBySlug(slug: string): Promise<{
     is_translation: boolean;
     original_title: string | null;
     original_author_name: string | null;
+    credited_author_name: string | null;
     translator_name: string | null;
     authorName: string;
     authorUsername?: string;
@@ -433,10 +436,12 @@ export async function getWorkMetadataBySlug(slug: string): Promise<{
 
   const authorProfile = Array.isArray(work.author) ? work.author[0] : work.author;
   const authorName =
-    authorProfile?.pen_name ||
-    (work.is_translation ? work.original_author_name : 'Muallif') ||
+    work.credited_author_name ||
+    (work.is_translation ? work.original_author_name : authorProfile?.pen_name) ||
     'Muallif';
-  const authorUsername = (authorProfile?.profile as any)?.username;
+  const authorUsername = work.credited_author_name || work.is_translation
+    ? undefined
+    : (authorProfile?.profile as any)?.username;
 
   return {
     work: {
@@ -450,6 +455,7 @@ export async function getWorkMetadataBySlug(slug: string): Promise<{
       is_translation: Boolean(work.is_translation),
       original_title: work.original_title,
       original_author_name: work.original_author_name,
+      credited_author_name: work.credited_author_name,
       translator_name: work.translator_name,
       authorName,
       authorUsername,
@@ -695,6 +701,7 @@ export async function getAuthorByUsername(username: string): Promise<{
     .eq('author_id', author.user_id)
     .eq('status', 'published')
     .eq('is_translation', false)
+    .is('credited_author_name', null)
     .order('published_at', { ascending: false });
 
   return {
@@ -798,6 +805,7 @@ export async function getPaginatedCatalogue(options?: {
       is_translation,
       original_title,
       original_author_name,
+      credited_author_name,
       source_language,
       translator_name,
       translation_rights_basis,
@@ -851,11 +859,11 @@ export async function getPaginatedCatalogue(options?: {
 
     if (authorIds.length > 0) {
       q = q.or(
-        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%,author_id.in.(${authorIds.join(',')})`,
+        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,credited_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%,author_id.in.(${authorIds.join(',')})`,
       );
     } else {
       q = q.or(
-        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%`,
+        `title.ilike.%${normalized}%,description.ilike.%${normalized}%,original_author_name.ilike.%${normalized}%,credited_author_name.ilike.%${normalized}%,translator_name.ilike.%${normalized}%`,
       );
     }
   }
@@ -1061,6 +1069,7 @@ const getCachedPublicAuthor = unstable_cache(
         .eq('author_id', author.user_id)
         .eq('status', 'published')
         .eq('is_translation', false)
+        .is('credited_author_name', null)
         .order('published_at', { ascending: false }),
       supabase
         .from('author_follows')
@@ -1150,6 +1159,7 @@ export interface RecentChapterItem {
     type: string;
     is_translation?: boolean;
     original_author_name?: string | null;
+    credited_author_name?: string | null;
     author?: {
       pen_name: string;
     };
@@ -1185,6 +1195,7 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
         type,
         is_translation,
         original_author_name,
+        credited_author_name,
         status,
         author:author_profiles (
           pen_name
@@ -1221,6 +1232,7 @@ export async function getRecentChapters(limit = 8): Promise<RecentChapterItem[]>
           type,
           is_translation,
           original_author_name,
+          credited_author_name,
           status,
           author:author_profiles (
             pen_name

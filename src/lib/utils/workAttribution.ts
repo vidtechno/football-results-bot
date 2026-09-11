@@ -1,10 +1,12 @@
 type PublicWork = {
   is_translation?: boolean | null;
   original_author_name?: string | null;
+  credited_author_name?: string | null;
   author?: { pen_name?: string | null; profile?: { display_name?: string | null; username?: string | null } | null } | null;
 };
 
 export function getPublicWorkAuthorName(work: PublicWork): string {
+  if (work.credited_author_name?.trim()) return work.credited_author_name.trim();
   if (work.is_translation) {
     return work.original_author_name?.trim() || 'Original muallif ko‘rsatilmagan';
   }
@@ -13,6 +15,7 @@ export function getPublicWorkAuthorName(work: PublicWork): string {
 }
 
 export function getPublicWorkAuthorUsername(work: PublicWork): string | null {
+  if (work.credited_author_name?.trim()) return null;
   if (work.is_translation) return null;
   return work.author?.profile?.username?.trim() || null;
 }

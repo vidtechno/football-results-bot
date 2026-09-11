@@ -35,6 +35,7 @@ import { ChapterReactionsBar } from './ChapterReactionsBar';
 import { ChapterCommentsSection } from './ChapterCommentsSection';
 import { trackAnalytics } from '@/lib/analytics/client';
 import { CompletionCard } from './CompletionCard';
+import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
 
 interface ReaderViewProps {
   work: Work;
@@ -1432,7 +1433,7 @@ export function ReaderView({
               </aside>
             )}
             {!nextChapter && currentPage >= paginated.totalPages && (
-              <CompletionCard workTitle={work.title} authorName={(work as any).author?.pen_name} coverUrl={work.cover_url} />
+              <CompletionCard workTitle={work.title} authorName={getPublicWorkAuthorName(work)} coverUrl={work.cover_url} />
             )}
 
             {/* Within-Chapter Pagination Controls (~200 words per page) */}

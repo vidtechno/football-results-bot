@@ -17,7 +17,6 @@ import {
   FileDiff,
   DollarSign,
   Languages,
-  FileUp,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { clsx } from 'clsx';
@@ -51,7 +50,6 @@ export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: Adm
     { label: 'Mualliflar', href: '/diyoration/mualliflar', icon: PenTool },
     { label: 'Asarlar', href: '/diyoration/asarlar', icon: BookOpen },
     { label: 'Tarjima asarlar', href: '/diyoration/tarjima-asarlar', icon: Languages },
-    { label: 'PDF kitob import qilish', href: '/diyoration/pdf-import', icon: FileUp },
     { label: 'Manbora Plus', href: '/diyoration/plus', icon: Zap },
     { label: 'Tahrirlar moderatsiyasi', href: '/diyoration/tahrirlar', icon: FileDiff },
     { label: 'Pul yechish so‘rovlari', href: '/diyoration/yechish-sorovlari', icon: CreditCard },

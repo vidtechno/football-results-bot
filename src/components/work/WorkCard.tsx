@@ -56,10 +56,10 @@ export function WorkCard({
   const priceLabel = work.is_plus
     ? 'Plus'
     : isFree
-    ? 'Bepul'
-    : isPaidFull
-      ? formatUZS(work.full_work_price || 0)
-      : 'Boblar bo‘yicha';
+      ? 'Bepul'
+      : isPaidFull
+        ? formatUZS(work.full_work_price || 0)
+        : 'Boblar bo‘yicha';
 
   // Completion status
   const isCompleted = work.completion_status === 'completed';
@@ -92,7 +92,7 @@ export function WorkCard({
           {work.cover_url && !imageError ? (
             <Image
               src={work.cover_url}
-              alt={work.title}
+              alt={`${work.title} — ${authorName} asari muqovasi`}
               fill
               sizes="(max-width: 640px) 48vw, (max-width: 1024px) 31vw, 20vw"
               priority={priority}
@@ -112,7 +112,10 @@ export function WorkCard({
             </div>
           )}
 
-          <div className="work-cover-shine absolute inset-0 z-[2] pointer-events-none" aria-hidden="true" />
+          <div
+            className="work-cover-shine absolute inset-0 z-[2] pointer-events-none"
+            aria-hidden="true"
+          />
 
           {/* Floating Rating Pill (Upper-Left) */}
           {rating ? (

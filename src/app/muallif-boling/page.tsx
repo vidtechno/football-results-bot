@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { unstable_cache } from 'next/cache';
 import type { Metadata } from 'next';
 import {
   PenTool,
@@ -25,6 +26,20 @@ import { AuthorEarningsCalculator } from '@/components/author/AuthorEarningsCalc
 
 export const revalidate = 60;
 
+const getCachedCommissionPercentage = unstable_cache(
+  async () => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('value')
+      .eq('key', 'commission_percentage')
+      .maybeSingle();
+    return Number(data?.value || 20);
+  },
+  ['author-landing-commission-v1'],
+  { revalidate: 300, tags: ['platform-settings'] },
+);
+
 export const metadata: Metadata = {
   title: 'Muallif bo‘ling',
   description:
@@ -38,21 +53,23 @@ export const metadata: Metadata = {
       'Kitob va davomli hikoyalaringizni Manbora’da nashr eting. 80% sof daromad, rasmiy mualliflik huquqi himoyasi va zamonaviy studiya.',
     url: 'https://manbora.uz/muallif-boling',
     type: 'website',
+    images: ['/opengraph-image'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Manbora’da muallif bo‘ling',
+    description:
+      'Kitob va hikoyangizni nashr eting, o‘quvchi toping va ijodingizdan daromad oling.',
+    images: ['/opengraph-image'],
   },
 };
 
 export default async function MuallifBolingPage() {
-  const admin = createAdminClient();
-  const [profile, { data: setting }] = await Promise.all([
+  const [profile, commissionPercentage] = await Promise.all([
     getCurrentProfile(),
-    admin
-      .from('platform_settings')
-      .select('value')
-      .eq('key', 'commission_percentage')
-      .maybeSingle(),
+    getCachedCommissionPercentage(),
   ]);
 
-  const commissionPercentage = Number(setting?.value || 20);
   const authorPercentage = 100 - commissionPercentage;
 
   // Role-aware CTAs
@@ -127,9 +144,7 @@ export default async function MuallifBolingPage() {
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
                   Muallif ulushi
                 </p>
-                <p className="mt-1 font-sans text-5xl font-black text-white">
-                  {authorPercentage}%
-                </p>
+                <p className="mt-1 font-sans text-5xl font-black text-white">{authorPercentage}%</p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400 text-emerald-950">
                 <TrendingUp className="h-6 w-6" />

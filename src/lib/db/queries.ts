@@ -49,6 +49,20 @@ export async function getActiveGenres(): Promise<Genre[]> {
   return (data as Genre[]) || [];
 }
 
+export const getActiveGenreBySlug = unstable_cache(
+  async (slug: string): Promise<Genre | null> => {
+    const { data } = await createCatalogueClient()
+      .from('genres')
+      .select('*')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .maybeSingle();
+    return (data as Genre) || null;
+  },
+  ['public-genre-by-slug-v1'],
+  { revalidate: 300, tags: ['public-catalogue', 'public-genres'] },
+);
+
 /**
  * Fetch published works with optional search and filters.
  */
@@ -406,12 +420,27 @@ export async function getChapterMetadata(
   chapterSlug: string,
 ): Promise<{
   work: Work | null;
-  chapter: Pick<Chapter, 'title' | 'chapter_number' | 'slug'> | null;
+  chapter:
+    | (Pick<Chapter, 'title' | 'chapter_number' | 'slug' | 'is_free' | 'is_preview_free'> & {
+        isFirstPublished: boolean;
+      })
+    | null;
 }> {
   const { work, chapters } = await getReaderWorkAndChapters(workSlug);
   if (!work || work.status !== 'published') return { work: null, chapter: null };
-  const chapter = chapters.find((item: Chapter) => item.slug === chapterSlug) || null;
-  return { work, chapter };
+  const chapterIndex = chapters.findIndex((item: Chapter) => item.slug === chapterSlug);
+  if (chapterIndex < 0) return { work, chapter: null };
+  return {
+    work,
+    chapter: {
+      title: chapters[chapterIndex].title,
+      chapter_number: chapters[chapterIndex].chapter_number,
+      slug: chapters[chapterIndex].slug,
+      is_free: chapters[chapterIndex].is_free,
+      is_preview_free: chapters[chapterIndex].is_preview_free,
+      isFirstPublished: chapterIndex === 0,
+    },
+  };
 }
 
 /**
@@ -426,12 +455,20 @@ export async function getWorkMetadataBySlug(slug: string): Promise<{
     description: string | null;
     cover_url: string | null;
     status: string;
+    type: string;
+    access_type: string;
+    full_work_price: number;
+    age_rating: string | null;
     language: string | null;
     is_translation: boolean;
     original_title: string | null;
     original_author_name: string | null;
     credited_author_name: string | null;
     translator_name: string | null;
+    published_at: string | null;
+    created_at: string;
+    updated_at: string;
+    genres: Array<{ id: string; name: string; slug: string }>;
     authorName: string;
     authorUsername?: string;
   } | null;
@@ -445,9 +482,10 @@ export async function getWorkMetadataBySlug(slug: string): Promise<{
     work.credited_author_name ||
     (work.is_translation ? work.original_author_name : authorProfile?.pen_name) ||
     'Muallif';
-  const authorUsername = work.credited_author_name || work.is_translation
-    ? undefined
-    : (authorProfile?.profile as any)?.username;
+  const authorUsername =
+    work.credited_author_name || work.is_translation
+      ? undefined
+      : (authorProfile?.profile as any)?.username;
 
   return {
     work: {
@@ -457,12 +495,20 @@ export async function getWorkMetadataBySlug(slug: string): Promise<{
       description: work.description,
       cover_url: work.cover_url,
       status: work.status,
+      type: work.type,
+      access_type: work.access_type,
+      full_work_price: Number(work.full_work_price || 0),
+      age_rating: work.age_rating,
       language: work.language,
       is_translation: Boolean(work.is_translation),
       original_title: work.original_title,
       original_author_name: work.original_author_name,
       credited_author_name: work.credited_author_name,
       translator_name: work.translator_name,
+      published_at: work.published_at,
+      created_at: work.created_at,
+      updated_at: work.updated_at,
+      genres: (work.work_genres || []).map((item: any) => item.genre).filter(Boolean),
       authorName,
       authorUsername,
     },
@@ -528,21 +574,19 @@ export async function getChapterForReading(
 
   if (userId) {
     isAuthor = work.author_id === userId;
+    const needsPaidAccessState = work.access_type !== 'free' || Boolean(work.is_plus);
 
     // Parallel fetch of authenticated reader state. The already-resolved profile
     // supplies admin state, so this path does not query profiles a second time.
-    const [entRes, walletRes, progRes, plusAccess] = await Promise.all([
-      supabase
-        .from('entitlements')
-        .select('entitlement_type, chapter_id')
-        .eq('user_id', userId)
-        .eq('work_id', work.id),
-      supabase
-        .from('wallet_accounts')
-        .select('balance')
-        .eq('user_id', userId)
-        .eq('account_type', 'reader_credit')
-        .maybeSingle(),
+    // Fully free, non-Plus works never need entitlement or purchase reads.
+    const [entRes, progRes, plusAccess] = await Promise.all([
+      needsPaidAccessState
+        ? supabase
+            .from('entitlements')
+            .select('entitlement_type, chapter_id')
+            .eq('user_id', userId)
+            .eq('work_id', work.id)
+        : Promise.resolve({ data: [] as any[] }),
       supabase
         .from('reading_progress')
         .select('page_index, percentage, chapter_id, last_read_at')
@@ -559,7 +603,7 @@ export async function getChapterForReading(
     // Entitlements are canonical after migration 032. Query legacy purchases only
     // when no entitlement exists, preserving old accounts without taxing every read.
     let rawPurchases: any[] = [];
-    if (entitlements.length === 0) {
+    if (needsPaidAccessState && entitlements.length === 0) {
       const purRes = await supabase
         .from('purchases')
         .select('purchase_type, chapter_id, status')
@@ -581,8 +625,6 @@ export async function getChapterForReading(
     for (const p of activePurchases) {
       if (p.chapter_id) purchasedChapterIds.add(p.chapter_id);
     }
-
-    userBalance = Number(walletRes.data?.balance || 0);
 
     const prog = progRes.data;
     if (prog) {
@@ -613,6 +655,18 @@ export async function getChapterForReading(
     chapterNumber: Number(currentChapter.chapter_number),
     hasPlusSubscription: activePlus,
   });
+
+  // Balance is only rendered in the paywall. Avoid one database read on every
+  // successfully authorized chapter request (free, purchased, Plus, author/admin).
+  if (userId && !accessEval.canRead) {
+    const { data: wallet } = await supabase
+      .from('wallet_accounts')
+      .select('balance')
+      .eq('user_id', userId)
+      .eq('account_type', 'reader_credit')
+      .maybeSingle();
+    userBalance = Number(wallet?.balance || 0);
+  }
 
   // 6. Compute chapter access map for all chapters entirely in-memory (0 extra queries)
   const chapterAccessMap: Record<string, ChapterAccessStatus> = {};

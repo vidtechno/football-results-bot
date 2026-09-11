@@ -4,6 +4,12 @@ import { createCatalogueClient } from '@/lib/supabase/catalogue';
 
 export const dynamic = 'force-dynamic';
 
+function publicDiscoveryResponse(body: Record<string, unknown>) {
+  const response = NextResponse.json(body);
+  response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  return response;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -38,7 +44,7 @@ export async function GET(request: Request) {
         .limit(10);
 
       if (error) throw error;
-      return NextResponse.json({ success: true, tab: 'yangi', works: data || [] });
+      return publicDiscoveryResponse({ success: true, tab: 'yangi', works: data || [] });
     }
 
     // 2. Ommabop: Rank using engagement signals over recent period (not archived)
@@ -65,7 +71,7 @@ export async function GET(request: Request) {
         .limit(10);
 
       if (error) throw error;
-      return NextResponse.json({ success: true, tab: 'ommabop', works: data || [] });
+      return publicDiscoveryResponse({ success: true, tab: 'ommabop', works: data || [] });
     }
 
     // 3. Siz uchun: Personalized recommendations with robust fallback

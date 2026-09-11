@@ -20,6 +20,7 @@ import { WorkCard } from '@/components/work/WorkCard';
 import { HomeHeroCarousel } from '@/components/home/HomeHeroCarousel';
 import { HomeDiscoveryTabs } from '@/components/home/HomeDiscoveryTabs';
 import type { Work, Genre } from '@/lib/types/platform';
+import { serializeJsonLd } from '@/lib/seo/jsonLd';
 
 export const revalidate = 60; // Fresh catalogue data revalidated every 60 seconds
 
@@ -70,11 +71,7 @@ export default async function HomePage() {
   const popularWorks = [...originalWorks].sort(byPopular).slice(0, 10);
   const mostReadWorks = [...allWorks]
     .filter((work) => Number(work.unique_readers_count || 0) > 0)
-    .sort(
-      (a, b) =>
-        Number(b.unique_readers_count || 0) -
-        Number(a.unique_readers_count || 0),
-    )
+    .sort((a, b) => Number(b.unique_readers_count || 0) - Number(a.unique_readers_count || 0))
     .slice(0, 6);
   const bestsellerWorks = allWorks
     .filter((work) => work.access_type === 'paid_full_work' && Number(work.sales_count || 0) > 0)
@@ -89,7 +86,12 @@ export default async function HomePage() {
     )
     .slice(0, 6);
   const quickStoryWorks = allWorks
-    .filter((work) => work.type === 'serialized_story' && Number(work.total_words || 0) > 0 && Number(work.total_words) <= 3500)
+    .filter(
+      (work) =>
+        work.type === 'serialized_story' &&
+        Number(work.total_words || 0) > 0 &&
+        Number(work.total_words) <= 3500,
+    )
     .sort(byNewest)
     .slice(0, 6);
   const translatedWorks = allWorks
@@ -120,17 +122,32 @@ export default async function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             '@context': 'https://schema.org',
-            '@type': 'WebSite',
-            name: 'Manbora',
-            url: 'https://manbora.uz',
-            inLanguage: 'uz',
-            potentialAction: {
-              '@type': 'SearchAction',
-              target: 'https://manbora.uz/qidiruv?q={search_term_string}',
-              'query-input': 'required name=search_term_string',
-            },
+            '@graph': [
+              {
+                '@type': 'WebSite',
+                '@id': 'https://manbora.uz/#website',
+                name: 'Manbora',
+                alternateName: 'Manbora — kitob va mutolaa',
+                url: 'https://manbora.uz',
+                inLanguage: 'uz',
+                publisher: { '@id': 'https://manbora.uz/#organization' },
+                potentialAction: {
+                  '@type': 'SearchAction',
+                  target: 'https://manbora.uz/qidiruv?q={search_term_string}',
+                  'query-input': 'required name=search_term_string',
+                },
+              },
+              {
+                '@type': 'Organization',
+                '@id': 'https://manbora.uz/#organization',
+                name: 'Manbora',
+                url: 'https://manbora.uz',
+                logo: 'https://manbora.uz/favicon.svg',
+                sameAs: ['https://t.me/manbora_admin'],
+              },
+            ],
           }),
         }}
       />

@@ -1,5 +1,9 @@
 import { notFound, redirect } from 'next/navigation';
-import { createServerSupabaseClient, createAdminClient, isUserAllowlistedAdmin } from '@/lib/supabase/server';
+import {
+  createServerSupabaseClient,
+  createAdminClient,
+  isUserAllowlistedAdmin,
+} from '@/lib/supabase/server';
 import { AuthorWorkEditorClient } from './AuthorWorkEditorClient';
 
 export const dynamic = 'force-dynamic';
@@ -8,9 +12,12 @@ interface PageProps {
   params: {
     id: string;
   };
+  searchParams?: {
+    pdf?: string;
+  };
 }
 
-export default async function AuthorWorkEditorPage({ params }: PageProps) {
+export default async function AuthorWorkEditorPage({ params, searchParams }: PageProps) {
   const workIdOrSlug = params.id;
   const supabase = createServerSupabaseClient();
   const {
@@ -24,7 +31,9 @@ export default async function AuthorWorkEditorPage({ params }: PageProps) {
   const adminClient = createAdminClient();
 
   // Query work by id or slug
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workIdOrSlug);
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    workIdOrSlug,
+  );
   let workQuery = adminClient.from('works').select('id, author_id, title, slug, status');
   if (isUuid) {
     workQuery = workQuery.eq('id', workIdOrSlug);
@@ -38,30 +47,27 @@ export default async function AuthorWorkEditorPage({ params }: PageProps) {
     notFound();
   }
 
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('is_admin, role')
+    .eq('id', user.id)
+    .maybeSingle();
+  const isAdmin =
+    profile?.is_admin === true || profile?.role === 'admin' || isUserAllowlistedAdmin(user);
+
   // Strict ownership check: Must be the author of this work or a platform administrator
-  let isAuthorized = work.author_id === user.id;
-
-  if (!isAuthorized) {
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('is_admin, role')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    const isAdmin =
-      profile?.is_admin === true ||
-      profile?.role === 'admin' ||
-      isUserAllowlistedAdmin(user);
-
-    if (isAdmin) {
-      isAuthorized = true;
-    }
-  }
+  const isAuthorized = work.author_id === user.id || isAdmin;
 
   if (!isAuthorized) {
     // IDOR protection: Non-author cannot view management interface of another author's work
     notFound();
   }
 
-  return <AuthorWorkEditorClient workId={work.id} />;
+  return (
+    <AuthorWorkEditorClient
+      workId={work.id}
+      canUsePdfImport={isAdmin}
+      initialPdfOpen={isAdmin && searchParams?.pdf === '1'}
+    />
+  );
 }

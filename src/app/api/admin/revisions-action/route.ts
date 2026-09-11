@@ -3,6 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { verifyApprovedChapterPreview } from '@/lib/services/chapterApproval';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 import { verifyAdminProfile } from '@/lib/admin/auth';
+import { notifyIndexNow } from '@/lib/seo/indexNow';
 
 export async function GET(request: Request) {
   try {
@@ -286,6 +287,10 @@ export async function POST(request: Request) {
           // ignore
         }
 
+        if (workSlug) {
+          await notifyIndexNow([`/asarlar/${workSlug}`]);
+        }
+
         // Notify author of work revision approval
         try {
           if (revBefore.author_id) {
@@ -383,6 +388,13 @@ export async function POST(request: Request) {
           }
         } catch {
           // ignore
+        }
+
+        if (workSlug) {
+          await notifyIndexNow([
+            `/asarlar/${workSlug}`,
+            chapterSlug ? `/asarlar/${workSlug}/${chapterSlug}` : null,
+          ]);
         }
 
         return NextResponse.json({

@@ -16,6 +16,22 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://manbora.uz/asarlar',
   },
+  openGraph: {
+    type: 'website',
+    title: 'O‘zbek kitoblari va hikoyalari katalogi',
+    description:
+      'O‘zbek adabiyotining sara kitoblari, davomli hikoyalari va qissalarini Manbora’da kashf eting.',
+    url: '/asarlar',
+    siteName: 'Manbora',
+    locale: 'uz_UZ',
+    images: ['/opengraph-image'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'O‘zbek kitoblari va hikoyalari katalogi',
+    description: 'Manbora’dagi sara o‘zbek kitoblari, hikoyalari va qissalari.',
+    images: ['/opengraph-image'],
+  },
 };
 
 interface AsarlarPageProps {

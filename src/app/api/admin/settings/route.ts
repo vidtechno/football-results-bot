@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/server';
 import { verifyAdminProfile, logAdminAction } from '@/lib/admin/auth';
 
 export async function GET() {
   try {
     const supabase = createAdminClient();
-    const { data: settings, error } = await supabase
-      .from('platform_settings')
-      .select('*');
+    const { data: settings, error } = await supabase.from('platform_settings').select('*');
 
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -65,17 +64,39 @@ export async function POST(request: Request) {
     if (plusMonthlyPrice !== undefined) {
       const plusPrice = Math.floor(Number(plusMonthlyPrice));
       if (!Number.isFinite(plusPrice) || plusPrice < 1000 || plusPrice > 10_000_000)
-        return NextResponse.json({ success: false, error: 'Plus narxi noto‘g‘ri' }, { status: 400 });
-      const { error } = await supabase.from('platform_settings').upsert({ key: 'plus_monthly_price', value: plusPrice, updated_at: new Date().toISOString() });
-      if (error) return NextResponse.json({ success: false, error: 'Plus narxini saqlab bo‘lmadi' }, { status: 500 });
+        return NextResponse.json(
+          { success: false, error: 'Plus narxi noto‘g‘ri' },
+          { status: 400 },
+        );
+      const { error } = await supabase
+        .from('platform_settings')
+        .upsert({
+          key: 'plus_monthly_price',
+          value: plusPrice,
+          updated_at: new Date().toISOString(),
+        });
+      if (error)
+        return NextResponse.json(
+          { success: false, error: 'Plus narxini saqlab bo‘lmadi' },
+          { status: 500 },
+        );
     }
 
-    await logAdminAction(supabase, admin.id, 'update_platform_settings', 'platform_settings', 'global', {
-      commissionPercentage,
-      minimumPayout,
-      telegramUsername,
-      plusMonthlyPrice,
-    });
+    await logAdminAction(
+      supabase,
+      admin.id,
+      'update_platform_settings',
+      'platform_settings',
+      'global',
+      {
+        commissionPercentage,
+        minimumPayout,
+        telegramUsername,
+        plusMonthlyPrice,
+      },
+    );
+
+    revalidateTag('platform-settings');
 
     return NextResponse.json({ success: true, message: 'Sozlamalar muvaffaqiyatli saqlandi' });
   } catch (err: any) {

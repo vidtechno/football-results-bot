@@ -22,6 +22,22 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/janrlar',
   },
+  openGraph: {
+    type: 'website',
+    title: 'Kitob va hikoyalar janrlari',
+    description:
+      'Romantika, drama, detektiv, fantastika, biznes, IT, psixologiya va boshqa janrlardagi o‘zbekcha asarlar.',
+    url: '/janrlar',
+    siteName: 'Manbora',
+    locale: 'uz_UZ',
+    images: ['/opengraph-image'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Kitob va hikoyalar janrlari',
+    description: 'Manbora’dagi asarlarni janr bo‘yicha toping.',
+    images: ['/opengraph-image'],
+  },
 };
 
 export default async function JanrlarPage() {

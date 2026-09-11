@@ -6,6 +6,7 @@ import { ReaderView } from '@/components/reader/ReaderView';
 import type { Metadata } from 'next';
 import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
 import { WorkAnalyticsTracker } from '@/components/analytics/WorkAnalyticsTracker';
+import { serializeJsonLd } from '@/lib/seo/jsonLd';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0; // Fresh access check on each read, zero shared caching
@@ -27,17 +28,43 @@ export async function generateMetadata({ params }: ReadingPageProps): Promise<Me
   }
 
   const authorName = getPublicWorkAuthorName(work);
+  const canonicalPath = `/asarlar/${params.slug}/${params.chapterSlug}`;
+  const description = `«${work.title}» asarining ${chapter.chapter_number}-bobi — ${chapter.title}. Muallif: ${authorName}. Manbora platformasida o‘qing.`;
+  const publiclyIndexable =
+    chapter.isFirstPublished &&
+    ((work.access_type === 'free' && !work.is_plus) ||
+      Boolean(chapter.is_free) ||
+      Boolean(chapter.is_preview_free));
   return {
     title: `${chapter.title} — ${work.title}`,
-    description: `«${work.title}» asarining ${chapter.chapter_number}-bobi. Muallif: ${authorName}. Manbora platformasida o‘qing.`,
+    description,
     alternates: {
-      canonical: `/asarlar/${params.slug}/${params.chapterSlug}`,
+      canonical: canonicalPath,
+    },
+    robots: {
+      index: publiclyIndexable,
+      follow: true,
+      googleBot: {
+        index: publiclyIndexable,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': publiclyIndexable ? -1 : 0,
+      },
     },
     openGraph: {
+      type: 'article',
       title: `${chapter.title} — ${work.title}`,
-      description: `«${work.title}» asarining ${chapter.chapter_number}-bobi. Muallif: ${authorName}.`,
-      url: `/asarlar/${params.slug}/${params.chapterSlug}`,
-      images: work.cover_url ? [{ url: work.cover_url, alt: work.title }] : [],
+      description,
+      url: canonicalPath,
+      siteName: 'Manbora',
+      locale: 'uz_UZ',
+      images: work.cover_url ? [{ url: work.cover_url, alt: `${work.title} kitob muqovasi` }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${chapter.title} — ${work.title}`,
+      description,
+      images: work.cover_url ? [work.cover_url] : ['/opengraph-image'],
     },
   };
 }
@@ -75,18 +102,46 @@ export default async function ReadingPage({ params, searchParams }: ReadingPageP
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             '@context': 'https://schema.org',
-            '@type': 'Chapter',
-            name: chapter.title,
-            position: chapter.chapter_number,
-            isPartOf: {
-              '@type': 'Book',
-              name: work.title,
-              url: `https://manbora.uz/asarlar/${work.slug}`,
-            },
-            url: `https://manbora.uz/asarlar/${work.slug}/${chapter.slug}`,
-            inLanguage: 'uz',
+            '@graph': [
+              {
+                '@type': 'Chapter',
+                name: chapter.title,
+                position: chapter.chapter_number,
+                isPartOf: {
+                  '@type': work.type === 'serialized_story' ? 'ShortStory' : 'Book',
+                  name: work.title,
+                  url: `https://manbora.uz/asarlar/${work.slug}`,
+                  author: { '@type': 'Person', name: getPublicWorkAuthorName(work) },
+                },
+                url: `https://manbora.uz/asarlar/${work.slug}/${chapter.slug}`,
+                inLanguage: work.language || 'uz',
+              },
+              {
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                  {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Bosh sahifa',
+                    item: 'https://manbora.uz',
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: work.title,
+                    item: `https://manbora.uz/asarlar/${work.slug}`,
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 3,
+                    name: chapter.title,
+                    item: `https://manbora.uz/asarlar/${work.slug}/${chapter.slug}`,
+                  },
+                ],
+              },
+            ],
           }),
         }}
       />

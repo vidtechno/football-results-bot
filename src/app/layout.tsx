@@ -44,6 +44,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/',
   },
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION,
+    yandex: process.env.YANDEX_SITE_VERIFICATION,
+  },
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
@@ -57,12 +61,21 @@ export const metadata: Metadata = {
     title: 'Manbora — O‘zbek kitob va davomli asarlar platformasi',
     description:
       'Kitoblarni onlayn o‘qing, sevimli mualliflaringizni qo‘llab-quvvatlang va o‘z asarlaringizdan daromad toping.',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Manbora — o‘zbek kitoblari va hikoyalari platformasi',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Manbora — O‘zbek kitob va davomli asarlar platformasi',
     description:
       'Kitoblarni onlayn o‘qing, sevimli mualliflaringizni qo‘llab-quvvatlang va o‘z asarlaringizdan daromad toping.',
+    images: ['/opengraph-image'],
   },
   robots: {
     index: true,
@@ -71,11 +84,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="uz" className={inter.variable}>
       <body className="bg-background text-stone-900 min-h-screen flex flex-col antialiased selection:bg-amber-100 selection:text-amber-950">

@@ -27,6 +27,7 @@ import {
   Calendar,
   RotateCcw,
   Sparkles,
+  FileUp,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { ShareCardGenerator } from '@/components/author/ShareCardGenerator';
@@ -37,6 +38,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/components/providers/AuthProvider';
 import type { Work, Chapter, Genre, WorkRevision } from '@/lib/types/platform';
 import { GENRE_GROUPS } from '@/lib/config/genreGroups';
+import { PdfImportPanel } from '@/components/pdf-import/PdfImportPanel';
 
 const RichTextEditor = dynamic(
   () => import('@/components/editor/RichTextEditor').then((mod) => mod.RichTextEditor),
@@ -52,9 +54,17 @@ const RichTextEditor = dynamic(
 
 interface AuthorWorkEditorClientProps {
   workId: string;
+  canUsePdfImport?: boolean;
+  initialPdfOpen?: boolean;
 }
 
-export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) {
+type EditorTab = 'chapters' | 'settings' | 'revisions' | 'pdf';
+
+export function AuthorWorkEditorClient({
+  workId,
+  canUsePdfImport = false,
+  initialPdfOpen = false,
+}: AuthorWorkEditorClientProps) {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
 
@@ -65,7 +75,9 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
   const [chapterRevisions, setChapterRevisions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chapters' | 'settings'>('chapters');
+  const [activeTab, setActiveTab] = useState<EditorTab>(
+    canUsePdfImport && initialPdfOpen ? 'pdf' : 'chapters',
+  );
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Work Settings Form state
@@ -153,6 +165,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           `,
           )
           .eq('work_id', workId)
+          .neq('status', 'archived')
           .order('chapter_number', { ascending: true }),
         supabase
           .from('work_revisions')
@@ -604,6 +617,41 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
     }
   }
 
+  async function handleDeleteChapter(chapter: Chapter) {
+    const confirmed = window.confirm(
+      chapter.status === 'published'
+        ? 'Bu bob ommaviy asardan olib tashlanib, xavfsiz tarzda arxivlanadi. Davom etasizmi?'
+        : 'Bu qoralama bob butunlay o‘chiriladi. Davom etasizmi?',
+    );
+    if (!confirmed) return;
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch('/api/chapters/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ chapterId: chapter.id }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Bobni o‘chirib bo‘lmadi');
+      setNotice({
+        type: 'success',
+        text: data.archived ? 'Bob arxivlandi' : 'Qoralama bob o‘chirildi',
+      });
+      await loadWorkAndChapters();
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Bobni o‘chirishda xatolik yuz berdi',
+      });
+    }
+  }
+
   // Submit for Review
   async function handleSubmitReview() {
     if (chapters.length === 0) {
@@ -821,12 +869,27 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
           <span>Asar sozlamalari & Muqova</span>
         </button>
 
+        {canUsePdfImport && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('pdf')}
+            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'pdf'
+                ? 'bg-emerald-800 text-white shadow-xs'
+                : 'text-stone-600 hover:bg-stone-100'
+            }`}
+          >
+            <FileUp className="w-3.5 h-3.5" />
+            <span>PDF + AI import</span>
+          </button>
+        )}
+
         {(workRevisions.length > 0 || chapterRevisions.length > 0) && (
           <button
             type="button"
-            onClick={() => setActiveTab('revisions' as any)}
+            onClick={() => setActiveTab('revisions')}
             className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              (activeTab as any) === 'revisions'
+              activeTab === 'revisions'
                 ? 'bg-stone-900 text-white shadow-xs'
                 : 'text-stone-600 hover:bg-stone-100'
             }`}
@@ -929,12 +992,34 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
                         <Eye className="w-4 h-4" />
                       </Link>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteChapter(ch)}
+                      className="p-1.5 rounded-lg text-stone-400 hover:bg-rose-50 hover:text-rose-700"
+                      title="Bobni o‘chirish"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </section>
+      )}
+
+      {activeTab === 'pdf' && canUsePdfImport && (
+        <PdfImportPanel
+          workId={workId}
+          workTitle={work.title}
+          defaultAuthorName={(
+            (work as Work & { credited_author_name?: string }).credited_author_name || ''
+          ).trim()}
+          onImported={async () => {
+            await loadWorkAndChapters();
+            setActiveTab('chapters');
+          }}
+        />
       )}
 
       {/* Tab 2: Full Work Settings & Cover Upload */}
@@ -1134,7 +1219,7 @@ export function AuthorWorkEditorClient({ workId }: AuthorWorkEditorClientProps) 
       )}
 
       {/* Tab 3: Revisions History */}
-      {(activeTab as any) === 'revisions' && (
+      {activeTab === 'revisions' && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-sans text-lg font-bold text-stone-900">

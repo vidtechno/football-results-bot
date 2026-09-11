@@ -92,8 +92,8 @@ describe('TASK E — SEO Audit, Scalable Sitemap & Private Areas Noindex', () =>
   it('sitemap removes 500 hard limit and omits private author studio /muallif', () => {
     const sitemap = read('src/app/sitemap.ts');
     expect(sitemap).not.toContain('limit: 500');
-    expect(sitemap).not.toContain("url: `${baseUrl}/muallif`");
-    expect(sitemap).toContain("url: `${baseUrl}/mualliflar`");
+    expect(sitemap).not.toContain('url: `${baseUrl}/muallif`');
+    expect(sitemap).toContain('url: `${baseUrl}/mualliflar`');
   });
 
   it('robots.txt disallows private studio/admin/auth paths while safeguarding public paths', () => {
@@ -120,7 +120,7 @@ describe('TASK E — SEO Audit, Scalable Sitemap & Private Areas Noindex', () =>
 
   it('work detail page Book JSON-LD contains rich structured data properties', () => {
     const workPage = read('src/app/asarlar/[slug]/page.tsx');
-    expect(workPage).toContain("'@type': 'Book'");
+    expect(workPage).toContain("work.type === 'serialized_story' ? 'ShortStory' : 'Book'");
     expect(workPage).toContain('datePublished');
     expect(workPage).toContain('dateModified');
     expect(workPage).toContain('inLanguage');

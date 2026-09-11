@@ -13,6 +13,7 @@ import {
   Sparkles,
   Layers,
   ChevronRight,
+  FileUp,
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
@@ -22,7 +23,7 @@ import { GENRE_GROUPS } from '@/lib/config/genreGroups';
 
 export default function YangiAsarPage() {
   const router = useRouter();
-  const { user, profile, author, isLoading: authLoading } = useAuth();
+  const { user, author, isAdmin, isLoading: authLoading } = useAuth();
 
   const [genres, setGenres] = useState<Genre[]>([]);
   const [loadingGenres, setLoadingGenres] = useState(true);
@@ -35,6 +36,7 @@ export default function YangiAsarPage() {
   const [accessType, setAccessType] = useState<'free' | 'paid_full_work'>('free');
   const [fullWorkPrice, setFullWorkPrice] = useState<string>('15000');
   const [selectedGenreId, setSelectedGenreId] = useState<string>('');
+  const [creationMode, setCreationMode] = useState<'manual' | 'pdf'>('manual');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -165,7 +167,7 @@ export default function YangiAsarPage() {
 
       // Successfully created -> Navigate to work editor
       const createdWork = data.work;
-      router.push(`/muallif/asar/${createdWork.id}`);
+      router.push(`/muallif/asar/${createdWork.id}${creationMode === 'pdf' ? '?pdf=1' : ''}`);
     } catch (err: any) {
       setError(err.message || 'Kutilmagan xatolik yuz berdi');
       setSubmitting(false);
@@ -209,6 +211,52 @@ export default function YangiAsarPage() {
           <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {isAdmin && (
+          <div>
+            <label className="block text-xs font-bold text-stone-700 mb-2">
+              Asarni qanday boshlaysiz?
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setCreationMode('manual')}
+                className={`p-4 rounded-2xl border text-left transition-all ${
+                  creationMode === 'manual'
+                    ? 'bg-amber-50 border-amber-500 ring-2 ring-amber-500/20'
+                    : 'bg-stone-50 border-stone-200 hover:border-stone-300'
+                }`}
+              >
+                <BookOpen className="w-5 h-5 mb-2 text-amber-700" />
+                <span className="block text-xs font-bold text-stone-900">Qo‘lda yozish</span>
+                <span className="block mt-1 text-[11px] text-stone-500">
+                  Boblarni muharrir orqali yarating
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreationMode('pdf')}
+                className={`p-4 rounded-2xl border text-left transition-all ${
+                  creationMode === 'pdf'
+                    ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20'
+                    : 'bg-stone-50 border-stone-200 hover:border-stone-300'
+                }`}
+              >
+                <FileUp className="w-5 h-5 mb-2 text-emerald-700" />
+                <span className="block text-xs font-bold text-stone-900">PDF orqali import</span>
+                <span className="block mt-1 text-[11px] text-stone-500">
+                  AI matnni tozalab, boblarni avtomatik ajratadi
+                </span>
+              </button>
+            </div>
+            {creationMode === 'pdf' && (
+              <p className="mt-2 text-[11px] leading-relaxed text-stone-500">
+                Avval asarning asosiy ma’lumotlari saqlanadi, keyin PDF import muharriri ochiladi.
+                Bu imkoniyat faqat administratorga ko‘rinadi.
+              </p>
+            )}
           </div>
         )}
 
@@ -369,7 +417,9 @@ export default function YangiAsarPage() {
               </>
             ) : (
               <>
-                <span>Asarni yaratish</span>
+                <span>
+                  {creationMode === 'pdf' ? 'Yaratish va PDF yuklash' : 'Asarni yaratish'}
+                </span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

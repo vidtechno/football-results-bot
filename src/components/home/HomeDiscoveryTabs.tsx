@@ -83,12 +83,18 @@ export function HomeDiscoveryTabs({
       setEmptyReason(null);
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
         const headers: Record<string, string> = {};
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`;
+        const needsAuthentication = tab === 'siz-uchun' || tab === 'kuzatayotganlarim';
+
+        // Public discovery tabs are intentionally anonymous and CDN-cacheable.
+        // Only personalized tabs need to touch the Supabase auth client.
+        if (needsAuthentication) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+          }
         }
 
         const res = await fetch(`/api/home/discovery?tab=${tab}`, { headers });

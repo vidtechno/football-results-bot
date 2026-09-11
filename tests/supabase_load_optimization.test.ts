@@ -66,6 +66,35 @@ describe('Supabase load optimization', () => {
     expect(queries).toContain('is_preview_free');
   });
 
+  it('skips paid access reads for free works and loads wallet only for a paywall', () => {
+    const queries = read('src/lib/db/queries.ts');
+    expect(queries).toContain("const needsPaidAccessState = work.access_type !== 'free'");
+    expect(queries).toContain('needsPaidAccessState && entitlements.length === 0');
+    expect(queries).toContain('if (userId && !accessEval.canRead)');
+  });
+
+  it('keeps public home discovery anonymous and CDN-cacheable', () => {
+    const tabs = read('src/components/home/HomeDiscoveryTabs.tsx');
+    const route = read('src/app/api/home/discovery/route.ts');
+    expect(tabs).toContain("tab === 'siz-uchun' || tab === 'kuzatayotganlarim'");
+    expect(route).toContain('public, s-maxage=60, stale-while-revalidate=300');
+    expect(route).toContain("publicDiscoveryResponse({ success: true, tab: 'yangi'");
+    expect(route).toContain("publicDiscoveryResponse({ success: true, tab: 'ommabop'");
+  });
+
+  it('caches the public author landing commission setting and invalidates it on update', () => {
+    const landing = read('src/app/muallif-boling/page.tsx');
+    const settings = read('src/app/api/admin/settings/route.ts');
+    expect(landing).toContain('getCachedCommissionPercentage');
+    expect(landing).toContain("tags: ['platform-settings']");
+    expect(settings).toContain("revalidateTag('platform-settings')");
+  });
+
+  it('does not duplicate the global brand suffix in page titles', () => {
+    expect(read('src/app/plus/page.tsx')).not.toContain('| Manbora');
+    expect(read('src/app/muallif/analitika/page.tsx')).not.toContain('| Manbora');
+  });
+
   it('loads public work data and viewer identity in parallel', () => {
     const page = read('src/app/asarlar/[slug]/page.tsx');
     expect(page).toContain('Promise.all([profilePromise, publicWorkPromise])');

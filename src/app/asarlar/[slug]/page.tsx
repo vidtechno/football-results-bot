@@ -25,6 +25,7 @@ import { WorkAnalyticsTracker } from '@/components/analytics/WorkAnalyticsTracke
 import { PublicWorkStats } from '@/components/analytics/PublicWorkStats';
 import { getWorkChaptersAccessMap } from '@/lib/security/access';
 import { PlusBadge } from '@/components/plus/PlusBadge';
+import { seoDescription, serializeJsonLd } from '@/lib/seo/jsonLd';
 
 export const revalidate = 30;
 
@@ -41,21 +42,58 @@ export async function generateMetadata({ params }: WorkDetailPageProps): Promise
   }
 
   const authorName = work.authorName;
+  const canonicalPath = `/asarlar/${work.slug}`;
+  const description = seoDescription(
+    work.description,
+    `«${work.title}» asari. Muallif: ${authorName}. O‘zbek tilida Manbora platformasida o‘qing.`,
+  );
+  const completeTitle = `${work.title} — ${authorName}`;
+  const title = completeTitle.length <= 68 ? completeTitle : work.title;
+  const image = work.cover_url
+    ? [{ url: work.cover_url, alt: `${work.title} — ${authorName} kitob muqovasi` }]
+    : [];
 
   return {
-    title: `${work.title} — ${authorName}`,
-    description:
-      work.description?.slice(0, 160) ||
-      `«${work.title}» asari Manbora platformasida. Muallif: ${authorName}.`,
+    title,
+    description,
+    authors: [
+      {
+        name: authorName,
+        url: work.authorUsername ? `/mualliflar/${work.authorUsername}` : undefined,
+      },
+    ],
+    category: work.genres[0]?.name,
     alternates: {
-      canonical: `/asarlar/${work.slug}`,
+      canonical: canonicalPath,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
     },
     openGraph: {
-      title: `${work.title} — ${authorName}`,
-      description:
-        work.description?.slice(0, 160) || `«${work.title}» asari Manbora platformasida.`,
-      url: `/asarlar/${work.slug}`,
-      images: work.cover_url ? [{ url: work.cover_url, alt: work.title }] : [],
+      type: 'article',
+      title,
+      description,
+      url: canonicalPath,
+      siteName: 'Manbora',
+      locale: 'uz_UZ',
+      publishedTime: work.published_at || work.created_at,
+      modifiedTime: work.updated_at,
+      authors: [authorName],
+      images: image,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: work.cover_url ? [work.cover_url] : ['/opengraph-image'],
     },
   };
 }
@@ -119,6 +157,100 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
   const initialIsFollowing = Boolean(followCheck.data);
   // Check if first chapter is unlocked (which indicates active purchase entitlement or author access)
   const isWorkUnlocked = firstChapter ? !chapterAccessMap[firstChapter.id]?.isLocked : false;
+  const workUrl = `https://manbora.uz/asarlar/${work.slug}`;
+  const authorUrl = authorUsername ? `https://manbora.uz/mualliflar/${authorUsername}` : undefined;
+  const workSchemaType = work.type === 'serialized_story' ? 'ShortStory' : 'Book';
+  const genreNames = (work.genres || []).map((genre) => genre.name).filter(Boolean);
+  const paidOffer =
+    !isFree && !work.is_plus && Number(work.full_work_price || 0) > 0
+      ? {
+          '@type': 'Offer',
+          url: workUrl,
+          price: Number(work.full_work_price || 0),
+          priceCurrency: 'UZS',
+          availability: 'https://schema.org/InStock',
+        }
+      : undefined;
+  const workStructuredData = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': workSchemaType,
+        '@id': `${workUrl}#work`,
+        name: work.title,
+        headline: work.title,
+        url: workUrl,
+        mainEntityOfPage: { '@type': 'WebPage', '@id': workUrl },
+        description: work.description || undefined,
+        image: work.cover_url
+          ? { '@type': 'ImageObject', url: work.cover_url, caption: `${work.title} muqovasi` }
+          : undefined,
+        datePublished: work.published_at || work.created_at || undefined,
+        dateModified: work.updated_at || undefined,
+        genre: genreNames.length > 0 ? genreNames : undefined,
+        author: {
+          '@type': 'Person',
+          name: authorName,
+          url: authorUrl,
+        },
+        publisher: {
+          '@type': 'Organization',
+          '@id': 'https://manbora.uz/#organization',
+          name: 'Manbora',
+          url: 'https://manbora.uz',
+        },
+        inLanguage: work.language || 'uz',
+        isAccessibleForFree: isFree,
+        wordCount: Number(work.total_words || 0) || undefined,
+        offers: paidOffer,
+        aggregateRating:
+          Number(work.rating_count || 0) > 0
+            ? {
+                '@type': 'AggregateRating',
+                ratingValue: Number(work.average_rating || 5),
+                reviewCount: Number(work.rating_count || 1),
+                bestRating: 5,
+                worstRating: 1,
+              }
+            : undefined,
+        translationOfWork:
+          work.is_translation && work.original_title
+            ? {
+                '@type': 'CreativeWork',
+                name: work.original_title,
+                author: work.original_author_name
+                  ? { '@type': 'Person', name: work.original_author_name }
+                  : undefined,
+              }
+            : undefined,
+        translator: work.translator_name
+          ? { '@type': 'Person', name: work.translator_name }
+          : undefined,
+        hasPart: chapters.map((chapter) => ({
+          '@type': 'Chapter',
+          name: chapter.title,
+          position: chapter.chapter_number,
+          url: `${workUrl}/${chapter.slug}`,
+        })),
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${workUrl}#breadcrumb`,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Bosh sahifa', item: 'https://manbora.uz' },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: work.is_translation ? 'Tarjima asarlar' : 'Asarlar',
+            item: work.is_translation
+              ? 'https://manbora.uz/tarjima-asarlar'
+              : 'https://manbora.uz/asarlar',
+          },
+          { '@type': 'ListItem', position: 3, name: work.title, item: workUrl },
+        ],
+      },
+    ],
+  };
 
   return (
     <div className="space-y-8 sm:space-y-12 pb-16">
@@ -416,35 +548,7 @@ export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'Book',
-            name: work.title,
-            url: `https://manbora.uz/asarlar/${work.slug}`,
-            description: work.description || undefined,
-            image: work.cover_url || undefined,
-            datePublished: work.published_at || work.created_at || undefined,
-            dateModified: work.updated_at || undefined,
-            genre:
-              (work.genres || [])
-                .map((g: any) => g.name)
-                .filter(Boolean)
-                .join(', ') || undefined,
-            author: {
-              '@type': 'Person',
-              name: authorName,
-              url: authorUsername ? `https://manbora.uz/mualliflar/${authorUsername}` : undefined,
-            },
-            inLanguage: work.language || 'uz',
-            aggregateRating:
-              Number(work.rating_count || 0) > 0
-                ? {
-                    '@type': 'AggregateRating',
-                    ratingValue: Number(work.average_rating || 5),
-                    reviewCount: Number(work.rating_count || 1),
-                  }
-                : undefined,
-          }),
+          __html: serializeJsonLd(workStructuredData),
         }}
       />
 

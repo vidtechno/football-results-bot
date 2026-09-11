@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/server';
 import { verifyAdminProfile, logAdminAction } from '@/lib/admin/auth';
+import { notifyIndexNow } from '@/lib/seo/indexNow';
 
 export async function POST(request: Request) {
   try {
@@ -27,30 +29,67 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
 
     if (action === 'approve') {
-      const { error: updateError } = await supabase
-        .from('works')
-        .update({
-          status: 'published',
-          published_at: new Date().toISOString(),
-          rejection_reason: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', workId);
+      const { error: approvalError } = await supabase.rpc('admin_approve_work_with_chapters', {
+        p_work_id: workId,
+        p_admin_id: admin.id,
+      });
 
-      if (updateError) {
-        return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
+      if (approvalError) {
+        // Compatibility until migration 047 is applied: publish chapters first,
+        // then the work, so a visible book can never have zero visible chapters.
+        const now = new Date().toISOString();
+        const { error: chapterError } = await supabase
+          .from('chapters')
+          .update({ status: 'published', published_at: now, updated_at: now })
+          .eq('work_id', workId)
+          .eq('status', 'draft');
+        if (chapterError) {
+          return NextResponse.json(
+            { success: false, error: 'Asar boblarini birgalikda tasdiqlab bo‘lmadi' },
+            { status: 500 },
+          );
+        }
+        const { count } = await supabase
+          .from('chapters')
+          .select('id', { count: 'exact', head: true })
+          .eq('work_id', workId)
+          .eq('status', 'published');
+        if (!count) {
+          return NextResponse.json(
+            { success: false, error: 'Nashr qilish uchun kamida bitta bob kerak' },
+            { status: 400 },
+          );
+        }
+        const { error: updateError } = await supabase
+          .from('works')
+          .update({
+            status: 'published',
+            published_at: now,
+            rejection_reason: null,
+            updated_at: now,
+          })
+          .eq('id', workId);
+        if (updateError) {
+          return NextResponse.json(
+            { success: false, error: 'Asarni nashr qilishda xatolik yuz berdi' },
+            { status: 500 },
+          );
+        }
       }
 
       await logAdminAction(supabase, admin.id, 'publish_work', 'works', workId, {});
 
       // Notify author & followers
-      const { createInSiteNotification, notifyAuthorFollowers } = await import('@/lib/notifications/inSite');
+      const { createInSiteNotification, notifyAuthorFollowers } =
+        await import('@/lib/notifications/inSite');
       const { data: work } = await supabase
         .from('works')
-        .select(`
+        .select(
+          `
           id, title, slug, author_id,
           author:author_profiles (pen_name)
-        `)
+        `,
+        )
         .eq('id', workId)
         .maybeSingle();
 
@@ -64,8 +103,18 @@ export async function POST(request: Request) {
           data: { workId: work.id },
         });
 
-        const authorPen = (Array.isArray(work.author) ? work.author[0]?.pen_name : (work.author as any)?.pen_name) || 'Muallif';
+        const authorPen =
+          (Array.isArray(work.author)
+            ? work.author[0]?.pen_name
+            : (work.author as any)?.pen_name) || 'Muallif';
         await notifyAuthorFollowers(work.author_id, authorPen, work.title, `/asarlar/${work.slug}`);
+
+        revalidateTag('public-catalogue');
+        revalidateTag('seo-sitemap');
+        revalidatePath('/');
+        revalidatePath('/asarlar');
+        revalidatePath(`/asarlar/${work.slug}`);
+        await notifyIndexNow([`/asarlar/${work.slug}`]);
       }
 
       return NextResponse.json({ success: true, message: 'Asar muvaffaqiyatli nashr qilindi' });
@@ -139,7 +188,10 @@ export async function POST(request: Request) {
         reason: rejectionReason,
       });
 
-      return NextResponse.json({ success: true, message: 'Asar nashrdan olindi va qoralamaga o‘tkazildi' });
+      return NextResponse.json({
+        success: true,
+        message: 'Asar nashrdan olindi va qoralamaga o‘tkazildi',
+      });
     } else if (action === 'archive') {
       const { error: updateError } = await supabase
         .from('works')
@@ -171,12 +223,12 @@ export async function POST(request: Request) {
 
       await logAdminAction(supabase, admin.id, 'restore_work', 'works', workId, {});
 
-      return NextResponse.json({ success: true, message: 'Asar arxivdan chiqarildi va nashr qilindi' });
+      return NextResponse.json({
+        success: true,
+        message: 'Asar arxivdan chiqarildi va nashr qilindi',
+      });
     } else {
-      return NextResponse.json(
-        { success: false, error: 'Noto‘g‘ri harakat' },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: 'Noto‘g‘ri harakat' }, { status: 400 });
     }
   } catch (err: any) {
     return NextResponse.json(

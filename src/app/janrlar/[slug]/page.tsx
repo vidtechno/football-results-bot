@@ -3,10 +3,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { Tag, BookOpen, ChevronLeft } from 'lucide-react';
-import { createServerClient } from '@/lib/supabase/server';
-import { getPaginatedCatalogue } from '@/lib/db/queries';
+import { getActiveGenreBySlug, getPaginatedCatalogue } from '@/lib/db/queries';
 import { WorkCard } from '@/components/work/WorkCard';
 import { CataloguePagination } from '@/components/catalogue/CataloguePagination';
+import { seoDescription, serializeJsonLd } from '@/lib/seo/jsonLd';
 
 export const revalidate = 30;
 
@@ -21,33 +21,43 @@ interface GenreDetailPageProps {
 }
 
 export async function generateMetadata({ params }: GenreDetailPageProps): Promise<Metadata> {
-  const supabase = createServerClient();
-  const { data: genre } = await supabase
-    .from('genres')
-    .select('name, description')
-    .eq('slug', params.slug)
-    .maybeSingle();
+  const genre = await getActiveGenreBySlug(params.slug);
 
   if (!genre) {
     return { title: 'Janr topilmadi' };
   }
 
+  const canonicalPath = `/janrlar/${params.slug}`;
+  const description = seoDescription(
+    genre.description,
+    `${genre.name} janridagi sara o‘zbek kitoblari, hikoyalar va qissalarni Manbora platformasida o‘qing.`,
+  );
   return {
     title: `${genre.name} janridagi asarlar`,
-    description: genre.description || `${genre.name} janridagi sara kitoblar, hikoyalar va qissalar mutolaasi.`,
+    description,
     alternates: {
-      canonical: `/janrlar/${params.slug}`,
+      canonical: canonicalPath,
+    },
+    openGraph: {
+      type: 'website',
+      title: `${genre.name} janridagi kitoblar va hikoyalar`,
+      description,
+      url: canonicalPath,
+      siteName: 'Manbora',
+      locale: 'uz_UZ',
+      images: ['/opengraph-image'],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${genre.name} janridagi kitoblar va hikoyalar`,
+      description,
+      images: ['/opengraph-image'],
     },
   };
 }
 
 export default async function GenreDetailPage({ params, searchParams }: GenreDetailPageProps) {
-  const supabase = createServerClient();
-  const { data: genre } = await supabase
-    .from('genres')
-    .select('*')
-    .eq('slug', params.slug)
-    .maybeSingle();
+  const genre = await getActiveGenreBySlug(params.slug);
 
   if (!genre) {
     notFound();
@@ -173,9 +183,12 @@ export default async function GenreDetailPage({ params, searchParams }: GenreDet
       {works.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-[#EAE5DD] shadow-xs space-y-3">
           <BookOpen className="w-10 h-10 text-stone-300 mx-auto" />
-          <h3 className="font-sans font-bold text-stone-800 text-base">Bu janrda asarlar topilmadi</h3>
+          <h3 className="font-sans font-bold text-stone-800 text-base">
+            Bu janrda asarlar topilmadi
+          </h3>
           <p className="text-xs text-stone-500 max-w-sm mx-auto">
-            Ushbu janr bo‘yicha hozircha chop etilgan asarlar mavjud emas yoki filtrlarga mos kelmadi.
+            Ushbu janr bo‘yicha hozircha chop etilgan asarlar mavjud emas yoki filtrlarga mos
+            kelmadi.
           </p>
           <Link
             href={`/janrlar/${genre.slug}`}
@@ -201,6 +214,57 @@ export default async function GenreDetailPage({ params, searchParams }: GenreDet
           />
         </>
       )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd({
+            '@context': 'https://schema.org',
+            '@graph': [
+              {
+                '@type': 'CollectionPage',
+                '@id': `https://manbora.uz/janrlar/${genre.slug}#collection`,
+                name: `${genre.name} janridagi asarlar`,
+                description: genre.description || undefined,
+                url: `https://manbora.uz/janrlar/${genre.slug}`,
+                inLanguage: 'uz',
+                mainEntity: {
+                  '@type': 'ItemList',
+                  numberOfItems: totalCount,
+                  itemListElement: works.map((work, index) => ({
+                    '@type': 'ListItem',
+                    position: (currentPage - 1) * 20 + index + 1,
+                    name: work.title,
+                    url: `https://manbora.uz/asarlar/${work.slug}`,
+                  })),
+                },
+              },
+              {
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                  {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Bosh sahifa',
+                    item: 'https://manbora.uz',
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: 'Janrlar',
+                    item: 'https://manbora.uz/janrlar',
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 3,
+                    name: genre.name,
+                    item: `https://manbora.uz/janrlar/${genre.slug}`,
+                  },
+                ],
+              },
+            ],
+          }),
+        }}
+      />
     </div>
   );
 }

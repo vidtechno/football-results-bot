@@ -36,6 +36,7 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: 'https://manbora.uz/sitemap.xml',
+    sitemap: ['https://manbora.uz/sitemap.xml', 'https://manbora.uz/sitemap-images.xml'],
+    host: 'https://manbora.uz',
   };
 }

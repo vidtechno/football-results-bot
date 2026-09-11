@@ -21,6 +21,7 @@ import { AuthorConnections } from '@/components/author/AuthorConnections';
 import { ProfileShareButton } from '@/components/author/ProfileShareButton';
 import { AuthorOwnerPanel } from '@/components/author/AuthorOwnerPanel';
 import { getCurrentProfile } from '@/lib/supabase/server';
+import { seoDescription, serializeJsonLd } from '@/lib/seo/jsonLd';
 
 import {
   sanitizeTelegram,
@@ -57,13 +58,46 @@ export async function generateMetadata({
     return { title: 'Muallif topilmadi' };
   }
 
+  const profile = Array.isArray(author.profile) ? author.profile[0] : author.profile;
+  const canonicalPath = `/mualliflar/${params.username}`;
+  const description = seoDescription(
+    profile?.bio || author.biography,
+    `${author.pen_name}ning Manbora platformasidagi kitoblari, hikoyalari va yangiliklari.`,
+  );
+
   return {
     title: `${author.pen_name} — Muallif profili`,
-    description:
-      author.biography ||
-      `${author.pen_name}ning Manbora platformasidagi sara kitoblari va hikoyalari.`,
+    description,
+    authors: [{ name: author.pen_name, url: canonicalPath }],
     alternates: {
-      canonical: `/mualliflar/${params.username}`,
+      canonical: canonicalPath,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
+    openGraph: {
+      type: 'profile',
+      title: `${author.pen_name} — Manbora muallifi`,
+      description,
+      url: canonicalPath,
+      siteName: 'Manbora',
+      locale: 'uz_UZ',
+      images: profile?.avatar_url
+        ? [{ url: profile.avatar_url, alt: `${author.pen_name} profil rasmi` }]
+        : ['/opengraph-image'],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${author.pen_name} — Manbora muallifi`,
+      description,
+      images: profile?.avatar_url ? [profile.avatar_url] : ['/opengraph-image'],
     },
   };
 }
@@ -273,12 +307,43 @@ export default async function AuthorPublicProfilePage({ params }: AuthorPublicPr
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             '@context': 'https://schema.org',
-            '@type': 'Person',
-            name: author.pen_name,
-            description: author.biography || undefined,
-            image: profile?.avatar_url || undefined,
+            '@graph': [
+              {
+                '@type': 'Person',
+                '@id': `https://manbora.uz/mualliflar/${params.username}#person`,
+                name: author.pen_name,
+                url: `https://manbora.uz/mualliflar/${params.username}`,
+                mainEntityOfPage: `https://manbora.uz/mualliflar/${params.username}`,
+                description: profile?.bio || author.biography || undefined,
+                image: profile?.avatar_url || undefined,
+                sameAs: socialsList.map((social) => social.url),
+              },
+              {
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                  {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Bosh sahifa',
+                    item: 'https://manbora.uz',
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: 'Mualliflar',
+                    item: 'https://manbora.uz/mualliflar',
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 3,
+                    name: author.pen_name,
+                    item: `https://manbora.uz/mualliflar/${params.username}`,
+                  },
+                ],
+              },
+            ],
           }),
         }}
       />

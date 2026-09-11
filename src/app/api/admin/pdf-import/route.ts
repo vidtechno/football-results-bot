@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { requireAdmin, logAdminAction } from '@/lib/admin/auth';
 import { createAdminClient } from '@/lib/supabase/server';
 import { detectChapters, validateIntegrity } from '@/lib/pdf-import/detector';
-import { analyzePageFurniture, extractPdf, findPdfMetadataCandidates } from '@/lib/pdf-import/extract';
-import { classifyPdfMetadata, reviewLowConfidenceChapters } from '@/lib/pdf-import/ai';
+import {
+  analyzePageFurniture,
+  extractPdf,
+  findPdfMetadataCandidates,
+} from '@/lib/pdf-import/extract';
+import {
+  applyPdfChatInstruction,
+  classifyPdfMetadata,
+  reviewLowConfidenceChapters,
+} from '@/lib/pdf-import/ai';
 import { sanitizeRichText } from '@/lib/utils/sanitizer';
 import type { ImportChapter } from '@/lib/pdf-import/types';
 
@@ -73,7 +82,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await db
       .from('pdf_import_sessions')
       .select(
-        'id,created_by,work_id,original_filename,status,chapters,unassigned_text,ignored_metadata,statistics,warning,error_message,expires_at,created_at,updated_at',
+        'id,created_by,work_id,original_filename,status,chapters,unassigned_text,ignored_metadata,statistics,chat_history,warning,error_message,expires_at,created_at,updated_at',
       )
       .eq('id', id)
       .eq('created_by', adminProfile.id)
@@ -137,11 +146,15 @@ export async function POST(request: NextRequest) {
       }
       if (extracted.rawText.length > 3_000_000)
         return NextResponse.json({ error: 'PDF matni import uchun juda katta' }, { status: 413 });
-      const metadataReview = await classifyPdfMetadata(adminProfile.id, findPdfMetadataCandidates(extracted.pages));
+      const metadataReview = await classifyPdfMetadata(
+        adminProfile.id,
+        findPdfMetadataCandidates(extracted.pages),
+      );
       const furniture = analyzePageFurniture(extracted.pages, metadataReview.approvedTexts);
       const detected = detectChapters(extracted.rawText, furniture.ranges);
+      const structureReview = await reviewLowConfidenceChapters(adminProfile.id, detected.chapters);
       const statistics = {
-        ...validateIntegrity(extracted.rawText, detected.chapters, detected.unassignedText),
+        ...validateIntegrity(extracted.rawText, structureReview.chapters, detected.unassignedText),
         pageCount: extracted.pageCount,
       };
       const { data, error } = await db
@@ -153,11 +166,11 @@ export async function POST(request: NextRequest) {
           status: 'needs_review',
           raw_text: extracted.rawText,
           pages: extracted.pages,
-          chapters: detected.chapters,
+          chapters: structureReview.chapters,
           unassigned_text: detected.unassignedText,
           ignored_metadata: furniture.items,
           statistics,
-          warning: metadataReview.warning,
+          warning: structureReview.warning || metadataReview.warning,
         })
         .select()
         .single();
@@ -209,6 +222,49 @@ export async function POST(request: NextRequest) {
       if (error) throw error;
       return NextResponse.json({ session: toClientSession(data) });
     }
+    if (action === 'chat') {
+      const instruction = String(body.instruction || '').trim();
+      if (instruction.length < 3 || instruction.length > 800) {
+        return NextResponse.json(
+          { error: 'AI uchun ko‘rsatma 3–800 belgi oralig‘ida bo‘lishi lozim' },
+          { status: 400 },
+        );
+      }
+      const result = await applyPdfChatInstruction(
+        adminProfile.id,
+        session.chapters as ImportChapter[],
+        instruction,
+      );
+      const existingHistory = Array.isArray(session.chat_history) ? session.chat_history : [];
+      const chatHistory = [
+        ...existingHistory,
+        { role: 'user', content: instruction, createdAt: new Date().toISOString() },
+        { role: 'assistant', content: result.message, createdAt: new Date().toISOString() },
+      ].slice(-20);
+      const ignoredMetadata = [
+        ...(Array.isArray(session.ignored_metadata) ? session.ignored_metadata : []),
+        ...result.removed.map((item) => ({ ...item, action: 'admin_ai_instruction' })),
+      ];
+      const statistics = {
+        ...validateIntegrity(session.raw_text, result.chapters, session.unassigned_text || ''),
+        pageCount: Number(session.statistics?.pageCount || 0),
+      };
+      const { data, error } = await db
+        .from('pdf_import_sessions')
+        .update({
+          chapters: result.chapters,
+          ignored_metadata: ignoredMetadata,
+          statistics,
+          chat_history: chatHistory,
+          warning: result.warning,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', session.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return NextResponse.json({ session: toClientSession(data), message: result.message });
+    }
     if (action === 'import') {
       const authorName = String(body.authorName || '').trim();
       if (authorName.length < 2 || authorName.length > 160)
@@ -233,10 +289,20 @@ export async function POST(request: NextRequest) {
             .replace(/\n/g, '<br>')}</p>`,
         ),
       }));
+      const targetWorkId = String(body.workId || session.work_id || '');
+      const { data: targetWork } = await db
+        .from('works')
+        .select('id,slug,status')
+        .eq('id', targetWorkId)
+        .maybeSingle();
+      if (!targetWork) {
+        return NextResponse.json({ error: 'Import qilinadigan asar topilmadi' }, { status: 404 });
+      }
+
       const { data, error } = await db.rpc('admin_import_pdf_chapters', {
         p_session_id: session.id,
         p_admin_id: adminProfile.id,
-        p_work_id: String(body.workId || session.work_id || ''),
+        p_work_id: targetWorkId,
         p_chapters: payload,
         p_author_name: authorName,
       });
@@ -251,15 +317,28 @@ export async function POST(request: NextRequest) {
           { status: 500 },
         );
       }
-      await logAdminAction(
-        db,
-        adminProfile.id,
-        'pdf_chapters_imported',
-        'work',
-        String(body.workId || session.work_id),
-        { sessionId: session.id, imported: data?.imported },
-      );
-      return NextResponse.json({ success: true, result: data });
+
+      let result = data as Record<string, any> | null;
+      // Compatibility with migration 044: its RPC imports draft chapters but does not
+      // place a new work into the moderation queue. Migration 047 performs both atomically.
+      if (!result?.workStatus && targetWork.status !== 'published') {
+        const { error: queueError } = await db
+          .from('works')
+          .update({ status: 'pending_review', updated_at: new Date().toISOString() })
+          .eq('id', targetWorkId)
+          .neq('status', 'published');
+        if (queueError) throw queueError;
+        result = { ...(result || {}), workStatus: 'pending_review', chaptersStatus: 'draft' };
+      }
+
+      revalidateTag('public-catalogue');
+      revalidatePath(`/muallif/asar/${targetWorkId}`);
+      revalidatePath(`/asarlar/${targetWork.slug}`);
+      await logAdminAction(db, adminProfile.id, 'pdf_chapters_imported', 'work', targetWorkId, {
+        sessionId: session.id,
+        imported: result?.imported,
+      });
+      return NextResponse.json({ success: true, result });
     }
     return NextResponse.json({ error: 'Noma’lum amal' }, { status: 400 });
   } catch (error: any) {
@@ -291,10 +370,7 @@ export async function PATCH(request: NextRequest) {
     if (!session)
       return NextResponse.json({ error: 'Import sessiyasi topilmadi' }, { status: 404 });
     const incomingChapters = Array.isArray(body.chapters) ? body.chapters : [];
-    const { chapters, unassignedText } = hydrateSourceCoverage(
-      session.raw_text,
-      incomingChapters,
-    );
+    const { chapters, unassignedText } = hydrateSourceCoverage(session.raw_text, incomingChapters);
     const statistics = validateIntegrity(session.raw_text, chapters, unassignedText);
     const { data, error } = await db
       .from('pdf_import_sessions')

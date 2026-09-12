@@ -62,12 +62,14 @@ async function loadSession(
   db: ReturnType<typeof createAdminClient>,
   actorId: string,
   sessionId: string,
+  workId: string,
 ) {
   const { data } = await db
     .from('document_import_sessions')
     .select('*')
     .eq('id', sessionId)
     .eq('created_by', actorId)
+    .eq('work_id', workId)
     .gt('expires_at', new Date().toISOString())
     .maybeSingle();
   return data;
@@ -102,7 +104,7 @@ export async function GET(request: NextRequest) {
   const workId = new URL(request.url).searchParams.get('workId') || '';
   const auth = await authorize(request, workId);
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const session = await loadSession(auth.db, auth.profile.id, sessionId);
+  const session = await loadSession(auth.db, auth.profile.id, sessionId, workId);
   if (!session) return NextResponse.json({ error: 'Import sessiyasi topilmadi' }, { status: 404 });
   return NextResponse.json({ session: safeSession(session) });
 }
@@ -111,6 +113,12 @@ export async function POST(request: NextRequest) {
   const action = new URL(request.url).searchParams.get('action') || 'extract';
   try {
     if (action === 'extract') {
+      if (!request.headers.get('content-type')?.toLowerCase().includes('multipart/form-data')) {
+        return NextResponse.json(
+          { error: 'DOCX yuklash multipart/form-data formatida yuborilishi kerak.' },
+          { status: 400 },
+        );
+      }
       const form = await request.formData();
       const file = form.get('file');
       const workId = String(form.get('workId') || '');
@@ -143,13 +151,22 @@ export async function POST(request: NextRequest) {
       }
       const buffer = Buffer.from(await file.arrayBuffer());
       const hash = createHash('sha256').update(buffer).digest('hex');
-      const { data: existing } = await auth.db
+      await auth.db.rpc('cleanup_expired_document_import_sessions');
+      const { data: existing, error: sessionError } = await auth.db
         .from('document_import_sessions')
         .select('*')
         .eq('created_by', auth.profile.id)
         .eq('work_id', workId)
         .eq('file_hash', hash)
         .maybeSingle();
+      if (sessionError)
+        return NextResponse.json(
+          {
+            error:
+              'DOCX import bazasi tayyor emas. Administrator 048 migratsiyasini tekshirishi kerak.',
+          },
+          { status: 503 },
+        );
       if (existing) {
         if (existing.status === 'completed') {
           return NextResponse.json({ error: 'Bu DOCX avval import qilingan.' }, { status: 409 });
@@ -157,9 +174,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ session: safeSession(existing), reused: true });
       }
 
-      await auth.db.rpc('cleanup_expired_document_import_sessions').then(({ error }) => {
-        if (error) console.warn('DOCX session cleanup skipped', { code: error.code });
-      });
       let parsed;
       try {
         parsed = await parseDocx(buffer, auth.work.title);
@@ -173,7 +187,7 @@ export async function POST(request: NextRequest) {
           work_id: workId,
           original_filename: file.name.slice(0, 240),
           file_hash: hash,
-          status: 'ready',
+          status: parsed.statistics.suspiciousLoss ? 'needs_review' : 'ready',
           raw_text: parsed.rawText,
           expected_body_text: parsed.expectedBodyText,
           chapters: parsed.chapters,
@@ -197,9 +211,17 @@ export async function POST(request: NextRequest) {
     const workId = String(body.workId || '');
     const auth = await authorize(request, workId);
     if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-    const session = await loadSession(auth.db, auth.profile.id, String(body.sessionId || ''));
+    const session = await loadSession(
+      auth.db,
+      auth.profile.id,
+      String(body.sessionId || ''),
+      workId,
+    );
     if (!session)
       return NextResponse.json({ error: 'Import sessiyasi topilmadi' }, { status: 404 });
+    if (session.status === 'completed' || session.status === 'importing') {
+      return NextResponse.json({ error: 'Import yakunlangan yoki bajarilmoqda.' }, { status: 409 });
+    }
 
     if (action === 'analyze') {
       const result = await analyzeDocxTechnicalIssues(
@@ -213,6 +235,8 @@ export async function POST(request: NextRequest) {
         .from('document_import_sessions')
         .update({ suggestions: result.suggestions, updated_at: new Date().toISOString() })
         .eq('id', session.id)
+        .neq('status', 'completed')
+        .neq('status', 'importing')
         .select()
         .single();
       if (error) throw error;
@@ -255,6 +279,8 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', session.id)
+        .neq('status', 'completed')
+        .neq('status', 'importing')
         .select()
         .single();
       if (error) throw error;
@@ -312,7 +338,12 @@ export async function PATCH(request: NextRequest) {
     const workId = String(body.workId || '');
     const auth = await authorize(request, workId);
     if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-    const session = await loadSession(auth.db, auth.profile.id, String(body.sessionId || ''));
+    const session = await loadSession(
+      auth.db,
+      auth.profile.id,
+      String(body.sessionId || ''),
+      workId,
+    );
     if (!session)
       return NextResponse.json({ error: 'Import sessiyasi topilmadi' }, { status: 404 });
     if (session.status === 'completed')
@@ -335,6 +366,8 @@ export async function PATCH(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', session.id)
+      .neq('status', 'completed')
+      .neq('status', 'importing')
       .select()
       .single();
     if (error) throw error;

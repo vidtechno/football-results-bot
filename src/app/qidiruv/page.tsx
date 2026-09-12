@@ -32,17 +32,18 @@ const TRENDING_SEARCHES = [
 ];
 
 interface QidiruvPageProps {
-  searchParams: {
+  searchParams: Promise<{
     q?: string;
     genre?: string;
     type?: 'book' | 'serialized_story';
     access?: 'free' | 'paid_full_work' | 'paid_by_chapter';
     sort?: 'popular' | 'newest' | 'rating';
     page?: string;
-  };
+  }>;
 }
 
-export default async function QidiruvPage({ searchParams }: QidiruvPageProps) {
+export default async function QidiruvPage({ searchParams: searchParamsPromise }: QidiruvPageProps) {
+  const searchParams = await searchParamsPromise;
   const query = searchParams.q || '';
   const genreSlug = searchParams.genre;
   const typeFilter = searchParams.type;

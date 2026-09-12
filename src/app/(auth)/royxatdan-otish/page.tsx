@@ -16,16 +16,17 @@ export const metadata: Metadata = {
 };
 
 interface RoyxatdanOtishPageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     redirect?: string;
     returnUrl?: string;
     role?: 'author' | 'reader';
-  };
+  }>;
 }
 
 export default async function RoyxatdanOtishPage({ searchParams }: RoyxatdanOtishPageProps) {
+  const resolvedSearchParams = await searchParams;
   const profile = await getCurrentProfile();
-  const rawRedirect = searchParams?.redirect || searchParams?.returnUrl;
+  const rawRedirect = resolvedSearchParams?.redirect || resolvedSearchParams?.returnUrl;
   const safeRedirect = getSafeRedirectUrl(rawRedirect, '/kabinet');
 
   if (profile) {

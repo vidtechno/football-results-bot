@@ -16,17 +16,18 @@ export const metadata: Metadata = {
 };
 
 interface KirishPageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     redirect?: string;
     returnUrl?: string;
     mode?: 'login' | 'register';
     role?: 'author' | 'reader';
-  };
+  }>;
 }
 
 export default async function KirishPage({ searchParams }: KirishPageProps) {
+  const resolvedSearchParams = await searchParams;
   const profile = await getCurrentProfile();
-  const rawRedirect = searchParams?.redirect || searchParams?.returnUrl;
+  const rawRedirect = resolvedSearchParams?.redirect || resolvedSearchParams?.returnUrl;
   const safeRedirect = getSafeRedirectUrl(rawRedirect, profile?.is_admin ? '/diyoration' : '/kabinet');
 
   // If user is already authenticated
@@ -42,7 +43,7 @@ export default async function KirishPage({ searchParams }: KirishPageProps) {
       <Suspense fallback={<div className="p-8 text-center text-xs text-stone-400">Yuklanmoqda...</div>}>
         <UnifiedAuthCard
           initialRedirect={safeRedirect}
-          defaultMode={searchParams?.mode === 'register' ? 'register' : 'login'}
+          defaultMode={resolvedSearchParams?.mode === 'register' ? 'register' : 'login'}
         />
       </Suspense>
     </div>

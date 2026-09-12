@@ -11,16 +11,17 @@ import { seoDescription, serializeJsonLd } from '@/lib/seo/jsonLd';
 export const revalidate = 30;
 
 interface GenreDetailPageProps {
-  params: { slug: string };
-  searchParams: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{
     page?: string;
     sort?: 'popular' | 'newest' | 'rating' | 'price_asc' | 'price_desc';
     access?: 'free' | 'paid_full_work' | 'paid_by_chapter';
     type?: 'book' | 'serialized_story';
-  };
+  }>;
 }
 
-export async function generateMetadata({ params }: GenreDetailPageProps): Promise<Metadata> {
+export async function generateMetadata({ params: paramsPromise }: GenreDetailPageProps): Promise<Metadata> {
+  const params = await paramsPromise;
   const genre = await getActiveGenreBySlug(params.slug);
 
   if (!genre) {
@@ -56,7 +57,9 @@ export async function generateMetadata({ params }: GenreDetailPageProps): Promis
   };
 }
 
-export default async function GenreDetailPage({ params, searchParams }: GenreDetailPageProps) {
+export default async function GenreDetailPage({ params: paramsPromise, searchParams: searchParamsPromise }: GenreDetailPageProps) {
+  const params = await paramsPromise;
+  const searchParams = await searchParamsPromise;
   const genre = await getActiveGenreBySlug(params.slug);
 
   if (!genre) {

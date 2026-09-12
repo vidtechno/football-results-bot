@@ -2,11 +2,11 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/server';
 
 interface LegacyMutolaaRedirectProps {
-  params: {
+  params: Promise<{
     workSlug: string;
     chapterId: string;
-  };
-  searchParams?: Record<string, string | string[] | undefined>;
+  }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export const dynamic = 'force-dynamic';
@@ -23,9 +23,10 @@ export const dynamic = 'force-dynamic';
  */
 export default async function LegacyMutolaaRedirectPage({
   params,
-  searchParams,
+  searchParams: searchParamsPromise,
 }: LegacyMutolaaRedirectProps) {
-  const { workSlug, chapterId } = params;
+  const { workSlug, chapterId } = await params;
+  const searchParams = await searchParamsPromise;
 
   if (!workSlug || !chapterId) {
     notFound();

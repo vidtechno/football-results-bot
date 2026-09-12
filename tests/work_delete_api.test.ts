@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   maybeSingle: vi.fn(),
   update: vi.fn(),
   updateEq: vi.fn(),
+  updateSelect: vi.fn(),
+  updateMaybeSingle: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
@@ -18,7 +20,7 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }));
 
-import { DELETE } from '@/app/api/works/delete/route';
+import { DELETE, POST } from '@/app/api/works/delete/route';
 
 const request = () =>
   new Request('http://localhost/api/works/delete', {
@@ -30,7 +32,9 @@ const request = () =>
 describe('work deletion API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.updateEq.mockResolvedValue({ error: null });
+    mocks.updateMaybeSingle.mockResolvedValue({ data: { id: 'work-1' }, error: null });
+    mocks.updateSelect.mockReturnValue({ maybeSingle: mocks.updateMaybeSingle });
+    mocks.updateEq.mockReturnValue({ select: mocks.updateSelect });
     mocks.update.mockReturnValue({ eq: mocks.updateEq });
   });
 
@@ -72,5 +76,13 @@ describe('work deletion API', () => {
       data: { id: 'work-1', author_id: 'author-a', title: 'Asar', slug: 'asar', status: 'draft' },
     });
     expect((await DELETE(request())).status).toBe(200);
+  });
+
+  it('supports the proxy-safe POST action used by the browser', async () => {
+    mocks.getCurrentProfile.mockResolvedValue({ id: 'author-a', is_admin: false, role: 'user' });
+    mocks.maybeSingle.mockResolvedValue({
+      data: { id: 'work-1', author_id: 'author-a', title: 'Asar', slug: 'asar' },
+    });
+    expect((await POST(request())).status).toBe(200);
   });
 });

@@ -18,17 +18,18 @@ export const metadata: Metadata = {
 };
 
 interface HikoyalarPageProps {
-  searchParams: {
+  searchParams: Promise<{
     q?: string;
     genre?: string;
     access?: 'free' | 'paid_full_work' | 'paid_by_chapter';
     status?: 'ongoing' | 'completed';
     sort?: 'popular' | 'newest' | 'rating';
     page?: string;
-  };
+  }>;
 }
 
-export default async function HikoyalarPage({ searchParams }: HikoyalarPageProps) {
+export default async function HikoyalarPage({ searchParams: searchParamsPromise }: HikoyalarPageProps) {
+  const searchParams = await searchParamsPromise;
   const query = searchParams.q || '';
   const genreSlug = searchParams.genre;
   const accessFilter = searchParams.access;

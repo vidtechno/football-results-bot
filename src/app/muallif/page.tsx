@@ -72,6 +72,7 @@ function MuallifStudioContent() {
   const [workError, setWorkError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Work | null>(null);
   const [deletingWork, setDeletingWork] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadAuthorData = useCallback(
     async (targetUserId?: string) => {
@@ -230,25 +231,28 @@ function MuallifStudioContent() {
 
   async function handleDeleteWork() {
     if (!deleteTarget) return;
+    const deletedWorkId = deleteTarget.id;
     setDeletingWork(true);
+    setDeleteError(null);
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       const response = await fetch('/api/works/delete', {
-        method: 'DELETE',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({ workId: deleteTarget.id }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Asarni o‘chirib bo‘lmadi');
-      setWorks((current) => current.filter((work) => work.id !== deleteTarget.id));
+      setWorks((current) => current.filter((work) => work.id !== deletedWorkId));
       setDeleteTarget(null);
+      router.refresh();
     } catch (error) {
-      setWorkError(error instanceof Error ? error.message : 'Asarni o‘chirib bo‘lmadi');
+      setDeleteError(error instanceof Error ? error.message : 'Asarni o‘chirib bo‘lmadi');
     } finally {
       setDeletingWork(false);
     }
@@ -599,7 +603,10 @@ function MuallifStudioContent() {
                       )}
                       <button
                         type="button"
-                        onClick={() => setDeleteTarget(w)}
+                        onClick={() => {
+                          setDeleteError(null);
+                          setDeleteTarget(w);
+                        }}
                         className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-700"
                         title="Asarni o‘chirish"
                       >
@@ -711,10 +718,18 @@ function MuallifStudioContent() {
               Bu amalni ortga qaytarib bo‘lmaydi. Pullik asarning xaridlari va moliyaviy tarixi
               xavfsiz saqlanadi, asar esa saytdan yashiriladi.
             </p>
+            {deleteError && (
+              <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-center text-xs font-bold text-rose-700">
+                {deleteError}
+              </p>
+            )}
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteTarget(null);
+                }}
                 disabled={deletingWork}
                 className="rounded-xl bg-slate-100 px-4 py-3 text-xs font-bold text-slate-700"
               >

@@ -63,8 +63,8 @@ export function createAdminClient() {
  * Creates an official Supabase SSR client reading from Next.js request cookies.
  * Server Components and Server Actions use this client to access the authenticated user's session.
  */
-export function createServerSupabaseClient() {
-  const cookieStore = cookies();
+export async function createServerSupabaseClient() {
+  const cookieStore = await cookies();
   const { supabaseUrl, supabaseAnonKey } = getValidatedSupabaseEnv();
 
   return createSSRServerClient(supabaseUrl, supabaseAnonKey, {
@@ -123,7 +123,7 @@ export const getCurrentProfile = requestCache(async function getCurrentProfile(
   // the request has neither a bearer token nor any Supabase session cookie.
   if (!authHeader?.startsWith('Bearer ')) {
     try {
-      const hasAuthCookie = cookies().getAll().some(({ name, value }) => {
+      const hasAuthCookie = (await cookies()).getAll().some(({ name, value }) => {
         const isSsrToken = /^sb-[a-z0-9_-]+-auth-token(?:\.\d+)?$/i.test(name);
         const isLegacyToken =
           name === 'sb-access-token' ||
@@ -157,7 +157,7 @@ export const getCurrentProfile = requestCache(async function getCurrentProfile(
   // 2. Validate via official @supabase/ssr cookie client
   if (!authenticatedUser) {
     try {
-      const ssrClient = createServerSupabaseClient();
+      const ssrClient = await createServerSupabaseClient();
       const { data: { user }, error } = await ssrClient.auth.getUser();
       if (!error && user) {
         authenticatedUser = user;
@@ -170,7 +170,7 @@ export const getCurrentProfile = requestCache(async function getCurrentProfile(
   // 3. Fallback: check legacy single cookie token if present
   if (!authenticatedUser) {
     try {
-      const cookieStore = cookies();
+      const cookieStore = await cookies();
       const legacyToken =
         cookieStore.get('sb-access-token')?.value ||
         cookieStore.get('supabase-auth-token')?.value ||

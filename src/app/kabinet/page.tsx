@@ -15,16 +15,21 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function KabinetPage({ searchParams }: { searchParams?: { tab?: string } }) {
+export default async function KabinetPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string }>;
+}) {
+  const resolvedSearchParams = await searchParams;
   if (
-    searchParams?.tab &&
+    resolvedSearchParams?.tab &&
     ['profile', 'finances', 'purchases', 'transactions', 'security', 'notifications'].includes(
-      searchParams.tab,
+      resolvedSearchParams.tab,
     )
   ) {
-    const tab = ['purchases', 'transactions'].includes(searchParams.tab)
+    const tab = ['purchases', 'transactions'].includes(resolvedSearchParams.tab)
       ? 'finances'
-      : searchParams.tab;
+      : resolvedSearchParams.tab;
     redirect(`/sozlamalar?tab=${tab}`);
   }
   return (

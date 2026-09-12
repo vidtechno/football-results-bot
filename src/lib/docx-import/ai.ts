@@ -99,14 +99,27 @@ export function applyConfirmedSuggestion(chapter: DocxChapter, suggestion: AiSug
   if (suggestion.category === 'heading' || suggestion.category === 'formatting') {
     return chapter;
   }
-  if (!chapter.contentHtml.includes(suggestion.before)) throw new Error('UNSAFE_SUGGESTION');
   const escapedAfter = suggestion.after
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
   // Only an exact text node substring is replaced after the user confirms it.
   // HTML syntax and all unrelated content remain unchanged.
-  const contentHtml = chapter.contentHtml.replace(suggestion.before, escapedAfter);
+  let applied = false;
+  const contentHtml = chapter.contentHtml
+    .split(/(<[^>]*>)/g)
+    .map((part) => {
+      if (applied || part.startsWith('<')) return part;
+      const escapedBefore = suggestion.before
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      if (!part.includes(escapedBefore)) return part;
+      applied = true;
+      return part.replace(escapedBefore, () => escapedAfter);
+    })
+    .join('');
+  if (!applied) throw new Error('UNSAFE_SUGGESTION');
   const plainText = htmlToPlainText(contentHtml);
   return { ...chapter, plainText, contentHtml };
 }

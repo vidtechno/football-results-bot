@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { splitDocxBlocks, htmlToPlainText } from '@/lib/docx-import/text';
 import { describe, expect, it } from 'vitest';
 import {
   inspectDocxArchive,
@@ -55,6 +56,43 @@ async function makeDocx(paragraphs: Paragraph[], headerText = '') {
 }
 
 describe('DOCX importer', () => {
+  it('keeps nested lists, tables and lower-level headings when splitting preview', () => {
+    const html =
+      '<h3>Izoh</h3><ul><li>A<ul><li>B</li></ul></li><li>C</li></ul><table><tr><td>D</td><td>E</td></tr></table>';
+    const blocks = splitDocxBlocks(html);
+    expect(blocks).toHaveLength(3);
+    expect(blocks.join('')).toBe(html);
+    expect(htmlToPlainText(html)).toContain('D\nE');
+  });
+
+  it('allows consecutive headings into preview so an empty chapter can be merged', async () => {
+    const result = await parseDocx(
+      await makeDocx([
+        { text: 'Bo‘lim', style: 'Heading1' },
+        { text: 'Birinchi bob', style: 'Heading2' },
+        { text: 'Asl matn saqlanadi.' },
+      ]),
+      'Asar',
+    );
+    expect(result.chapters).toHaveLength(2);
+    expect(result.statistics.suspiciousLoss).toBe(true);
+    expect(result.chapters[1].plainText).toBe('Asl matn saqlanadi.');
+  });
+
+  it('preserves table content in an actual DOCX', async () => {
+    const zip = await JSZip.loadAsync(await makeDocx([{ text: 'Boshlanish.' }]));
+    const xml = await zip.file('word/document.xml')!.async('string');
+    zip.file(
+      'word/document.xml',
+      xml.replace(
+        '<w:sectPr>',
+        '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Birinchi katak</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Ikkinchi katak</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:sectPr>',
+      ),
+    );
+    const result = await parseDocx(await zip.generateAsync({ type: 'nodebuffer' }), 'Asar');
+    expect(result.chapters[0].contentHtml).toContain('<table>');
+    expect(result.chapters[0].plainText).toContain('Ikkinchi katak');
+  });
   it('validates a real DOCX archive and rejects a renamed PDF', async () => {
     const docx = await makeDocx([{ text: 'Matn' }]);
     await expect(inspectDocxArchive(docx)).resolves.toEqual({ hasImages: false });
@@ -85,9 +123,17 @@ describe('DOCX importer', () => {
   });
 
   it('detects Uzbek, Cyrillic, Roman and English chapter patterns', () => {
-    ['1-bob', 'II BOB', 'BIRINCHI BOB', 'Иккинчи боб', 'BOB 1', 'CHAPTER 1', '1. OTABEK'].forEach(
-      (title) => expect(isChapterPattern(title)).toBe(true),
-    );
+    [
+      '1-bob',
+      'II BOB',
+      'BIRINCHI BOB',
+      'Иккинчи боб',
+      'BOB 1',
+      'CHAPTER 1',
+      '1. OTABEK',
+      '3-bob. Yangi hayot',
+      'II BOB: Boshlanish',
+    ].forEach((title) => expect(isChapterPattern(title)).toBe(true));
   });
 
   it('falls back to one chapter when there is no reliable heading', async () => {

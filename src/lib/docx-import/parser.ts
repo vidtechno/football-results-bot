@@ -3,7 +3,7 @@ import mammoth from 'mammoth';
 import yauzl from 'yauzl';
 import { sanitizeRichText } from '@/lib/utils/sanitizer';
 import type { DocxChapter, DocxImportStats } from './types';
-import { htmlToPlainText, normalizeDocxText } from './text';
+import { htmlToPlainText, normalizeDocxText, splitDocxBlocks } from './text';
 
 const REQUIRED_ENTRIES = new Set(['[Content_Types].xml', 'word/document.xml']);
 const MAX_ZIP_ENTRIES = 2_000;
@@ -96,13 +96,13 @@ export async function inspectDocxArchive(buffer: Buffer) {
 }
 
 function extractBlocks(html: string): HtmlBlock[] {
-  const blocks: HtmlBlock[] = [];
-  const pattern = /<(h1|h2|p|ul|ol|blockquote)(?:\s[^>]*)?>[\s\S]*?<\/\1>/gi;
-  for (const match of html.matchAll(pattern)) {
-    const text = htmlToPlainText(match[0]);
-    if (text) blocks.push({ tag: match[1].toLowerCase(), html: match[0], text });
-  }
-  return blocks;
+  return splitDocxBlocks(html)
+    .map((block) => ({
+      tag: block.match(/^\s*<([a-z0-9]+)/i)?.[1].toLowerCase() || 'p',
+      html: block,
+      text: htmlToPlainText(block),
+    }))
+    .filter((block) => block.text);
 }
 
 function buildChapters(blocks: HtmlBlock[], fallbackTitle: string) {
@@ -112,7 +112,7 @@ function buildChapters(blocks: HtmlBlock[], fallbackTitle: string) {
     isHeading:
       block.tag === 'h1' ||
       block.tag === 'h2' ||
-      (styledHeadings === 0 && CHAPTER_PATTERN.test(block.text)),
+      (styledHeadings === 0 && isChapterPattern(block.text)),
     confidence: block.tag === 'h1' ? 0.99 : block.tag === 'h2' ? 0.95 : 0.82,
   }));
   const headingIndexes = candidates.filter((item) => item.isHeading).map((item) => item.index);
@@ -175,6 +175,12 @@ export async function parseDocx(buffer: Buffer, fallbackTitle: string) {
       .replace(/<h1(?:\s[^>]*)?>/gi, '<h2>')
       .replace(/<\/h1>/gi, '</h2>'),
   );
+  // Compare independently extracted source text, before removing chapter labels.
+  // Comparing two copies of the converted output would miss dropped headings/tables.
+  const compact = (text: string) => text.replace(/\s+/gu, '');
+  if (compact(rawResult.value) !== compact(htmlToPlainText(cleanedHtml))) {
+    throw new Error('DOCX_TEXT_LOSS');
+  }
   const blocks = extractBlocks(cleanedHtml);
   if (!blocks.length) throw new Error('EMPTY_DOCX');
   const built = buildChapters(blocks, fallbackTitle);
@@ -187,7 +193,8 @@ export async function parseDocx(buffer: Buffer, fallbackTitle: string) {
     .map((block) => block.text)
     .join('\n');
   const stats = validateDocxIntegrity(expectedBody || rawResult.value, chapters, blocks.length);
-  if (stats.suspiciousLoss) throw new Error('DOCX_TEXT_LOSS');
+  // Consecutive headings may create empty chapters; show them for merge/removal.
+  // Final import stays blocked until the preview has been corrected.
   const warnings = [
     ...htmlResult.messages.map((message) => message.message).slice(0, 10),
     ...(archive.hasImages ? ['DOCX ichidagi rasmlar hozir import qilinmaydi.'] : []),
@@ -202,5 +209,12 @@ export async function parseDocx(buffer: Buffer, fallbackTitle: string) {
 }
 
 export function isChapterPattern(value: string) {
-  return CHAPTER_PATTERN.test(value.trim());
+  const text = value.trim();
+  return (
+    CHAPTER_PATTERN.test(text) ||
+    (text.length <= 180 &&
+      /^(?:\d{1,4}\s*[-.]?\s*(?:bob|боб)|[ivxlcdm]+\s+(?:bob|боб)|(?:bob|боб|chapter)\s+\d{1,4})\s*[.:—–-]\s*\S/iu.test(
+        text,
+      ))
+  );
 }

@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
-import { htmlToPlainText } from '@/lib/docx-import/text';
+import { htmlToPlainText, splitDocxBlocks } from '@/lib/docx-import/text';
 import type { AiSuggestion, DocxChapter, DocxImportStats } from '@/lib/docx-import/types';
 
 type ImportSession = {
@@ -36,8 +36,25 @@ interface DocxImportPanelProps {
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
+async function importRequest(url: string, options: RequestInit) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 65_000);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const data = await response.json().catch(() => ({
+      error:
+        response.status === 413
+          ? 'Fayl server yuklash limitidan katta. Hujjatni kichikroq qismlarga ajrating.'
+          : 'Server javobi olinmadi. Qayta urinib ko‘ring.',
+    }));
+    return { ok: response.ok, json: async () => data };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function htmlBlocks(html: string) {
-  return html.match(/<(p|ul|ol|blockquote)(?:\s[^>]*)?>[\s\S]*?<\/\1>/gi) || [];
+  return splitDocxBlocks(html);
 }
 
 export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPanelProps) {
@@ -64,6 +81,17 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
     setStage('');
   }
 
+  async function run(action: () => Promise<unknown>) {
+    if (stage) return;
+    try {
+      await action();
+    } catch {
+      fail('So‘rov bajarilmadi. Internet aloqasini tekshirib, qayta urinib ko‘ring.');
+    } finally {
+      setStage('');
+    }
+  }
+
   async function extract() {
     if (!file) return fail('DOCX faylni tanlang');
     setError('');
@@ -72,7 +100,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
     const form = new FormData();
     form.set('file', file);
     form.set('workId', workId);
-    const response = await fetch('/api/docx-import?action=extract', {
+    const response = await importRequest('/api/docx-import?action=extract', {
       method: 'POST',
       headers: await headers(),
       body: form,
@@ -156,7 +184,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
   async function save() {
     if (!session) return false;
     setStage('Preview saqlanmoqda…');
-    const response = await fetch('/api/docx-import', {
+    const response = await importRequest('/api/docx-import', {
       method: 'PATCH',
       headers: await headers(true),
       body: JSON.stringify({ workId, sessionId: session.id, chapters: session.chapters }),
@@ -175,7 +203,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
   async function analyze() {
     if (!session || !(await save())) return;
     setStage('AI texnik xatolarni tekshirmoqda…');
-    const response = await fetch('/api/docx-import?action=analyze', {
+    const response = await importRequest('/api/docx-import?action=analyze', {
       method: 'POST',
       headers: await headers(true),
       body: JSON.stringify({ workId, sessionId: session.id, instruction }),
@@ -192,7 +220,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
   async function decide(suggestionId: string, decision: 'accept' | 'reject') {
     if (!session) return;
     setStage(decision === 'accept' ? 'Taklif qo‘llanmoqda…' : 'Taklif rad etilmoqda…');
-    const response = await fetch('/api/docx-import?action=suggestion', {
+    const response = await importRequest('/api/docx-import?action=suggestion', {
       method: 'POST',
       headers: await headers(true),
       body: JSON.stringify({ workId, sessionId: session.id, suggestionId, decision }),
@@ -206,7 +234,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
   async function importAll() {
     if (!session || !(await save())) return;
     setStage('Boblar atomik import qilinmoqda…');
-    const response = await fetch('/api/docx-import?action=import', {
+    const response = await importRequest('/api/docx-import?action=import', {
       method: 'POST',
       headers: await headers(true),
       body: JSON.stringify({ workId, sessionId: session.id }),
@@ -245,7 +273,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
           />
           <button
             type="button"
-            onClick={extract}
+            onClick={() => void run(extract)}
             disabled={!file || Boolean(stage)}
             className="rounded-2xl bg-blue-700 px-5 py-3 text-xs font-bold text-white disabled:opacity-40"
           >
@@ -320,7 +348,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
               />
               <button
                 type="button"
-                onClick={analyze}
+                onClick={() => void run(analyze)}
                 disabled={Boolean(stage)}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white"
               >
@@ -339,7 +367,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
                     <div className="mt-2 flex gap-2">
                       <button
                         type="button"
-                        onClick={() => decide(suggestion.id, 'accept')}
+                        onClick={() => void run(() => decide(suggestion.id, 'accept'))}
                         className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-1.5 font-bold text-white"
                       >
                         <Check className="h-3.5 w-3.5" />
@@ -347,7 +375,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
                       </button>
                       <button
                         type="button"
-                        onClick={() => decide(suggestion.id, 'reject')}
+                        onClick={() => void run(() => decide(suggestion.id, 'reject'))}
                         className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 font-bold"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -367,14 +395,14 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={save}
+              onClick={() => void run(save)}
               className="rounded-xl border bg-white px-4 py-2 text-xs font-bold"
             >
               Previewni saqlash
             </button>
             <button
               type="button"
-              onClick={importAll}
+              onClick={() => void run(importAll)}
               disabled={!canImport || Boolean(stage)}
               className="rounded-xl bg-emerald-800 px-5 py-2 text-xs font-bold text-white disabled:opacity-40"
             >

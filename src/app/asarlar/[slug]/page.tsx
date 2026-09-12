@@ -30,12 +30,13 @@ import { seoDescription, serializeJsonLd } from '@/lib/seo/jsonLd';
 export const revalidate = 30;
 
 interface WorkDetailPageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
-export async function generateMetadata({ params }: WorkDetailPageProps): Promise<Metadata> {
+export async function generateMetadata({ params: paramsPromise }: WorkDetailPageProps): Promise<Metadata> {
+  const params = await paramsPromise;
   const { work } = await getWorkMetadataBySlug(params.slug);
   if (!work || work.status === 'archived') {
     return { title: 'Asar topilmadi' };
@@ -98,12 +99,13 @@ export async function generateMetadata({ params }: WorkDetailPageProps): Promise
   };
 }
 
-export default async function WorkDetailPage({ params }: WorkDetailPageProps) {
+export default async function WorkDetailPage({ params: paramsPromise }: WorkDetailPageProps) {
+  const params = await paramsPromise;
   // Public book data and viewer identity are independent; start both together.
   const profilePromise = getCurrentProfile();
   const publicWorkPromise = getWorkBySlug(params.slug, null);
   const [profile, publicWork] = await Promise.all([profilePromise, publicWorkPromise]);
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { work, chapters } = publicWork;
 
   if (!work || work.status === 'archived') {

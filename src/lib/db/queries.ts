@@ -743,7 +743,7 @@ export async function getAuthorByUsername(username: string): Promise<{
   author: AuthorProfile | null;
   works: Work[];
 }> {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { data: profile } = await supabase
     .from('profiles')

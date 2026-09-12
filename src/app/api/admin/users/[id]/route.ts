@@ -3,9 +3,10 @@ import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: userId } = await params;
     const admin = await getCurrentProfile(request.headers.get('Authorization'));
     if (!admin || !admin.is_admin) {
       return NextResponse.json(
@@ -14,7 +15,6 @@ export async function GET(
       );
     }
 
-    const userId = params.id;
     if (!userId) {
       return NextResponse.json({ success: false, error: 'Foydalanuvchi ID talab etiladi' }, { status: 400 });
     }

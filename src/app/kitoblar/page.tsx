@@ -17,16 +17,17 @@ export const metadata: Metadata = {
 };
 
 interface KitoblarPageProps {
-  searchParams: {
+  searchParams: Promise<{
     q?: string;
     genre?: string;
     access?: 'free' | 'paid_full_work' | 'paid_by_chapter';
     sort?: 'popular' | 'newest' | 'rating' | 'price_asc' | 'price_desc';
     page?: string;
-  };
+  }>;
 }
 
-export default async function KitoblarPage({ searchParams }: KitoblarPageProps) {
+export default async function KitoblarPage({ searchParams: searchParamsPromise }: KitoblarPageProps) {
+  const searchParams = await searchParamsPromise;
   const query = searchParams.q || '';
   const genreSlug = searchParams.genre;
   const accessFilter = searchParams.access;

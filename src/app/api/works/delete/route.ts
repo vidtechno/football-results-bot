@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { createAdminClient, getCurrentProfile } from '@/lib/supabase/server';
 
-export async function DELETE(request: Request) {
+async function archiveDeletedWork(request: Request) {
   try {
     const profile = await getCurrentProfile(request.headers.get('Authorization'));
     if (!profile) {
@@ -35,11 +35,19 @@ export async function DELETE(request: Request) {
 
     // Always soft-delete works. Purchases, entitlements, wallet movements,
     // payouts and audit history remain intact and are never cascade-deleted.
-    const { error } = await db
+    const { data: archivedWork, error } = await db
       .from('works')
       .update({ status: 'archived', is_archived: true, updated_at: new Date().toISOString() })
-      .eq('id', id);
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
     if (error) throw error;
+    if (!archivedWork) {
+      return NextResponse.json(
+        { success: false, error: 'Asarni o‘chirish tasdiqlanmadi' },
+        { status: 409 },
+      );
+    }
 
     revalidateTag('public-catalogue');
     revalidateTag('seo-sitemap');
@@ -62,3 +70,8 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
+// POST is the primary browser action because request bodies on DELETE can be
+// stripped by some proxies. Keep DELETE for API compatibility.
+export const POST = archiveDeletedWork;
+export const DELETE = archiveDeletedWork;

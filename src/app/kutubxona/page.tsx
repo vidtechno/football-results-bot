@@ -44,10 +44,10 @@ type LibraryTab =
   | 'followed_authors';
 
 interface KutubxonaPageProps {
-  searchParams: {
+  searchParams: Promise<{
     tab?: LibraryTab;
     page?: string;
-  };
+  }>;
 }
 
 const TABS: Array<{ id: LibraryTab; label: string; icon: any }> = [
@@ -61,7 +61,8 @@ const TABS: Array<{ id: LibraryTab; label: string; icon: any }> = [
   { id: 'followed_authors', label: 'Mualliflar', icon: Users },
 ];
 
-export default async function KutubxonaPage({ searchParams }: KutubxonaPageProps) {
+export default async function KutubxonaPage({ searchParams: searchParamsPromise }: KutubxonaPageProps) {
+  const searchParams = await searchParamsPromise;
   const profile = await getCurrentProfile();
 
   if (!profile) {

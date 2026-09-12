@@ -9,17 +9,19 @@ import { AuthorWorkEditorClient } from './AuthorWorkEditorClient';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
-  searchParams?: {
+  }>;
+  searchParams?: Promise<{
     docx?: string;
-  };
+  }>;
 }
 
-export default async function AuthorWorkEditorPage({ params, searchParams }: PageProps) {
+export default async function AuthorWorkEditorPage({ params: paramsPromise, searchParams: searchParamsPromise }: PageProps) {
+  const params = await paramsPromise;
+  const searchParams = await searchParamsPromise;
   const workIdOrSlug = params.id;
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

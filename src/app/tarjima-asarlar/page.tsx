@@ -30,10 +30,11 @@ export const metadata: Metadata = {
 };
 
 export default async function TranslatedWorksPage({
-  searchParams,
+  searchParams: searchParamsPromise,
 }: {
-  searchParams: { q?: string; language?: string; page?: string };
+  searchParams: Promise<{ q?: string; language?: string; page?: string }>;
 }) {
+  const searchParams = await searchParamsPromise;
   const page = Math.max(1, Number(searchParams.page) || 1);
   const result = await getPaginatedCatalogue({
     page,

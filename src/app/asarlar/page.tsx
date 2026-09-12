@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 interface AsarlarPageProps {
-  searchParams: {
+  searchParams: Promise<{
     q?: string;
     genre?: string;
     type?: 'book' | 'serialized_story';
@@ -44,10 +44,11 @@ interface AsarlarPageProps {
     sort?: 'popular' | 'newest' | 'rating' | 'price_asc' | 'price_desc';
     collection?: string;
     page?: string;
-  };
+  }>;
 }
 
-export default async function AsarlarPage({ searchParams }: AsarlarPageProps) {
+export default async function AsarlarPage({ searchParams: searchParamsPromise }: AsarlarPageProps) {
+  const searchParams = await searchParamsPromise;
   const query = searchParams.q || '';
   const genreSlug = searchParams.genre;
   const typeFilter = searchParams.type;

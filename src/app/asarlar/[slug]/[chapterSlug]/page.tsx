@@ -12,16 +12,17 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0; // Fresh access check on each read, zero shared caching
 
 interface ReadingPageProps {
-  params: {
+  params: Promise<{
     slug: string;
     chapterSlug: string;
-  };
-  searchParams?: {
+  }>;
+  searchParams?: Promise<{
     page?: string;
-  };
+  }>;
 }
 
-export async function generateMetadata({ params }: ReadingPageProps): Promise<Metadata> {
+export async function generateMetadata({ params: paramsPromise }: ReadingPageProps): Promise<Metadata> {
+  const params = await paramsPromise;
   const { work, chapter } = await getChapterMetadata(params.slug, params.chapterSlug);
   if (!work || !chapter) {
     return { title: 'Bob mutolaasi' };
@@ -69,7 +70,9 @@ export async function generateMetadata({ params }: ReadingPageProps): Promise<Me
   };
 }
 
-export default async function ReadingPage({ params, searchParams }: ReadingPageProps) {
+export default async function ReadingPage({ params: paramsPromise, searchParams: searchParamsPromise }: ReadingPageProps) {
+  const params = await paramsPromise;
+  const searchParams = await searchParamsPromise;
   const profile = await getCurrentProfile();
   const userId = profile?.id || null;
 

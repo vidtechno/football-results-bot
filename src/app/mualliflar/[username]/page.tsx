@@ -34,9 +34,9 @@ import {
 export const revalidate = 60;
 
 interface AuthorPublicProfilePageProps {
-  params: {
+  params: Promise<{
     username: string;
-  };
+  }>;
 }
 
 function sanitizeSocialUrl(
@@ -51,8 +51,9 @@ function sanitizeSocialUrl(
 }
 
 export async function generateMetadata({
-  params,
+  params: paramsPromise,
 }: AuthorPublicProfilePageProps): Promise<Metadata> {
+  const params = await paramsPromise;
   const author = await getPublicAuthorIdentity(params.username);
   if (!author) {
     return { title: 'Muallif topilmadi' };
@@ -102,7 +103,8 @@ export async function generateMetadata({
   };
 }
 
-export default async function AuthorPublicProfilePage({ params }: AuthorPublicProfilePageProps) {
+export default async function AuthorPublicProfilePage({ params: paramsPromise }: AuthorPublicProfilePageProps) {
+  const params = await paramsPromise;
   const resultPromise = getPublicAuthor(params.username);
   const viewerPromise = getCurrentProfile();
   const postsPromise = getPublicAuthorIdentity(params.username).then((author) =>

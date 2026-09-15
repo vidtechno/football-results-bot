@@ -23,7 +23,8 @@ export async function POST(request: Request) {
       .eq('user_id', profile.id)
       .single();
 
-    if (!author || author.status !== 'approved') {
+    const isAdmin = profile.is_admin === true || profile.role === 'admin';
+    if (!isAdmin && (!author || author.status !== 'approved')) {
       return NextResponse.json(
         { success: false, error: 'Faqat tasdiqlangan mualliflar asar yaratishi mumkin' },
         { status: 403 },
@@ -31,6 +32,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+    const creditedAuthorName =
+      isAdmin && body.creditedAuthorName !== undefined
+        ? String(body.creditedAuthorName).trim().slice(0, 180)
+        : undefined;
+    if (creditedAuthorName !== undefined && !creditedAuthorName) {
+      return NextResponse.json(
+        { success: false, error: 'Kitob muallifining ism-familiyasini kiriting' },
+        { status: 400 },
+      );
+    }
     const id = body.id ? String(body.id) : undefined;
     const title = String(body.title || '').trim();
     const description = String(body.description || '').trim();
@@ -70,7 +81,6 @@ export async function POST(request: Request) {
         );
       }
 
-
       if (existing.is_translation && !profile.is_admin) {
         return NextResponse.json(
           { success: false, error: 'Tarjima asarlarni faqat administrator tahrirlay oladi' },
@@ -93,7 +103,8 @@ export async function POST(request: Request) {
           cover_url: coverUrl,
           type,
           access_type: accessType,
-          full_work_price: accessType === 'paid_full_work' ? Math.max(0, Math.floor(fullWorkPrice)) : 0,
+          full_work_price:
+            accessType === 'paid_full_work' ? Math.max(0, Math.floor(fullWorkPrice)) : 0,
           completion_status: completionStatus,
           age_rating: ageRating,
           genre_ids: genreIds.length > 0 ? genreIds : null,
@@ -169,7 +180,8 @@ export async function POST(request: Request) {
         return NextResponse.json({
           success: true,
           isRevision: true,
-          message: 'Nashr qilingan asarga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
+          message:
+            'Nashr qilingan asarga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
           revision: revisionResult,
           work: {
             ...existing,
@@ -195,6 +207,7 @@ export async function POST(request: Request) {
           completion_status: completionStatus,
           age_rating: ageRating,
           is_archived: isArchived,
+          ...(creditedAuthorName !== undefined ? { credited_author_name: creditedAuthorName } : {}),
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -250,6 +263,7 @@ export async function POST(request: Request) {
         completion_status: completionStatus,
         age_rating: ageRating,
         is_archived: false,
+        ...(creditedAuthorName !== undefined ? { credited_author_name: creditedAuthorName } : {}),
       })
       .select()
       .single();

@@ -144,12 +144,26 @@ export function evaluateCanonicalChapterAccess({
     };
   }
 
-  if (chapterIsPreviewFree) {
-    return { canRead: true, reason: 'free', isFree: true, price: 0, isLocked: false, requiresWholeWork: false };
+  if (chapterIsPreviewFree && !workIsPlus) {
+    return {
+      canRead: true,
+      reason: 'free',
+      isFree: true,
+      price: 0,
+      isLocked: false,
+      requiresWholeWork: false,
+    };
   }
 
   if (workIsPlus && chapterNumber === 1) {
-    return { canRead: true, reason: 'free', isFree: true, price: 0, isLocked: false, requiresWholeWork: false };
+    return {
+      canRead: true,
+      reason: 'free',
+      isFree: true,
+      price: 0,
+      isLocked: false,
+      requiresWholeWork: false,
+    };
   }
 
   // CANONICAL RULE 2: Whole-work purchase model
@@ -183,7 +197,14 @@ export function evaluateCanonicalChapterAccess({
     }
 
     if (workIsPlus && hasPlusSubscription) {
-      return { canRead: true, reason: 'plus', isFree: false, price: 0, isLocked: false, requiresWholeWork: false };
+      return {
+        canRead: true,
+        reason: 'plus',
+        isFree: false,
+        price: 0,
+        isLocked: false,
+        requiresWholeWork: false,
+      };
     }
 
     return {
@@ -231,7 +252,14 @@ export function evaluateCanonicalChapterAccess({
   }
 
   if (workIsPlus && hasPlusSubscription) {
-    return { canRead: true, reason: 'plus', isFree: false, price: 0, isLocked: false, requiresWholeWork: false };
+    return {
+      canRead: true,
+      reason: 'plus',
+      isFree: false,
+      price: 0,
+      isLocked: false,
+      requiresWholeWork: false,
+    };
   }
 
   return {
@@ -271,7 +299,8 @@ export async function canReadChapter(
 
   const { data: chapter, error } = await supabase
     .from('chapters')
-    .select(`
+    .select(
+      `
       id,
       work_id,
       chapter_number,
@@ -290,7 +319,8 @@ export async function canReadChapter(
         full_work_price,
         is_plus
       )
-    `)
+    `,
+    )
     .eq('id', chapterId)
     .single();
 
@@ -417,8 +447,24 @@ export async function canReadChapter(
   }
 
   if (work.is_plus && chapter.chapter_number === 1) {
-    const { data: contentRec } = await supabase.from('chapter_contents').select('content').eq('chapter_id', chapter.id).maybeSingle();
-    return { canRead: true, reason: 'free', isFree: true, price: 0, chapterNumber: chapter.chapter_number, title: chapter.title, slug: chapter.slug, workId: work.id, workSlug: work.slug, authorId, content: contentRec?.content || '' };
+    const { data: contentRec } = await supabase
+      .from('chapter_contents')
+      .select('content')
+      .eq('chapter_id', chapter.id)
+      .maybeSingle();
+    return {
+      canRead: true,
+      reason: 'free',
+      isFree: true,
+      price: 0,
+      chapterNumber: chapter.chapter_number,
+      title: chapter.title,
+      slug: chapter.slug,
+      workId: work.id,
+      workSlug: work.slug,
+      authorId,
+      content: contentRec?.content || '',
+    };
   }
 
   // Check entitlements & purchases if authenticated
@@ -436,7 +482,9 @@ export async function canReadChapter(
         .eq('work_id', work.id);
 
       if (typeof (entQuery as any).or === 'function') {
-        entQuery = (entQuery as any).or(`entitlement_type.eq.full_work,chapter_id.eq.${chapter.id}`);
+        entQuery = (entQuery as any).or(
+          `entitlement_type.eq.full_work,chapter_id.eq.${chapter.id}`,
+        );
       }
       if (typeof (entQuery as any).limit === 'function') {
         entQuery = (entQuery as any).limit(50);
@@ -470,13 +518,13 @@ export async function canReadChapter(
         const { data: rawPurchases } = await purchaseQuery;
         const validStatuses = new Set(['active', 'completed', 'paid']);
         const purchases = (rawPurchases || []).filter((p: any) =>
-          p.status ? validStatuses.has(p.status) : true
+          p.status ? validStatuses.has(p.status) : true,
         );
 
         if (purchases && purchases.length > 0) {
           hasFullWorkEntitlement = purchases.some((p: any) => p.purchase_type === 'full_work');
           hasChapterEntitlement = purchases.some(
-            (p: any) => p.purchase_type === 'chapter' && p.chapter_id === chapter.id
+            (p: any) => p.purchase_type === 'chapter' && p.chapter_id === chapter.id,
           );
         }
       } catch {
@@ -542,7 +590,13 @@ export type ChapterAccessDetail = {
 export async function getWorkChaptersAccessMap(
   userId: string | null | undefined,
   workId: string,
-  chapters: Array<{ id: string; chapter_number?: number | null; is_free?: boolean | null; is_preview_free?: boolean | null; price?: number | null }>,
+  chapters: Array<{
+    id: string;
+    chapter_number?: number | null;
+    is_free?: boolean | null;
+    is_preview_free?: boolean | null;
+    price?: number | null;
+  }>,
   options?: {
     customClient?: any;
     authorId?: string;
@@ -592,12 +646,19 @@ export async function getWorkChaptersAccessMap(
   // Default guest evaluation
   chapters.forEach((ch) => {
     const isPlusFirst = Boolean(options?.workIsPlus && Number(ch.chapter_number) === 1);
-    const isFree = isPlusFirst || (isPaidFullWork ? Boolean(ch.is_preview_free) : Boolean(ch.is_free));
+    const isFree =
+      isPlusFirst ||
+      (!options?.workIsPlus &&
+        (isPaidFullWork ? Boolean(ch.is_preview_free) : Boolean(ch.is_free)));
     map[ch.id] = {
       isFree,
       isPurchased: false,
       isLocked: !isFree,
-      price: isPaidFullWork ? Number(options?.fullWorkPrice || 0) : (isFree ? 0 : Number(ch.price || 0)),
+      price: isPaidFullWork
+        ? Number(options?.fullWorkPrice || 0)
+        : isFree
+          ? 0
+          : Number(ch.price || 0),
       accessReason: isFree ? 'free' : 'locked',
     };
   });
@@ -669,7 +730,8 @@ export async function getWorkChaptersAccessMap(
     purchases = [];
   }
 
-  const hasFullWork = entitlements.some((e: any) => e.entitlement_type === 'full_work') ||
+  const hasFullWork =
+    entitlements.some((e: any) => e.entitlement_type === 'full_work') ||
     purchases.some((p: any) => p.purchase_type === 'full_work');
 
   const purchasedChapterIds = new Set<string>([
@@ -681,7 +743,8 @@ export async function getWorkChaptersAccessMap(
     if (hasFullWork || purchasedChapterIds.has(ch.id) || activePlus) {
       map[ch.id].isPurchased = true;
       map[ch.id].isLocked = false;
-      map[ch.id].accessReason = activePlus && !hasFullWork && !purchasedChapterIds.has(ch.id) ? 'plus' : 'purchased';
+      map[ch.id].accessReason =
+        activePlus && !hasFullWork && !purchasedChapterIds.has(ch.id) ? 'plus' : 'purchased';
     }
   });
 

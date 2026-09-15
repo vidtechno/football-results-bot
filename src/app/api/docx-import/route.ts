@@ -6,13 +6,13 @@ import { sanitizeRichText } from '@/lib/utils/sanitizer';
 import { analyzeDocxTechnicalIssues, applyConfirmedSuggestion } from '@/lib/docx-import/ai';
 import { parseDocx, validateDocxIntegrity } from '@/lib/docx-import/parser';
 import { htmlToPlainText } from '@/lib/docx-import/text';
+import { isPlausibleDocxUpload } from '@/lib/docx-import/upload';
 import type { AiSuggestion, DocxChapter } from '@/lib/docx-import/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const DEFAULT_MAX_BYTES = 8 * 1024 * 1024;
 const MAX_CHAPTERS = 1_000;
 const MAX_TOTAL_HTML = 3_000_000;
@@ -130,8 +130,7 @@ export async function POST(request: NextRequest) {
         1_000_000,
         Number(process.env.DOCX_IMPORT_MAX_BYTES) || DEFAULT_MAX_BYTES,
       );
-      const extensionValid = file.name.toLocaleLowerCase('uz-UZ').endsWith('.docx');
-      if (!extensionValid || file.type !== DOCX_MIME || file.size > maxBytes) {
+      if (!isPlausibleDocxUpload(file) || file.size > maxBytes) {
         return NextResponse.json(
           {
             error: `Faqat .docx fayl qabul qilinadi. Maksimal hajm ${Math.round(maxBytes / 1_048_576)} MB.`,

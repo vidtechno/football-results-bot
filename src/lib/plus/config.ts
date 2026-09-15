@@ -1,0 +1,2 @@
+export const DEFAULT_PLUS_MONTHLY_PRICE = 19_000;
+export const PLUS_DURATION_DAYS = 30;

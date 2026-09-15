@@ -7,6 +7,7 @@ import {
   parseDocx,
   validateDocxIntegrity,
 } from '@/lib/docx-import/parser';
+import { DOCX_MIME, isPlausibleDocxUpload } from '@/lib/docx-import/upload';
 
 const xmlEscape = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -56,6 +57,15 @@ async function makeDocx(paragraphs: Paragraph[], headerText = '') {
 }
 
 describe('DOCX importer', () => {
+  it('accepts valid browser MIME variants but rejects renamed non-DOCX uploads', () => {
+    expect(isPlausibleDocxUpload({ name: 'kitob.docx', type: DOCX_MIME })).toBe(true);
+    expect(isPlausibleDocxUpload({ name: 'kitob.DOCX', type: '' })).toBe(true);
+    expect(isPlausibleDocxUpload({ name: 'kitob.docx', type: 'application/octet-stream' })).toBe(
+      true,
+    );
+    expect(isPlausibleDocxUpload({ name: 'kitob.pdf', type: 'application/pdf' })).toBe(false);
+    expect(isPlausibleDocxUpload({ name: 'kitob.docx', type: 'application/pdf' })).toBe(false);
+  });
   it('keeps nested lists, tables and lower-level headings when splitting preview', () => {
     const html =
       '<h3>Izoh</h3><ul><li>A<ul><li>B</li></ul></li><li>C</li></ul><table><tr><td>D</td><td>E</td></tr></table>';

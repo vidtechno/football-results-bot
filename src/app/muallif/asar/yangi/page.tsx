@@ -37,6 +37,7 @@ export default function YangiAsarPage() {
   const [fullWorkPrice, setFullWorkPrice] = useState<string>('15000');
   const [selectedGenreId, setSelectedGenreId] = useState<string>('');
   const [creationMode, setCreationMode] = useState<'manual' | 'docx'>('manual');
+  const [creditedAuthorName, setCreditedAuthorName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -157,6 +158,9 @@ export default function YangiAsarPage() {
           accessType,
           fullWorkPrice: accessType === 'paid_full_work' ? Number(fullWorkPrice) || 0 : 0,
           genreIds: selectedGenreId ? [selectedGenreId] : [],
+          ...(isAdmin && creationMode === 'docx'
+            ? { creditedAuthorName: creditedAuthorName.trim() }
+            : {}),
         }),
       });
 
@@ -253,9 +257,34 @@ export default function YangiAsarPage() {
             </div>
             {creationMode === 'docx' && (
               <p className="mt-2 text-[11px] leading-relaxed text-stone-500">
-                Avval asarning asosiy ma’lumotlari saqlanadi, keyin DOCX preview muharriri ochiladi.
+                DOCX fayl muqova rasmi maydoniga yuklanmaydi. Quyidagi ma’lumotlarni to‘ldirib,
+                «Yaratish va DOCX yuklash» tugmasini bosing — keyingi ekranda .docx fayl tanlanadi.
               </p>
             )}
+          </div>
+        )}
+
+        {isAdmin && creationMode === 'docx' && (
+          <div>
+            <label
+              htmlFor="credited-author"
+              className="mb-2 block text-xs font-bold text-stone-700"
+            >
+              Kitob muallifining ism-familiyasi <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="credited-author"
+              required
+              maxLength={180}
+              value={creditedAuthorName}
+              onChange={(event) => setCreditedAuthorName(event.target.value)}
+              placeholder="Masalan: Abdulla Qodiriy"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900"
+            />
+            <p className="mt-2 text-xs text-stone-500">
+              Saytda shu ism ko‘rinadi. Administrator akkaunti muallif sifatida ko‘rsatilmaydi va bu
+              ism profilga havola bo‘lmaydi.
+            </p>
           </div>
         )}
 

@@ -17,10 +17,12 @@ describe('DOCX workflow and safe work deletion', () => {
   it('keeps parsing server-side and checks DOCX MIME, extension, limits and duplicate hashes', () => {
     const route = read('src/app/api/docx-import/route.ts');
     const parser = read('src/lib/docx-import/parser.ts');
-    expect(route).toContain(
+    const upload = read('src/lib/docx-import/upload.ts');
+    expect(upload).toContain(
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     );
-    expect(route).toContain("endsWith('.docx')");
+    expect(upload).toContain("endsWith('.docx')");
+    expect(route).toContain('isPlausibleDocxUpload');
     expect(route).toContain('DOCX_IMPORT_MAX_BYTES');
     expect(route).toContain("createHash('sha256')");
     expect(parser).toContain('MAX_ZIP_ENTRIES');

@@ -21,7 +21,9 @@ interface ReadingPageProps {
   }>;
 }
 
-export async function generateMetadata({ params: paramsPromise }: ReadingPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params: paramsPromise,
+}: ReadingPageProps): Promise<Metadata> {
   const params = await paramsPromise;
   const { work, chapter } = await getChapterMetadata(params.slug, params.chapterSlug);
   if (!work || !chapter) {
@@ -35,7 +37,7 @@ export async function generateMetadata({ params: paramsPromise }: ReadingPagePro
     chapter.isFirstPublished &&
     ((work.access_type === 'free' && !work.is_plus) ||
       Boolean(chapter.is_free) ||
-      Boolean(chapter.is_preview_free));
+      (!work.is_plus && Boolean(chapter.is_preview_free)));
   return {
     title: `${chapter.title} — ${work.title}`,
     description,
@@ -70,7 +72,10 @@ export async function generateMetadata({ params: paramsPromise }: ReadingPagePro
   };
 }
 
-export default async function ReadingPage({ params: paramsPromise, searchParams: searchParamsPromise }: ReadingPageProps) {
+export default async function ReadingPage({
+  params: paramsPromise,
+  searchParams: searchParamsPromise,
+}: ReadingPageProps) {
   const params = await paramsPromise;
   const searchParams = await searchParamsPromise;
   const profile = await getCurrentProfile();

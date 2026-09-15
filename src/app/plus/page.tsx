@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getPublishedWorks } from '@/lib/db/queries';
+import { getPublishedPlusWorkCount, getPublishedWorks } from '@/lib/db/queries';
 import { WorkCard } from '@/components/work/WorkCard';
 import { PlusSubscribeButton } from '@/components/plus/PlusSubscribeButton';
 
@@ -28,7 +28,10 @@ export const metadata: Metadata = {
 };
 
 export default async function PlusPage() {
-  const works = await getPublishedWorks({ isPlus: true, limit: 60, sortBy: 'newest' });
+  const [works, totalWorks] = await Promise.all([
+    getPublishedWorks({ isPlus: true, limit: 60, sortBy: 'newest' }),
+    getPublishedPlusWorkCount(),
+  ]);
   const sections = [
     ['Yangi qo‘shilganlar', works.slice(0, 12)],
     ['Kitoblar', works.filter((w) => w.type === 'book')],
@@ -56,6 +59,9 @@ export default async function PlusPage() {
         <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-200">
           Manbora jamoasi tayyorlagan kitoblar, tarjimalar va hikoyalarni bitta obuna bilan o‘qing.
           Birinchi bob barcha uchun bepul.
+        </p>
+        <p className="mt-4 inline-flex rounded-full border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-bold text-amber-100">
+          Hozir Plus obunasi {totalWorks} ta asarni o‘z ichiga oladi
         </p>
         <div className="mt-6">
           <PlusSubscribeButton />

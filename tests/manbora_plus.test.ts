@@ -4,17 +4,89 @@ import path from 'node:path';
 import { evaluateCanonicalChapterAccess } from '@/lib/security/access';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-const base = { workAccessType: 'paid_full_work', fullWorkPrice: 25000, isWorkPublished: true, isChapterPublished: true };
+const base = {
+  workAccessType: 'paid_full_work',
+  fullWorkPrice: 25000,
+  isWorkPublished: true,
+  isChapterPublished: true,
+};
 
 describe('Manbora Plus MVP', () => {
-  it('opens the first Plus chapter to anonymous readers', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 1 }).canRead).toBe(true));
-  it('locks chapter two for anonymous and inactive users', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 2 }).canRead).toBe(false));
-  it('does not let a legacy free work bypass Plus chapter locks', () => expect(evaluateCanonicalChapterAccess({ ...base, workAccessType: 'free', chapterIsFree: true, workIsPlus: true, chapterNumber: 2 }).canRead).toBe(false));
-  it('opens a legacy free Plus work to an active subscriber', () => expect(evaluateCanonicalChapterAccess({ ...base, workAccessType: 'free', chapterIsFree: true, workIsPlus: true, chapterNumber: 2, hasPlusSubscription: true }).reason).toBe('plus'));
-  it('opens later chapters to active Plus users', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 2, hasPlusSubscription: true }).reason).toBe('plus'));
-  it('keeps permanent purchase access independent of Plus', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 2, hasFullWorkEntitlement: true, hasPlusSubscription: true }).reason).toBe('purchased_full_work'));
-  it('treats an expired or inactive Plus state as locked', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 2, hasPlusSubscription: false }).reason).toBe('locked'));
-  it('does not open ordinary works for Plus subscribers', () => expect(evaluateCanonicalChapterAccess({ ...base, workIsPlus: false, chapterNumber: 2, hasPlusSubscription: true }).canRead).toBe(false));
+  it('opens the first Plus chapter to anonymous readers', () =>
+    expect(
+      evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 1 }).canRead,
+    ).toBe(true));
+  it('locks chapter two for anonymous and inactive users', () =>
+    expect(
+      evaluateCanonicalChapterAccess({ ...base, workIsPlus: true, chapterNumber: 2 }).canRead,
+    ).toBe(false));
+  it('does not let a stale preview flag expose later Plus chapters', () =>
+    expect(
+      evaluateCanonicalChapterAccess({
+        ...base,
+        workIsPlus: true,
+        chapterNumber: 2,
+        chapterIsPreviewFree: true,
+      }).canRead,
+    ).toBe(false));
+  it('does not let a legacy free work bypass Plus chapter locks', () =>
+    expect(
+      evaluateCanonicalChapterAccess({
+        ...base,
+        workAccessType: 'free',
+        chapterIsFree: true,
+        workIsPlus: true,
+        chapterNumber: 2,
+      }).canRead,
+    ).toBe(false));
+  it('opens a legacy free Plus work to an active subscriber', () =>
+    expect(
+      evaluateCanonicalChapterAccess({
+        ...base,
+        workAccessType: 'free',
+        chapterIsFree: true,
+        workIsPlus: true,
+        chapterNumber: 2,
+        hasPlusSubscription: true,
+      }).reason,
+    ).toBe('plus'));
+  it('opens later chapters to active Plus users', () =>
+    expect(
+      evaluateCanonicalChapterAccess({
+        ...base,
+        workIsPlus: true,
+        chapterNumber: 2,
+        hasPlusSubscription: true,
+      }).reason,
+    ).toBe('plus'));
+  it('keeps permanent purchase access independent of Plus', () =>
+    expect(
+      evaluateCanonicalChapterAccess({
+        ...base,
+        workIsPlus: true,
+        chapterNumber: 2,
+        hasFullWorkEntitlement: true,
+        hasPlusSubscription: true,
+      }).reason,
+    ).toBe('purchased_full_work'));
+  it('treats an expired or inactive Plus state as locked', () =>
+    expect(
+      evaluateCanonicalChapterAccess({
+        ...base,
+        workIsPlus: true,
+        chapterNumber: 2,
+        hasPlusSubscription: false,
+      }).reason,
+    ).toBe('locked'));
+  it('does not open ordinary works for Plus subscribers', () =>
+    expect(
+      evaluateCanonicalChapterAccess({
+        ...base,
+        workIsPlus: false,
+        chapterNumber: 2,
+        hasPlusSubscription: true,
+      }).canRead,
+    ).toBe(false));
   it('enforces admin-created Plus works in the database', () => {
     const sql = read('supabase/migrations/045_manbora_plus_mvp.sql');
     expect(sql).toContain('ONLY_ADMIN_WORKS_CAN_BE_PLUS');
@@ -33,7 +105,7 @@ describe('Manbora Plus MVP', () => {
   it('does not select locked chapter content before server authorization', () => {
     const access = read('src/lib/security/access.ts');
     const readerQuery = read('src/lib/db/queries.ts');
-    expect(access).toContain("if (evalResult.canRead)");
+    expect(access).toContain('if (evalResult.canRead)');
     expect(access).toContain("content: ''");
     expect(readerQuery).toContain('hasPlusSubscription: activePlus');
     expect(readerQuery).toContain('workIsPlus: Boolean(work.is_plus)');
@@ -47,5 +119,13 @@ describe('Manbora Plus MVP', () => {
   it('is responsive and present in the sitemap', () => {
     expect(read('src/app/plus/page.tsx')).toContain('grid-cols-2');
     expect(read('src/app/sitemap.ts')).toContain('`${baseUrl}/plus`');
+  });
+  it('uses the 19,000 so‘m price and shows the exact catalogue size', () => {
+    const migration = read('supabase/migrations/050_plus_price_and_access_hardening.sql');
+    const page = read('src/app/plus/page.tsx');
+    expect(migration).toContain("'19000'");
+    expect(migration).toContain('w.is_plus=true AND c.chapter_number=1');
+    expect(page).toContain('getPublishedPlusWorkCount');
+    expect(page).toContain('ta asarni o‘z ichiga oladi');
   });
 });

@@ -130,7 +130,8 @@ export async function getPublishedWorks(options?: {
       )
     `,
     )
-    .eq('status', 'published');
+    .eq('status', 'published')
+    .eq('is_archived', false);
 
   if (options?.sortBy === 'price_asc') {
     q = q.order('full_work_price', { ascending: true });
@@ -226,6 +227,7 @@ export async function getPublishedWorks(options?: {
       `,
       )
       .eq('status', 'published')
+      .eq('is_archived', false)
       .order('published_at', { ascending: false });
 
     if (options?.query) {
@@ -262,6 +264,24 @@ export async function getPublishedWorks(options?: {
     genres: (w.work_genres || []).map((wg: any) => wg.genre).filter(Boolean),
   })) as Work[];
 }
+
+export const getPublishedPlusWorkCount = unstable_cache(
+  async (): Promise<number> => {
+    const { count, error } = await createCatalogueClient()
+      .from('works')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'published')
+      .eq('is_archived', false)
+      .eq('is_plus', true);
+    if (error) {
+      console.error('Error counting Plus works:', error);
+      return 0;
+    }
+    return count || 0;
+  },
+  ['public-plus-work-count-v1'],
+  { revalidate: 60, tags: ['public-catalogue'] },
+);
 
 /**
  * Fetch single work by slug with published chapters.
@@ -1084,7 +1104,7 @@ export async function getGenresWithCounts(): Promise<Array<Genre & { works_count
 /**
  * Fetch public author profile and works by ID, user_id or username
  */
-export const getPublicAuthorIdentity = unstable_cache(
+const getCachedPublicAuthorIdentity = unstable_cache(
   async (identifier: string) => {
     const supabase = createAdminClient();
 
@@ -1122,13 +1142,15 @@ export const getPublicAuthorIdentity = unstable_cache(
   { revalidate: 60, tags: ['public-catalogue', 'public-authors'] },
 );
 
+export const getPublicAuthorIdentity = requestCache(getCachedPublicAuthorIdentity);
+
 const getCachedPublicAuthor = unstable_cache(
   async function getPublicAuthor(identifier: string) {
     const supabase = createAdminClient();
     const author = await getPublicAuthorIdentity(identifier);
     if (!author) return null;
 
-    const [worksRes, followersRes, followingRes] = await Promise.all([
+    const [worksRes, followersRes, followingRes, readsRes] = await Promise.all([
       supabase
         .from('works')
         .select(
@@ -1139,6 +1161,7 @@ const getCachedPublicAuthor = unstable_cache(
         )
         .eq('author_id', author.user_id)
         .eq('status', 'published')
+        .eq('is_archived', false)
         .eq('is_translation', false)
         .is('credited_author_name', null)
         .order('published_at', { ascending: false }),
@@ -1150,9 +1173,21 @@ const getCachedPublicAuthor = unstable_cache(
         .from('author_follows')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', author.user_id),
+      supabase
+        .from('reading_progress')
+        .select(
+          'id,work:works!inner(author_id,status,is_archived,is_translation,credited_author_name)',
+          { count: 'exact', head: true },
+        )
+        .eq('work.author_id', author.user_id)
+        .eq('work.status', 'published')
+        .eq('work.is_archived', false)
+        .eq('work.is_translation', false)
+        .is('work.credited_author_name', null)
+        .neq('user_id', author.user_id),
     ]);
 
-    for (const result of [worksRes, followersRes, followingRes]) {
+    for (const result of [worksRes, followersRes, followingRes, readsRes]) {
       if (result.error) throw result.error;
     }
     const rawWorks = (worksRes.data as any[]) || [];
@@ -1168,18 +1203,8 @@ const getCachedPublicAuthor = unstable_cache(
     const followerCount = followersRes.count || 0;
     const followingCount = followingRes.count || 0;
 
-    // Calculate total public reads canonically from reading_progress across published works (excluding author self-reads)
-    const workIds = works.map((w) => w.id);
-    let totalReads = 0;
-    if (workIds.length > 0) {
-      const { count, error } = await supabase
-        .from('reading_progress')
-        .select('id', { count: 'exact', head: true })
-        .in('work_id', workIds)
-        .neq('user_id', author.user_id);
-      if (error) throw error;
-      totalReads = count || 0;
-    }
+    // Count actual public reading records in parallel, excluding author self-reads.
+    const totalReads = readsRes.count || 0;
 
     return {
       author,
@@ -1190,7 +1215,7 @@ const getCachedPublicAuthor = unstable_cache(
       followingCount,
     };
   },
-  ['public-author-profile-v1'],
+  ['public-author-profile-v2'],
   { revalidate: 60, tags: ['public-catalogue', 'public-authors'] },
 );
 

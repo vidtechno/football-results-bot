@@ -315,7 +315,12 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Bu DOCX avval import qilingan.' }, { status: 409 });
         console.error('Atomic DOCX import failed', { code: error.code, sessionId: session.id });
         return NextResponse.json(
-          { error: 'Boblarni import qilib bo‘lmadi. Hech qanday bob saqlanmadi.' },
+          {
+            error:
+              error.code === '42703' && error.message.includes('role')
+                ? 'Baza import funksiyasi eskirgan. Supabase’da 051_fix_docx_import_profile_role.sql migratsiyasini bajaring, keyin importni qayta bosing. Preview saqlangan.'
+                : 'Boblarni import qilib bo‘lmadi. Hech qanday bob saqlanmadi.',
+          },
           { status: 500 },
         );
       }

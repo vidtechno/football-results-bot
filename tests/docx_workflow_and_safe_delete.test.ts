@@ -6,6 +6,14 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
 describe('DOCX workflow and safe work deletion', () => {
+  it('supports production profiles without a role column in atomic import', () => {
+    const migration = read('supabase/migrations/048_docx_import_and_safe_work_deletion.sql');
+    expect(migration).toContain("to_jsonb(profiles)->>'role'");
+    expect(migration).not.toContain("OR role = 'admin'");
+    expect(read('supabase/migrations/051_fix_docx_import_profile_role.sql')).toContain(
+      'pg_get_functiondef',
+    );
+  });
   it('allows repairable empty previews into AI review but keeps final import strict', () => {
     const route = read('src/app/api/docx-import/route.ts');
     expect(route).toContain('normalizeIncomingChapters(body.chapters, true)');

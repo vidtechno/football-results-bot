@@ -67,7 +67,7 @@ DECLARE
   v_chapter_id uuid;
   v_count integer := 0;
 BEGIN
-  SELECT coalesce(is_admin, false) OR role = 'admin'
+  SELECT coalesce(is_admin, false) OR coalesce(to_jsonb(profiles)->>'role', '') = 'admin'
     INTO v_is_admin FROM public.profiles WHERE id = p_actor_id;
   SELECT EXISTS (
     SELECT 1 FROM public.author_profiles

@@ -6,6 +6,16 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
 describe('DOCX workflow and safe work deletion', () => {
+  it('allows repairable empty previews into AI review but keeps final import strict', () => {
+    const route = read('src/app/api/docx-import/route.ts');
+    expect(route).toContain('normalizeIncomingChapters(body.chapters, true)');
+    expect(route).toContain('normalizeIncomingChapters(session.chapters)');
+    expect(route).toContain('(!allowEmpty && !plainText)');
+    const panel = read('src/components/docx-import/DocxImportPanel.tsx');
+    expect(panel).toContain('Bo‘sh boblarni olib tashlash');
+    expect(panel).toContain('initialContent={chapter.contentHtml}');
+    expect(panel).toContain('plainText: htmlToPlainText(contentHtml)');
+  });
   it('removes the PDF importer implementation and dependency', () => {
     expect(existsSync(join(root, 'src/app/api/admin/pdf-import/route.ts'))).toBe(false);
     expect(existsSync(join(root, 'src/lib/pdf-import'))).toBe(false);

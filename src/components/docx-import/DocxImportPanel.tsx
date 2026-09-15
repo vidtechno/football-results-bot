@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   ArrowDown,
   ArrowUp,
@@ -35,6 +36,10 @@ interface DocxImportPanelProps {
 }
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const RichTextEditor = dynamic(
+  () => import('@/components/editor/RichTextEditor').then((module) => module.RichTextEditor),
+  { ssr: false },
+);
 
 async function importRequest(url: string, options: RequestInit) {
   const controller = new AbortController();
@@ -64,6 +69,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
   const [stage, setStage] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   async function headers(json = false) {
     const { data } = await supabase.auth.getSession();
@@ -114,6 +120,7 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
   }
 
   function setChapters(chapters: DocxChapter[]) {
+    setError('');
     setSession((current) =>
       current
         ? {
@@ -175,9 +182,15 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
     setChapters(chapters);
   }
 
-  function removeEmpty(index: number) {
+  function removeChapter(index: number) {
     if (!session) return;
-    if (session.chapters[index].plainText.trim()) return fail('Faqat bo‘sh bobni o‘chirish mumkin');
+    const chapter = session.chapters[index];
+    if (
+      !window.confirm(
+        `“${chapter.title}” bobini previewdan o‘chirasizmi? Bob matni ham olib tashlanadi. Original DOCX fayl o‘zgarmaydi.`,
+      )
+    )
+      return;
     setChapters(session.chapters.filter((_, itemIndex) => itemIndex !== index));
   }
 
@@ -248,6 +261,8 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
   }
 
   const stats = session?.statistics;
+  const emptyChapters =
+    session?.chapters.filter((chapter) => !htmlToPlainText(chapter.contentHtml).trim()) || [];
   const canImport = Boolean(session && !stats?.suspiciousLoss && session.status !== 'completed');
 
   return (
@@ -327,8 +342,28 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
           ))}
           {stats?.suspiciousLoss && (
             <p className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-800">
-              Import vaqtida matnning bir qismi yo‘qolishi mumkin. Iltimos, faylni tekshiring.
+              {emptyChapters.length
+                ? `${emptyChapters.length} ta bob bo‘sh: ${emptyChapters.map((chapter) => chapter.title).join(', ')}. Ularni birlashtiring, matn kiriting yoki bo‘sh boblarni olib tashlang. Asosiy matn avtomatik o‘chirilmaydi.`
+                : 'Matn yaxlitligi tekshiruvidan o‘tmadi. Importdan oldin matnni tekshiring.'}
             </p>
+          )}
+          {emptyChapters.length > 0 && (
+            <button
+              type="button"
+              disabled={Boolean(stage)}
+              onClick={() => {
+                if (window.confirm('Faqat matnsiz boblar olib tashlanadi. Davom etasizmi?')) {
+                  setChapters(
+                    session.chapters.filter((chapter) =>
+                      htmlToPlainText(chapter.contentHtml).trim(),
+                    ),
+                  );
+                }
+              }}
+              className="rounded-xl border bg-white px-4 py-2 text-xs font-bold"
+            >
+              Bo‘sh boblarni olib tashlash ({emptyChapters.length})
+            </button>
           )}
 
           <div className="rounded-3xl border bg-white p-4 sm:p-5">
@@ -426,10 +461,42 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
                     {Math.round(chapter.confidence * 100)}%
                   </span>
                 </div>
-                <p className="mt-3 line-clamp-4 whitespace-pre-line rounded-2xl bg-stone-50 p-3 text-xs leading-6 text-stone-700">
-                  {chapter.plainText.slice(0, 800)}
-                </p>
+                {editingId === chapter.id ? (
+                  <RichTextEditor
+                    key={chapter.id}
+                    initialContent={chapter.contentHtml}
+                    onChange={(contentHtml) => {
+                      setSession((current) =>
+                        current
+                          ? {
+                              ...current,
+                              chapters: current.chapters.map((item) =>
+                                item.id === chapter.id
+                                  ? {
+                                      ...item,
+                                      contentHtml,
+                                      plainText: htmlToPlainText(contentHtml),
+                                    }
+                                  : item,
+                              ),
+                            }
+                          : current,
+                      );
+                    }}
+                  />
+                ) : (
+                  <p className="mt-3 line-clamp-4 whitespace-pre-line rounded-2xl bg-stone-50 p-3 text-xs leading-6 text-stone-700">
+                    {chapter.plainText.slice(0, 800)}
+                  </p>
+                )}
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+                  <button
+                    type="button"
+                    disabled={Boolean(stage)}
+                    onClick={() => setEditingId(editingId === chapter.id ? null : chapter.id)}
+                  >
+                    {editingId === chapter.id ? 'Tahrirni yopish' : 'Matnni tahrirlash'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => move(index, -1)}
@@ -472,15 +539,15 @@ export function DocxImportPanel({ workId, workTitle, onImported }: DocxImportPan
                     <Merge className="h-4 w-4" />
                     Keyingisiga qo‘shish
                   </button>
-                  {!chapter.plainText.trim() && (
-                    <button
-                      type="button"
-                      onClick={() => removeEmpty(index)}
-                      className="ml-auto text-rose-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeChapter(index)}
+                    disabled={Boolean(stage)}
+                    className="ml-auto inline-flex items-center gap-1 text-rose-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Bobni o‘chirish
+                  </button>
                 </div>
               </article>
             ))}

@@ -75,19 +75,21 @@ async function loadSession(
   return data;
 }
 
-function normalizeIncomingChapters(value: unknown): DocxChapter[] {
+function normalizeIncomingChapters(value: unknown, allowEmpty = false): DocxChapter[] {
   if (!Array.isArray(value) || !value.length || value.length > MAX_CHAPTERS) {
     throw new Error('INVALID_CHAPTERS');
   }
   let totalHtml = 0;
   return value.map((item: any, index) => {
+    if (!item || typeof item !== 'object') throw new Error('INVALID_CHAPTERS');
     const title = String(item.title || '')
       .trim()
       .slice(0, 180);
     const contentHtml = sanitizeRichText(String(item.contentHtml || ''));
     const plainText = htmlToPlainText(contentHtml);
     totalHtml += contentHtml.length;
-    if (!title || !plainText || totalHtml > MAX_TOTAL_HTML) throw new Error('INVALID_CHAPTERS');
+    if (!title || (!allowEmpty && !plainText) || totalHtml > MAX_TOTAL_HTML)
+      throw new Error('INVALID_CHAPTERS');
     return {
       id: String(item.id || randomUUID()),
       title,
@@ -350,7 +352,9 @@ export async function PATCH(request: NextRequest) {
         { error: 'Yakunlangan importni o‘zgartirib bo‘lmaydi' },
         { status: 409 },
       );
-    const chapters = normalizeIncomingChapters(body.chapters);
+    // A repairable preview must be saveable so AI can inspect it. Final import
+    // still uses strict validation and cannot publish empty chapter bodies.
+    const chapters = normalizeIncomingChapters(body.chapters, true);
     const stats = validateDocxIntegrity(
       session.expected_body_text,
       chapters,

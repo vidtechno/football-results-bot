@@ -5,7 +5,10 @@ export async function GET(request: Request) {
   try {
     const profile = await getCurrentProfile(request.headers.get('Authorization'));
     if (!profile) {
-      return NextResponse.json({ success: false, error: 'Avtorizatsiya talab qilinadi' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Avtorizatsiya talab qilinadi' },
+        { status: 401 },
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -41,7 +44,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, revisions: revisions || [] });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'Server xatosi' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: err.message || 'Server xatosi' },
+      { status: 500 },
+    );
   }
 }
 
@@ -49,32 +55,40 @@ export async function POST(request: Request) {
   try {
     const profile = await getCurrentProfile(request.headers.get('Authorization'));
     if (!profile) {
-      return NextResponse.json({ success: false, error: 'Avtorizatsiya talab qilinadi' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Avtorizatsiya talab qilinadi' },
+        { status: 401 },
+      );
     }
 
     const body = await request.json();
     const workId = String(body.workId || '');
 
     if (!workId) {
-      return NextResponse.json({ success: false, error: 'Asar ID talab qilinadi' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Asar ID talab qilinadi' },
+        { status: 400 },
+      );
     }
 
     const adminClient = createAdminClient();
 
     // Verify ownership
-    const { data: work } = await adminClient
-      .from('works')
-      .select('*')
-      .eq('id', workId)
-      .single();
+    const { data: work } = await adminClient.from('works').select('*').eq('id', workId).single();
 
     if (!work || work.author_id !== profile.id) {
-      return NextResponse.json({ success: false, error: 'Faqat o‘zingizning asaringizni tahrirlashingiz mumkin' }, { status: 403 });
+      return NextResponse.json(
+        { success: false, error: 'Faqat o‘zingizning asaringizni tahrirlashingiz mumkin' },
+        { status: 403 },
+      );
     }
 
     const title = String(body.title || '').trim();
     if (!title) {
-      return NextResponse.json({ success: false, error: 'Asar nomi bo‘sh bo‘lishi mumkin emas' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Asar nomi bo‘sh bo‘lishi mumkin emas' },
+        { status: 400 },
+      );
     }
 
     const description = body.description ? String(body.description).trim() : null;
@@ -83,6 +97,8 @@ export async function POST(request: Request) {
     const accessType = body.accessType || work.access_type;
     const fullWorkPrice = Number(body.fullWorkPrice || 0);
     const ageRating = body.ageRating || work.age_rating || '0+';
+    const completionStatus = body.completionStatus === 'completed' ? 'completed' : 'ongoing';
+    const genreIds: string[] = Array.isArray(body.genreIds) ? body.genreIds : [];
 
     // If work is in draft state, update directly
     if (work.status === 'draft') {
@@ -96,6 +112,8 @@ export async function POST(request: Request) {
           access_type: accessType,
           full_work_price: accessType === 'paid_full_work' ? fullWorkPrice : 0,
           age_rating: ageRating,
+          completion_status: completionStatus,
+          genre_ids: genreIds,
           updated_at: new Date().toISOString(),
         })
         .eq('id', workId)
@@ -137,7 +155,8 @@ export async function POST(request: Request) {
         .select()
         .single();
 
-      if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      if (error)
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       revisionResult = data;
     } else {
       const { data, error } = await adminClient
@@ -152,23 +171,30 @@ export async function POST(request: Request) {
           access_type: accessType,
           full_work_price: accessType === 'paid_full_work' ? fullWorkPrice : 0,
           age_rating: ageRating,
+          completion_status: completionStatus,
+          genre_ids: genreIds,
           status: 'pending_review',
         })
         .select()
         .single();
 
-      if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      if (error)
+        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
       revisionResult = data;
     }
 
     return NextResponse.json({
       success: true,
       isRevision: true,
-      message: 'Nashr qilingan asarga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
+      message:
+        'Nashr qilingan asarga kiritilgan o‘zgarishlar alohida tahrir sifatida saqlandi va moderatsiyaga yuborildi',
       revision: revisionResult,
     });
   } catch (err: any) {
     console.error('Work revision error:', err);
-    return NextResponse.json({ success: false, error: err.message || 'Server xatosi' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: err.message || 'Server xatosi' },
+      { status: 500 },
+    );
   }
 }

@@ -6,6 +6,15 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
 describe('DOCX workflow and safe work deletion', () => {
+  it('verifies approved work revisions against the canonical live work', () => {
+    const approval = read('src/app/api/admin/revisions-action/route.ts');
+    expect(approval).toContain('Never report approval until the canonical live row');
+    expect(approval).toContain("revalidateTag('public-catalogue')");
+    expect(approval).toContain('Tasdiqlangan tahrir asarga qo‘llanmadi');
+    const editor = read('src/app/muallif/asar/[id]/AuthorWorkEditorClient.tsx');
+    expect(editor).toContain("revision.status === 'pending_review'");
+    expect(editor).toContain('pendingRevision?.title');
+  });
   it('supports production profiles without a role column in atomic import', () => {
     const migration = read('supabase/migrations/048_docx_import_and_safe_work_deletion.sql');
     expect(migration).toContain("to_jsonb(profiles)->>'role'");

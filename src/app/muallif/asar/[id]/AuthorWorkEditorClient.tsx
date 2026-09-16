@@ -194,6 +194,9 @@ export function AuthorWorkEditorClient({
       }
 
       const workData = workRes.data;
+      const pendingRevision = (revisionsRes.data || []).find(
+        (revision: any) => revision.status === 'pending_review',
+      );
 
       // Ownership enforcement (defense-in-depth against IDOR)
       if (workData.author_id !== session.user.id) {
@@ -211,20 +214,26 @@ export function AuthorWorkEditorClient({
         }
       }
       setWork(workData as Work);
-      setTitle(workData.title || '');
-      setDescription(workData.description || '');
-      setCoverUrl(workData.cover_url || '');
-      setType(workData.type || 'book');
-      setAccessType(workData.access_type || 'free');
-      setFullWorkPrice(String(workData.full_work_price || '15000'));
-      setCompletionStatus(workData.completion_status || 'ongoing');
-      setAgeRating(workData.age_rating || 'all');
+      setTitle(pendingRevision?.title ?? workData.title ?? '');
+      setDescription(pendingRevision?.description ?? workData.description ?? '');
+      setCoverUrl(pendingRevision?.cover_url ?? workData.cover_url ?? '');
+      setType(pendingRevision?.type ?? workData.type ?? 'book');
+      setAccessType(pendingRevision?.access_type ?? workData.access_type ?? 'free');
+      setFullWorkPrice(
+        String(pendingRevision?.full_work_price ?? workData.full_work_price ?? 15000),
+      );
+      setCompletionStatus(
+        pendingRevision?.completion_status ?? workData.completion_status ?? 'ongoing',
+      );
+      setAgeRating(pendingRevision?.age_rating ?? workData.age_rating ?? 'all');
       setIsArchived(Boolean(workData.is_archived));
 
       const existingGenres = (workData.work_genres || [])
         .map((wg: any) => wg.genre?.id)
         .filter(Boolean);
-      setSelectedGenreIds(existingGenres);
+      setSelectedGenreIds(
+        Array.isArray(pendingRevision?.genre_ids) ? pendingRevision.genre_ids : existingGenres,
+      );
 
       setGenres((genresRes.data as Genre[]) || []);
 

@@ -220,7 +220,13 @@ export async function POST(request: Request) {
             updateData.completion_status = revBefore.completion_status;
           }
 
-          await adminClient.from('works').update(updateData).eq('id', revBefore.work_id);
+          const { error: liveUpdateError } = await adminClient
+            .from('works')
+            .update(updateData)
+            .eq('id', revBefore.work_id);
+          if (liveUpdateError) {
+            throw new Error(`Asarning jonli nusxasi yangilanmadi: ${liveUpdateError.message}`);
+          }
 
           // Apply proposed genres if present
           if (
@@ -228,15 +234,20 @@ export async function POST(request: Request) {
             Array.isArray(revBefore.genre_ids) &&
             revBefore.genre_ids.length > 0
           ) {
-            await adminClient.from('work_genres').delete().eq('work_id', revBefore.work_id);
+            const { error: genreDeleteError } = await adminClient
+              .from('work_genres')
+              .delete()
+              .eq('work_id', revBefore.work_id);
+            if (genreDeleteError) throw genreDeleteError;
             const joins = revBefore.genre_ids.map((gId: string) => ({
               work_id: revBefore.work_id,
               genre_id: gId,
             }));
-            await adminClient.from('work_genres').insert(joins);
+            const { error: genreInsertError } = await adminClient.from('work_genres').insert(joins);
+            if (genreInsertError) throw genreInsertError;
           }
 
-          await adminClient
+          const { error: revisionStatusError } = await adminClient
             .from('work_revisions')
             .update({
               status: 'approved',
@@ -245,6 +256,7 @@ export async function POST(request: Request) {
               updated_at: new Date().toISOString(),
             })
             .eq('id', revisionId);
+          if (revisionStatusError) throw revisionStatusError;
 
           const wasOngoing = liveBefore?.completion_status === 'ongoing';
           const isNowCompleted =
@@ -259,6 +271,57 @@ export async function POST(request: Request) {
             rpcData?.new_completion_status || revBefore.completion_status || 'ongoing';
           transitionOccurred = prevStatus === 'ongoing' && newStatus === 'completed';
         }
+
+        // Never report approval until the canonical live row actually contains
+        // the approved revision. This also repairs legacy RPCs that returned
+        // success without applying every metadata field.
+        const expectedLive: Record<string, any> = {
+          title: revBefore.title,
+          description: revBefore.description,
+          cover_url: revBefore.cover_url,
+          type: revBefore.type,
+          access_type: revBefore.access_type,
+          full_work_price: revBefore.full_work_price,
+          age_rating: revBefore.age_rating,
+          updated_at: new Date().toISOString(),
+        };
+        if (revBefore.completion_status) {
+          expectedLive.completion_status = revBefore.completion_status;
+        }
+        const { data: verifiedLive, error: verifyError } = await adminClient
+          .from('works')
+          .update(expectedLive)
+          .eq('id', targetWorkId)
+          .select(
+            'id, slug, title, description, cover_url, type, access_type, full_work_price, age_rating, completion_status, is_translation',
+          )
+          .single();
+        if (verifyError || !verifiedLive) {
+          throw new Error(
+            `Tasdiqlangan tahrir asarga qo‘llanmadi: ${verifyError?.message || 'asar topilmadi'}`,
+          );
+        }
+        workSlug = verifiedLive.slug || workSlug;
+        isTranslation = verifiedLive.is_translation;
+
+        if (Array.isArray(revBefore.genre_ids)) {
+          const { error: clearGenreError } = await adminClient
+            .from('work_genres')
+            .delete()
+            .eq('work_id', targetWorkId);
+          if (clearGenreError) throw clearGenreError;
+          if (revBefore.genre_ids.length > 0) {
+            const { error: restoreGenreError } = await adminClient.from('work_genres').insert(
+              revBefore.genre_ids.map((genreId: string) => ({
+                work_id: targetWorkId,
+                genre_id: genreId,
+              })),
+            );
+            if (restoreGenreError) throw restoreGenreError;
+          }
+        }
+
+        revalidateTag('public-catalogue');
 
         // Send work completion notifications exactly once when transitioning ongoing -> completed
         if (transitionOccurred) {

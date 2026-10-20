@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { canReadChapter } from '@/lib/security/access';
+import { isWorkFullyFree } from '@/lib/plus/rules';
 
 export interface RecentReadingProgressDTO {
   workId: string;
@@ -204,7 +205,7 @@ export async function getRecentReadingProgress(
     if (seenWorkIds.has(w.id)) continue;
     seenWorkIds.add(w.id);
 
-    const isFreeWork = w.access_type === 'free' && !w.is_plus;
+    const isFreeWork = isWorkFullyFree(w);
     let canRead = isFreeWork;
 
     if (!canRead && c && c.status === 'published') {

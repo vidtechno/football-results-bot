@@ -174,7 +174,6 @@ export async function POST(request: Request) {
       revalidateTag('public-catalogue');
       revalidatePath('/');
       revalidatePath('/asarlar');
-      revalidatePath('/hikoyalar');
       revalidatePath('/mualliflar');
       revalidatePath(`/mualliflar/${profile.username}`);
     }

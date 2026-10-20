@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { hasActivePlus } from '@/lib/plus/access';
+import { isPlusFreePreviewChapter, isWorkFullyFree } from '@/lib/plus/rules';
 
 export type ChapterAccessReason =
   | 'free'
@@ -424,7 +425,7 @@ export async function canReadChapter(
   }
 
   // CANONICAL RULE 1: Fully free work
-  if (work.access_type === 'free' && !work.is_plus) {
+  if (isWorkFullyFree(work)) {
     const { data: contentRec } = await supabase
       .from('chapter_contents')
       .select('content')
@@ -446,7 +447,7 @@ export async function canReadChapter(
     };
   }
 
-  if (work.is_plus && chapter.chapter_number === 1) {
+  if (isPlusFreePreviewChapter(work, chapter.chapter_number)) {
     const { data: contentRec } = await supabase
       .from('chapter_contents')
       .select('content')

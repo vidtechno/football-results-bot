@@ -53,7 +53,6 @@ async function archiveDeletedWork(request: Request) {
     revalidateTag('seo-sitemap');
     revalidatePath('/');
     revalidatePath('/asarlar');
-    revalidatePath('/hikoyalar');
     revalidatePath('/plus');
     revalidatePath(`/asarlar/${work.slug}`);
     revalidatePath('/muallif');

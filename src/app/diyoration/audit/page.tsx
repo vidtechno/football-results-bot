@@ -13,9 +13,14 @@ import {
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { supabase } from '@/lib/supabase/client';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { AdminPagination } from '@/components/admin/AdminPagination';
+
+const PAGE_SIZE = 20;
 
 export default function AdminAuditLogPage() {
   const [logs, setLogs] = useState<any[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [total, setTotal] = useState<number>(0);
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,26 +39,27 @@ export default function AdminAuditLogPage() {
           metadata,
           created_at,
           admin:profiles (id, display_name, username, public_id)
-        `)
+        `, { count: 'exact' })
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
       if (actionFilter !== 'all') {
         query = query.ilike('action', `%${actionFilter}%`);
       }
 
-      const { data, error: qErr } = await query;
+      const { data, error: qErr, count } = await query;
       if (qErr) {
         setError('Audit jurnallarini yuklab bo‘lmadi');
       } else if (data) {
         setLogs(data);
+        setTotal(count || 0);
       }
     } catch {
       setError('Tarmoq xatosi yuz berdi. Qayta urinib ko‘ring.');
     } finally {
       setLoading(false);
     }
-  }, [actionFilter]);
+  }, [actionFilter, page]);
 
   useEffect(() => {
     fetchAuditLogs();
@@ -75,7 +81,7 @@ export default function AdminAuditLogPage() {
 
         <div className="flex items-center gap-2">
           <span className="px-3.5 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-black min-h-[32px] inline-flex items-center">
-            {loading ? <Skeleton className="h-4 w-16" /> : `Jami: ${logs.length} ta yozuv`}
+            {loading ? <Skeleton className="h-4 w-16" /> : `Jami: ${total} ta yozuv`}
           </span>
         </div>
       </div>
@@ -105,11 +111,16 @@ export default function AdminAuditLogPage() {
           { id: 'author', label: 'Mualliflar amallari' },
           { id: 'work', label: 'Asarlar moderatsiyasi' },
           { id: 'payout', label: 'Pul yechish amallari' },
+          { id: 'user_', label: 'Bloklash va foydalanuvchilar' },
+          { id: 'plus_', label: 'Plus amallari' },
         ].map((f) => (
           <button
             key={f.id}
             type="button"
-            onClick={() => setActionFilter(f.id)}
+            onClick={() => {
+              setActionFilter(f.id);
+              setPage(1);
+            }}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all min-h-[44px] ${
               actionFilter === f.id
                 ? 'bg-purple-600 text-white shadow-xs'
@@ -169,6 +180,7 @@ export default function AdminAuditLogPage() {
             })}
           </div>
         )}
+        <AdminPagination page={page} totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))} total={total} pageSize={PAGE_SIZE} disabled={loading} onPageChange={setPage} />
       </div>
     </div>
   );

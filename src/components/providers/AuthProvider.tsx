@@ -68,11 +68,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         const { data: prof } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, public_id, display_name, username, avatar_url, bio, social_links, is_admin, onboarding_completed, created_at, updated_at')
           .eq('id', sessionUser.id)
           .maybeSingle();
         return {
-          profile: prof as Profile,
+          profile: prof as unknown as Profile,
           isAdmin: Boolean(prof?.is_admin),
         };
       })();

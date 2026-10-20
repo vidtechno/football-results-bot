@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readDbQueries } from './helpers/db-source';
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -9,7 +10,7 @@ describe('author post identity contract', () => {
   it('stores and reads posts by the authenticated author user id', () => {
     const route = read('src/app/api/author/posts/route.ts');
     const page = read('src/app/mualliflar/[username]/page.tsx');
-    const queries = read('src/lib/db/queries.ts');
+    const queries = readDbQueries();
 
     expect(route).toContain('author_id: profile.id');
     expect(route).not.toContain('author_id: authorProf.id');

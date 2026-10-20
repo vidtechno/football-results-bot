@@ -27,8 +27,39 @@ import {
   DollarSign,
 } from 'lucide-react';
 import { formatUZS } from '@/lib/utils/currency';
-import { formatUzbekDate } from '@/lib/utils/formatters';
+import { formatUzbekDate, getRelativeTimeString } from '@/lib/utils/formatters';
+import { AdminPagination } from '@/components/admin/AdminPagination';
 import { Skeleton } from '@/components/ui/Skeleton';
+
+const PAGE_SIZE = 15;
+
+const USER_FILTERS = [
+  { id: 'all', label: 'Barchasi' },
+  { id: 'online', label: 'Hozir onlayn' },
+  { id: 'readers', label: 'Kitobxonlar' },
+  { id: 'authors', label: 'Mualliflar' },
+  { id: 'pending_authors', label: 'Muallif arizalari' },
+  { id: 'plus', label: 'Plus a’zolari' },
+  { id: 'positive_balance', label: 'Ijobiy balans' },
+  { id: 'inactive_30d', label: '30 kun kirmaganlar' },
+  { id: 'blocked', label: 'Bloklanganlar' },
+  { id: 'admins', label: 'Adminlar' },
+];
+
+const USER_SORTS = [
+  { id: 'created_desc', label: 'Yangi ro‘yxatdan o‘tganlar' },
+  { id: 'seen_desc', label: 'Oxirgi kirgan vaqt' },
+  { id: 'balance_desc', label: 'Balans (ko‘pdan kamga)' },
+  { id: 'name_asc', label: 'Ism (A–Z)' },
+];
+
+/** "Hozir onlayn" / "15 daqiqa oldin" / "Hech qachon" */
+function formatLastSeen(iso?: string | null): { text: string; online: boolean } {
+  if (!iso) return { text: 'Hech qachon', online: false };
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 5 * 60 * 1000) return { text: 'Hozir onlayn', online: true };
+  return { text: getRelativeTimeString(iso), online: false };
+}
 
 const PREDEFINED_REASONS = [
   'Telegram orqali qo‘lda to‘lov',
@@ -46,6 +77,7 @@ export default function AdminUsersManagementPage() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('created_desc');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,15 +101,21 @@ export default function AdminUsersManagementPage() {
   const [adjSuccessReceipt, setAdjSuccessReceipt] = useState<any | null>(null);
   const [showDoubleConfirm, setShowDoubleConfirm] = useState<boolean>(false);
 
+  // Hisob holati amallari (bloklash, Plus)
+  const [stateBusy, setStateBusy] = useState<boolean>(false);
+  const [stateError, setStateError] = useState<string | null>(null);
+  const [blockReason, setBlockReason] = useState<string>('');
+  const [grantDays, setGrantDays] = useState<string>('30');
+
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load users
-  const fetchUsers = useCallback(async (q: string, filter: string, p: number) => {
+  const fetchUsers = useCallback(async (q: string, filter: string, p: number, sort: string = 'created_desc') => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}&filter=${encodeURIComponent(filter)}&page=${p}&limit=15`);
+      const res = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}&filter=${encodeURIComponent(filter)}&page=${p}&limit=${PAGE_SIZE}&sort=${encodeURIComponent(sort)}`);
       const data = await res.json();
       if (data.success) {
         setUsers(data.users || []);
@@ -94,9 +132,9 @@ export default function AdminUsersManagementPage() {
   }, []);
 
   useEffect(() => {
-    fetchUsers(searchQuery, activeFilter, page);
+    fetchUsers(searchQuery, activeFilter, page, sortBy);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchUsers, activeFilter, page]);
+  }, [fetchUsers, activeFilter, page, sortBy]);
 
   // Debounced search handler
   const handleSearchChange = (val: string) => {
@@ -104,7 +142,7 @@ export default function AdminUsersManagementPage() {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       setPage(1);
-      fetchUsers(val, activeFilter, 1);
+      fetchUsers(val, activeFilter, 1, sortBy);
     }, 300);
   };
 
@@ -173,11 +211,34 @@ export default function AdminUsersManagementPage() {
 
       // Refresh current user drawer and list
       openUserDetail(userDetail.id);
-      fetchUsers(searchQuery, activeFilter, page);
+      fetchUsers(searchQuery, activeFilter, page, sortBy);
     } catch (err: any) {
       setAdjError(err.message || 'Xatolik yuz berdi');
     } finally {
       setAdjLoading(false);
+    }
+  };
+
+  const runUserAction = async (payload: Record<string, unknown>, confirmText?: string) => {
+    if (!userDetail) return;
+    if (confirmText && !window.confirm(confirmText)) return;
+    setStateBusy(true);
+    setStateError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${userDetail.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Amalni bajarib bo‘lmadi');
+      setBlockReason('');
+      await openUserDetail(userDetail.id);
+      fetchUsers(searchQuery, activeFilter, page, sortBy);
+    } catch (err: any) {
+      setStateError(err.message || 'Xatolik yuz berdi');
+    } finally {
+      setStateBusy(false);
     }
   };
 
@@ -223,7 +284,7 @@ export default function AdminUsersManagementPage() {
           </div>
           <button
             type="button"
-            onClick={() => fetchUsers(searchQuery, activeFilter, page)}
+            onClick={() => fetchUsers(searchQuery, activeFilter, page, sortBy)}
             className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
           >
             Qayta urinish
@@ -248,14 +309,7 @@ export default function AdminUsersManagementPage() {
 
           {/* Filter Dropdown / Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {[
-              { id: 'all', label: 'Barchasi' },
-              { id: 'readers', label: 'Kitobxonlar' },
-              { id: 'authors', label: 'Mualliflar' },
-              { id: 'admins', label: 'Adminlar' },
-              { id: 'positive_balance', label: 'Ijobiy balans' },
-              { id: 'restricted', label: 'Cheklanganlar' },
-            ].map((f) => (
+            {USER_FILTERS.map((f) => (
               <button
                 key={f.id}
                 type="button"
@@ -273,6 +327,23 @@ export default function AdminUsersManagementPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+          <label htmlFor="user-sort">Saralash:</label>
+          <select
+            id="user-sort"
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 min-h-[40px]"
+          >
+            {USER_SORTS.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -299,6 +370,7 @@ export default function AdminUsersManagementPage() {
                     <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4">Roli</th>
                     <th className="py-3 px-4">Balansi</th>
+                    <th className="py-3 px-4">Oxirgi kirish</th>
                     <th className="py-3 px-4">Ro‘yxatdan o‘tgan</th>
                     <th className="py-3 px-5 text-right">Amal</th>
                   </tr>
@@ -351,9 +423,26 @@ export default function AdminUsersManagementPage() {
                         >
                           {u.role}
                         </span>
+                        {u.has_plus && (
+                          <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">Plus</span>
+                        )}
+                        {u.is_blocked && (
+                          <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800">Bloklangan</span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 font-black font-sans text-slate-900">
                         {formatUZS(u.balance)}
+                      </td>
+                      <td className="py-3.5 px-4 text-[11px] font-semibold whitespace-nowrap">
+                        {(() => {
+                          const seen = formatLastSeen(u.last_seen_at);
+                          return (
+                            <span className={seen.online ? 'text-emerald-600' : 'text-slate-500'}>
+                              {seen.online && <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 align-middle" />}
+                              {seen.text}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="py-3.5 px-4 text-slate-400 text-[11px]">
                         {formatUzbekDate(u.created_at)}
@@ -411,6 +500,10 @@ export default function AdminUsersManagementPage() {
                       <span className="text-[10px] text-slate-400 font-bold block">Balans:</span>
                       <span className="font-sans font-black text-slate-900">{formatUZS(u.balance)}</span>
                     </div>
+                    <div className="col-span-2 flex items-center justify-between border-t border-slate-200/70 pt-2">
+                      <span className="text-[10px] text-slate-400 font-bold">Oxirgi kirish:</span>
+                      <span className="font-semibold text-slate-700">{formatLastSeen(u.last_seen_at).text}</span>
+                    </div>
                   </div>
 
                   <button
@@ -427,32 +520,14 @@ export default function AdminUsersManagementPage() {
           </>
         )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">
-              Sahifa: {page} / {totalPages}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 disabled:opacity-40 min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 disabled:opacity-40 min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <AdminPagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={PAGE_SIZE}
+          disabled={loading}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* User Detail Drawer / Modal */}
@@ -538,6 +613,111 @@ export default function AdminUsersManagementPage() {
                       <span>Pul ayrish</span>
                     </button>
                   </div>
+                </div>
+
+                {/* Faollik va hisob holati */}
+                <div className="p-5 rounded-3xl border border-slate-200 bg-white space-y-4 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Saytda oxirgi marta</span>
+                      <strong className="text-slate-900 text-sm">
+                        {formatLastSeen(userDetail.last_seen_at).text}
+                      </strong>
+                      {userDetail.last_seen_at && (
+                        <span className="text-[11px] text-slate-400 ml-2">
+                          ({new Date(userDetail.last_seen_at).toLocaleString('uz-UZ')})
+                        </span>
+                      )}
+                    </div>
+                    {userDetail.is_blocked && (
+                      <span className="px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-black text-[11px]">Bloklangan</span>
+                    )}
+                  </div>
+
+                  {stateError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-semibold">{stateError}</div>
+                  )}
+
+                  {/* Manbora Plus */}
+                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+                    <div className="flex-1 min-w-[180px]">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Manbora Plus</span>
+                      <strong className="text-slate-900">
+                        {userDetail.plus
+                          ? `Faol — ${formatUzbekDate(userDetail.plus.expires_at)} gacha`
+                          : 'Obuna yo‘q'}
+                      </strong>
+                    </div>
+                    <select
+                      value={grantDays}
+                      onChange={(e) => setGrantDays(e.target.value)}
+                      className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 font-semibold min-h-[40px]"
+                      aria-label="Plus muddati"
+                    >
+                      <option value="7">7 kun</option>
+                      <option value="30">30 kun</option>
+                      <option value="90">90 kun</option>
+                      <option value="365">1 yil</option>
+                    </select>
+                    <button
+                      type="button"
+                      disabled={stateBusy}
+                      onClick={() => runUserAction({ action: 'grant_plus', days: Number(grantDays) }, `${grantDays} kunlik Plus sovg‘a qilinsinmi?`)}
+                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black min-h-[40px] disabled:opacity-50"
+                    >
+                      Plus sovg‘a qilish
+                    </button>
+                    {userDetail.plus && (
+                      <button
+                        type="button"
+                        disabled={stateBusy}
+                        onClick={() => runUserAction({ action: 'revoke_plus' }, 'Plus obunasi bekor qilinsinmi?')}
+                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold min-h-[40px] disabled:opacity-50"
+                      >
+                        Bekor qilish
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Bloklash */}
+                  {!userDetail.is_admin && (
+                    <div className="border-t border-slate-100 pt-4 space-y-2">
+                      {userDetail.is_blocked ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-slate-600">
+                            Sabab: <strong>{userDetail.blocked_reason || '—'}</strong>
+                          </p>
+                          <button
+                            type="button"
+                            disabled={stateBusy}
+                            onClick={() => runUserAction({ action: 'unblock' }, 'Foydalanuvchi blokdan chiqarilsinmi?')}
+                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold min-h-[40px] disabled:opacity-50"
+                          >
+                            Blokdan chiqarish
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            value={blockReason}
+                            onChange={(e) => setBlockReason(e.target.value)}
+                            placeholder="Bloklash sababi (majburiy)"
+                            maxLength={300}
+                            className="flex-1 min-w-[200px] rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 font-semibold min-h-[40px]"
+                          />
+                          <button
+                            type="button"
+                            disabled={stateBusy || blockReason.trim().length < 3}
+                            onClick={() => runUserAction({ action: 'block', reason: blockReason.trim() }, 'Foydalanuvchi bloklansinmi? U saytga kira olmaydi.')}
+                            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold min-h-[40px] disabled:opacity-50"
+                          >
+                            Bloklash
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Sub-Tabs */}

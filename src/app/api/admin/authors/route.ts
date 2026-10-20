@@ -14,6 +14,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get('q') || '').trim();
     const status = searchParams.get('status') || 'all';
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '15', 10) || 15));
 
     const supabase = createAdminClient();
 
@@ -77,10 +79,13 @@ export async function GET(request: Request) {
       );
     }
 
+    const total = authors.length;
     return NextResponse.json({
       success: true,
-      authors,
-      total: authors.length,
+      authors: authors.slice((page - 1) * limit, page * limit),
+      total,
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     });
   } catch (err: any) {
     return NextResponse.json(

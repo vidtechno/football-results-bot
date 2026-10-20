@@ -51,11 +51,11 @@ export default async function AuthorWorkEditorPage({ params: paramsPromise, sear
 
   const { data: profile } = await adminClient
     .from('profiles')
-    .select('is_admin, role')
+    .select('is_admin')
     .eq('id', user.id)
     .maybeSingle();
   const isAdmin =
-    profile?.is_admin === true || profile?.role === 'admin' || isUserAllowlistedAdmin(user);
+    profile?.is_admin === true || isUserAllowlistedAdmin(user);
 
   // Strict ownership check: Must be the author of this work or a platform administrator
   const isAuthorized = work.author_id === user.id || isAdmin;

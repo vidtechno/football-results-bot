@@ -5,14 +5,6 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'media.api-sports.io',
-      },
-      {
-        protocol: 'https',
-        hostname: 'upload.wikimedia.org',
-      },
-      {
-        protocol: 'https',
         hostname: '*.supabase.co',
       },
     ],
@@ -38,16 +30,6 @@ const nextConfig = {
       {
         source: '/royxatdan-otish',
         destination: '/kirish?mode=register',
-        permanent: true,
-      },
-      {
-        source: '/admin',
-        destination: '/diyoration/dashboard',
-        permanent: true,
-      },
-      {
-        source: '/admin/:path*',
-        destination: '/diyoration/:path*',
         permanent: true,
       },
     ];

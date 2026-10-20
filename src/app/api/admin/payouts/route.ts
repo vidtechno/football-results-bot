@@ -16,6 +16,8 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'all';
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '15', 10) || 15));
 
     const supabase = createAdminClient();
 
@@ -37,7 +39,7 @@ export async function GET(request: Request) {
         paid_at,
         created_at,
         updated_at
-      `)
+      `, { count: 'exact' })
       .order('created_at', { ascending: false });
 
     if (status === 'pending') {
@@ -52,13 +54,13 @@ export async function GET(request: Request) {
 
     // 2. Fetch payouts and tab count metrics concurrently
     const [
-      { data: rawPayouts, error: payoutsError },
+      { data: rawPayouts, error: payoutsError, count: filteredCount },
       { count: pendingCount },
       { count: paidCount },
       { count: rejectedCount },
       { count: allCount },
     ] = await Promise.all([
-      query,
+      query.range((page - 1) * limit, page * limit - 1),
       supabase.from('payout_requests').select('id', { count: 'exact', head: true }).in('status', ['pending', 'under_review']),
       supabase.from('payout_requests').select('id', { count: 'exact', head: true }).eq('status', 'paid'),
       supabase.from('payout_requests').select('id', { count: 'exact', head: true }).in('status', ['rejected', 'cancelled']),
@@ -120,9 +122,13 @@ export async function GET(request: Request) {
       };
     });
 
+    const total = filteredCount || 0;
     return NextResponse.json({
       success: true,
       payouts,
+      total,
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
       counts: {
         all: allCount || 0,
         pending: pendingCount || 0,

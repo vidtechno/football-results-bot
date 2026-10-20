@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readDbQueries } from './helpers/db-source';
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -61,7 +62,7 @@ describe('author follow integrity and public profile', () => {
 
   it('uses the edited account bio as the public author biography', () => {
     const page = read('src/app/mualliflar/[username]/page.tsx');
-    const queries = read('src/lib/db/queries.ts');
+    const queries = readDbQueries();
     const profileRoute = read('src/app/api/user/profile/route.ts');
     expect(queries).toContain('avatar_url, bio, social_links');
     expect(page).toContain('profile?.bio || author.biography');

@@ -3,24 +3,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  LayoutDashboard,
-  Wallet,
-  CreditCard,
-  BookOpen,
-  PenTool,
-  Users,
-  Settings,
-  LogOut,
-  ShieldCheck,
-  Zap,
-  FileDiff,
-  DollarSign,
-  Languages,
-} from 'lucide-react';
+import { LogOut, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { clsx } from 'clsx';
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
+import { ADMIN_NAV_GROUPS } from '@/components/admin/adminNav';
+import { useAdminPendingCounts } from '@/components/admin/useAdminPendingCounts';
 
 interface AdminSidebarProps {
   username?: string;
@@ -44,19 +32,7 @@ export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: Adm
     router.refresh();
   };
 
-  const navItems = [
-    { label: 'Boshqaruv paneli', href: '/diyoration/dashboard', icon: LayoutDashboard },
-    { label: 'Foydalanuvchilar', href: '/diyoration/foydalanuvchilar', icon: Users },
-    { label: 'Mualliflar', href: '/diyoration/mualliflar', icon: PenTool },
-    { label: 'Asarlar', href: '/diyoration/asarlar', icon: BookOpen },
-    { label: 'Tarjima asarlar', href: '/diyoration/tarjima-asarlar', icon: Languages },
-    { label: 'Manbora Plus', href: '/diyoration/plus', icon: Zap },
-    { label: 'Tahrirlar moderatsiyasi', href: '/diyoration/tahrirlar', icon: FileDiff },
-    { label: 'Pul yechish so‘rovlari', href: '/diyoration/yechish-sorovlari', icon: CreditCard },
-    { label: 'Moliyaviy tarix', href: '/diyoration/moliya', icon: DollarSign },
-    { label: 'Audit jurnali', href: '/diyoration/audit', icon: ShieldCheck },
-    { label: 'Sozlamalar', href: '/diyoration/settings', icon: Settings },
-  ];
+  const counts = useAdminPendingCounts();
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between flex-shrink-0 min-h-screen hidden md:flex">
@@ -94,27 +70,46 @@ export function AdminSidebar({ username = 'Admin', role = 'Administrator' }: Adm
         </div>
 
         {/* Nav Links */}
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href.split('?')[0];
+        <nav className="space-y-5" aria-label="Admin menyusi">
+          {ADMIN_NAV_GROUPS.map((group) => (
+            <div key={group.title} className="space-y-1">
+              <span className="px-3.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                {group.title}
+              </span>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const pending = item.badge ? counts[item.badge] || 0 : 0;
 
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={clsx(
-                  'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition-all duration-150',
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                )}
-              >
-                <Icon className={clsx('w-4 h-4', isActive ? 'text-white' : 'text-slate-400')} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={clsx(
+                      'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition-all duration-150',
+                      isActive
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                    )}
+                  >
+                    <Icon className={clsx('w-4 h-4', isActive ? 'text-white' : 'text-slate-400')} />
+                    <span className="flex-1">{item.label}</span>
+                    {pending > 0 && (
+                      <span
+                        className={clsx(
+                          'min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center',
+                          isActive ? 'bg-white text-blue-700' : 'bg-rose-500 text-white',
+                        )}
+                        aria-label={`${pending} ta kutilmoqda`}
+                      >
+                        {pending > 99 ? '99+' : pending}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
       </div>
 

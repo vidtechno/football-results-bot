@@ -3,27 +3,35 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Flag, CheckCircle2, XCircle, Clock, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUzbekDate } from '@/lib/utils/formatters';
+import { AdminPagination } from '@/components/admin/AdminPagination';
+
+const PAGE_SIZE = 15;
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'resolved' | 'dismissed'>('pending');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/reports');
+      const res = await fetch(`/api/admin/reports?status=${filter}&page=${page}&limit=${PAGE_SIZE}`);
       const data = await res.json();
       if (data.reports) {
         setReports(data.reports);
+        setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
       }
     } catch (err) {
       console.error('Error loading reports:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter, page]);
 
   useEffect(() => {
     fetchReports();
@@ -39,9 +47,7 @@ export default function AdminReportsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setReports((prev) =>
-          prev.map((r) => (r.id === reportId ? { ...r, status: action, resolved_at: new Date().toISOString() } : r))
-        );
+        await fetchReports();
       }
     } catch (err) {
       console.error('Action error:', err);
@@ -49,8 +55,6 @@ export default function AdminReportsPage() {
       setActionLoadingId(null);
     }
   };
-
-  const filteredReports = reports.filter((r) => (filter === 'all' ? true : r.status === filter));
 
   return (
     <div className="space-y-6">
@@ -76,7 +80,10 @@ export default function AdminReportsPage() {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setFilter(tab.id as any)}
+              onClick={() => {
+                setFilter(tab.id as any);
+                setPage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl transition-colors ${
                 filter === tab.id ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-600 hover:text-stone-900'
               }`}
@@ -90,13 +97,13 @@ export default function AdminReportsPage() {
       {/* List */}
       {loading ? (
         <div className="p-12 text-center text-xs text-stone-400">Yuklanmoqda...</div>
-      ) : filteredReports.length === 0 ? (
+      ) : reports.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-stone-200 text-xs text-stone-500">
           Ushbu statusda hech qanday shikoyat mavjud emas.
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredReports.map((report) => (
+          {reports.map((report) => (
             <div
               key={report.id}
               className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xs space-y-3"
@@ -172,6 +179,9 @@ export default function AdminReportsPage() {
               </div>
             </div>
           ))}
+          <div className="bg-white rounded-3xl border border-stone-200 overflow-hidden">
+            <AdminPagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} disabled={loading} onPageChange={setPage} />
+          </div>
         </div>
       )}
     </div>

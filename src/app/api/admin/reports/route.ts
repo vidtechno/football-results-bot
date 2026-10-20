@@ -1,35 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentProfile, createAdminClient } from '@/lib/supabase/server';
 
-const ADMIN_EMAILS = [
-  'anorboyevdiyorbek714@gmail.com',
-  'diyorbek@manbora.uz',
-  'admin@manbora.uz',
-];
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const profile = await getCurrentProfile();
-    if (!profile || !ADMIN_EMAILS.includes(profile.email?.toLowerCase() || '')) {
+    if (!profile?.is_admin) {
       return NextResponse.json({ error: 'Ruxsat berilmagan' }, { status: 403 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status') || 'all';
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '15', 10) || 15));
+
     const admin = createAdminClient();
 
-    const { data: reports, error } = await admin
+    let query = admin
       .from('user_reports')
       .select(`
         id, target_type, target_id, reason, details, status, admin_notes, created_at, resolved_at,
         reporter:profiles!reporter_id (id, display_name, username, email)
-      `)
+      `, { count: 'exact' })
       .order('created_at', { ascending: false });
+    if (['pending', 'resolved', 'dismissed'].includes(status)) {
+      query = query.eq('status', status);
+    }
+
+    const { data: reports, error, count } = await query.range((page - 1) * limit, page * limit - 1);
 
     if (error) {
       console.error('Error fetching admin reports:', error);
-      return NextResponse.json({ reports: [] });
+      return NextResponse.json({ reports: [], total: 0, page, totalPages: 1 });
     }
 
-    return NextResponse.json({ reports: reports || [] });
+    const total = count || 0;
+    return NextResponse.json({
+      reports: reports || [],
+      total,
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (err: any) {
     console.error('Admin reports GET error:', err);
     return NextResponse.json({ error: 'Server xatosi' }, { status: 500 });
@@ -39,7 +49,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const profile = await getCurrentProfile();
-    if (!profile || !ADMIN_EMAILS.includes(profile.email?.toLowerCase() || '')) {
+    if (!profile?.is_admin) {
       return NextResponse.json({ error: 'Ruxsat berilmagan' }, { status: 403 });
     }
 

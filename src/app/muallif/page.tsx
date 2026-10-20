@@ -42,6 +42,8 @@ function MuallifStudioContent() {
   const [reservedEarnings, setReservedEarnings] = useState<number>(0);
   const [grossEarnings, setGrossEarnings] = useState<number>(0);
   const [genres, setGenres] = useState<Genre[]>([]);
+  const [commissionPct, setCommissionPct] = useState<number>(20);
+  const [minPayout, setMinPayout] = useState<number>(100000);
   const [loading, setLoading] = useState(true);
 
   // Application form state
@@ -111,7 +113,7 @@ function MuallifStudioContent() {
 
         if (authorData && authorData.status === 'approved') {
           // 2. Concurrently fetch earnings, works, payouts, and sales (single batch)
-          const [availRes, resRes, worksRes, payoutsRes, purchasesRes] = await Promise.all([
+          const [availRes, resRes, worksRes, payoutsRes, grossRes, settingsRes] = await Promise.all([
             supabase
               .from('wallet_accounts')
               .select('balance')
@@ -126,16 +128,21 @@ function MuallifStudioContent() {
               .maybeSingle(),
             supabase
               .from('works')
-              .select('*')
+              .select('id, title, slug, cover_url, type, status, access_type, full_work_price, rejection_reason, pending_revision, view_count, unique_readers_count, sales_count, average_rating, rating_count, created_at')
               .eq('author_id', userId)
               .eq('is_archived', false)
               .order('created_at', { ascending: false }),
             supabase
               .from('payout_requests')
-              .select('*')
+              .select('id, status, requested_amount, masked_card, full_legal_name, payment_proof_url, created_at')
               .eq('author_id', userId)
-              .order('created_at', { ascending: false }),
-            supabase.from('purchases').select('gross_amount').eq('author_id', userId),
+              .order('created_at', { ascending: false })
+              .limit(20),
+            supabase.rpc('get_my_gross_sales'),
+            supabase
+              .from('platform_settings')
+              .select('key, value')
+              .in('key', ['commission_percentage', 'minimum_payout']),
           ]);
 
           setAvailableEarnings(availRes.data ? Number(availRes.data.balance) : 0);
@@ -143,11 +150,13 @@ function MuallifStudioContent() {
           setWorks((worksRes.data as Work[]) || []);
           setPayouts((payoutsRes.data as PayoutRequest[]) || []);
 
-          const totalGross = (purchasesRes.data || []).reduce(
-            (acc: number, p: any) => acc + Number(p.gross_amount || 0),
-            0,
-          );
-          setGrossEarnings(totalGross);
+          setGrossEarnings(Number(grossRes.data || 0));
+          for (const row of (settingsRes.data as { key: string; value: unknown }[]) || []) {
+            const value = Number(row.value);
+            if (!Number.isFinite(value) || value <= 0) continue;
+            if (row.key === 'commission_percentage') setCommissionPct(value);
+            if (row.key === 'minimum_payout') setMinPayout(value);
+          }
         }
       } catch (err) {
         console.error('Muallif kabineti xatosi:', err);
@@ -384,7 +393,7 @@ function MuallifStudioContent() {
   }
 
   // Case 2: User is an approved author -> Full Studio
-  const canRequestPayout = availableEarnings >= 100000;
+  const canRequestPayout = availableEarnings >= minPayout;
 
   return (
     <div className="space-y-8 pb-16">
@@ -440,7 +449,7 @@ function MuallifStudioContent() {
             className="w-full mt-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
           >
             <CreditCard className="w-3.5 h-3.5" />
-            <span>Pul yechish (min. 100k)</span>
+            <span>Pul yechish (min. {formatUZS(minPayout)})</span>
           </button>
         </div>
 
@@ -478,10 +487,10 @@ function MuallifStudioContent() {
             Platforma komissiyasi
           </span>
           <div className="my-2">
-            <span className="text-2xl font-black text-blue-600">20%</span>
+            <span className="text-2xl font-black text-blue-600">{commissionPct}%</span>
           </div>
           <span className="text-[11px] text-slate-400 font-medium">
-            Muallif ulushi: <strong>80%</strong>
+            Muallif ulushi: <strong>{100 - commissionPct}%</strong>
           </span>
         </div>
       </div>
@@ -578,6 +587,18 @@ function MuallifStudioContent() {
                             ? formatUZS(w.full_work_price)
                             : 'Bobma-bob'}
                       </p>
+                      {isPub && (
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          👁 {Number(w.view_count || 0)} · 📖 {Number(w.unique_readers_count || 0)} · 🛒 {Number(w.sales_count || 0)}
+                          {Number(w.rating_count || 0) > 0 && ` · ★ ${Number(w.average_rating || 0).toFixed(1)}`}
+                        </p>
+                      )}
+                      {isRej && w.rejection_reason && (
+                        <p className="text-[11px] text-rose-600 mt-1 line-clamp-2">Sabab: {w.rejection_reason}</p>
+                      )}
+                      {isPub && w.pending_revision && (
+                        <p className="text-[11px] text-amber-700 mt-1">Tahrir moderatsiyada</p>
+                      )}
                     </div>
                   </div>
 
@@ -698,6 +719,7 @@ function MuallifStudioContent() {
         isOpen={isPayoutOpen}
         onClose={() => setIsPayoutOpen(false)}
         availableEarnings={availableEarnings}
+        minimumAmount={minPayout}
         onSuccess={() => loadAuthorData()}
       />
 

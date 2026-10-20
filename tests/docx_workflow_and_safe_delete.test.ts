@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { readDbQueries } from './helpers/db-source';
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
@@ -92,6 +93,6 @@ describe('DOCX workflow and safe work deletion', () => {
   it('keeps deleted works out of direct pages, catalogue and sitemap', () => {
     expect(read('src/app/asarlar/[slug]/page.tsx')).toContain("work.status === 'archived'");
     expect(read('src/lib/seo/sitemapData.ts')).toContain('is_archived.eq.false');
-    expect(read('src/lib/db/queries.ts')).toContain('is_archived');
+    expect(readDbQueries()).toContain('is_archived');
   });
 });

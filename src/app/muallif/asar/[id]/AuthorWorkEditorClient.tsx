@@ -202,11 +202,11 @@ export function AuthorWorkEditorClient({
       if (workData.author_id !== session.user.id) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_admin, role')
+          .select('is_admin')
           .eq('id', session.user.id)
           .maybeSingle();
 
-        const isAdmin = profile?.is_admin === true || profile?.role === 'admin';
+        const isAdmin = profile?.is_admin === true;
         if (!isAdmin) {
           alert('Ushbu asarni boshqarish huquqiga ega emassiz');
           router.push('/muallif');

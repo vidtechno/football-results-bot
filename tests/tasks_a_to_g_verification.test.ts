@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readDbQueries } from './helpers/db-source';
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -53,7 +54,7 @@ describe('TASK B — Desktop Reader Text Centering & Layout Gutters', () => {
 
 describe('TASK C — Reader Query Performance & Paid Content Protection', () => {
   it('getChapterForReading only queries chapter_contents.content when reader is authorized', () => {
-    const queries = read('src/lib/db/queries.ts');
+    const queries = readDbQueries();
     expect(queries).toContain('export async function getChapterForReading');
     expect(queries).toContain('if (accessEval.canRead) {');
     expect(queries).toContain(".from('chapter_contents')");
@@ -73,7 +74,7 @@ describe('TASK C — Reader Query Performance & Paid Content Protection', () => 
 
 describe('TASK D — Work Detail Page Performance & Stats Caching', () => {
   it('provides lightweight getWorkMetadataBySlug for generateMetadata', () => {
-    const queries = read('src/lib/db/queries.ts');
+    const queries = readDbQueries();
     const workPage = read('src/app/asarlar/[slug]/page.tsx');
 
     expect(queries).toContain('export async function getWorkMetadataBySlug');

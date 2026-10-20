@@ -25,8 +25,14 @@ import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { Skeleton } from '@/components/ui/Skeleton';
 
+import { AdminPagination } from '@/components/admin/AdminPagination';
+
+const PAGE_SIZE = 15;
+
 export default function AdminWorksManagementPage() {
   const [works, setWorks] = useState<any[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [total, setTotal] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [accessFilter, setAccessFilter] = useState<string>('all');
@@ -49,16 +55,17 @@ export default function AdminWorksManagementPage() {
 
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchWorks = useCallback(async (q: string, status: string, access: string) => {
+  const fetchWorks = useCallback(async (q: string, status: string, access: string, p: number = 1) => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(
-        `/api/admin/works?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}&access=${encodeURIComponent(access)}`
+        `/api/admin/works?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}&access=${encodeURIComponent(access)}&page=${p}&limit=${PAGE_SIZE}`
       );
       const data = await res.json();
       if (data.success) {
         setWorks(data.works || []);
+        setTotal(data.total || 0);
       } else {
         setError(data.error || 'Asarlarni yuklab bo‘lmadi');
       }
@@ -70,15 +77,16 @@ export default function AdminWorksManagementPage() {
   }, []);
 
   useEffect(() => {
-    fetchWorks(searchQuery, statusFilter, accessFilter);
+    fetchWorks(searchQuery, statusFilter, accessFilter, page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchWorks, statusFilter, accessFilter]);
+  }, [fetchWorks, statusFilter, accessFilter, page]);
 
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      fetchWorks(val, statusFilter, accessFilter);
+      setPage(1);
+      fetchWorks(val, statusFilter, accessFilter, 1);
     }, 300);
   };
 
@@ -113,7 +121,7 @@ export default function AdminWorksManagementPage() {
 
       setActionModal(null);
       setReasonInput('');
-      fetchWorks(searchQuery, statusFilter, accessFilter);
+      fetchWorks(searchQuery, statusFilter, accessFilter, page);
       if (selectedWork?.id === actionModal.workId) {
         setSelectedWork(null);
       }
@@ -140,7 +148,7 @@ export default function AdminWorksManagementPage() {
 
         <div className="flex items-center gap-2">
           <span className="px-3.5 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-black min-h-[32px] inline-flex items-center">
-            {loading ? <Skeleton className="h-4 w-16" /> : `Jami: ${works.length} ta asar`}
+            {loading ? <Skeleton className="h-4 w-16" /> : `Jami: ${total} ta asar`}
           </span>
         </div>
       </div>
@@ -154,7 +162,7 @@ export default function AdminWorksManagementPage() {
           </div>
           <button
             type="button"
-            onClick={() => fetchWorks(searchQuery, statusFilter, accessFilter)}
+            onClick={() => fetchWorks(searchQuery, statusFilter, accessFilter, page)}
             className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
           >
             Qayta urinish
@@ -189,7 +197,10 @@ export default function AdminWorksManagementPage() {
               <button
                 key={f.id}
                 type="button"
-                onClick={() => setStatusFilter(f.id)}
+                onClick={() => {
+                  setStatusFilter(f.id);
+                  setPage(1);
+                }}
                 className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all min-h-[44px] ${
                   statusFilter === f.id
                     ? 'bg-blue-600 text-white shadow-xs'
@@ -334,6 +345,7 @@ export default function AdminWorksManagementPage() {
             })}
           </div>
         )}
+        <AdminPagination page={page} totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))} total={total} pageSize={PAGE_SIZE} disabled={loading} onPageChange={setPage} />
       </div>
 
       {/* Work Details Drawer */}

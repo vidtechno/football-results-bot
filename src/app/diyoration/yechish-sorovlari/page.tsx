@@ -20,6 +20,9 @@ import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { supabase } from '@/lib/supabase/client';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { AdminPagination } from '@/components/admin/AdminPagination';
+
+const PAGE_SIZE = 15;
 
 export default function AdminPayoutRequestsPage() {
   const [payouts, setPayouts] = useState<any[]>([]);
@@ -30,6 +33,9 @@ export default function AdminPayoutRequestsPage() {
     rejected: 0,
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [page, setPage] = useState<number>(1);
+  const [total, setTotal] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,7 +68,7 @@ export default function AdminPayoutRequestsPage() {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch(`/api/admin/payouts?status=${encodeURIComponent(statusFilter)}`, {
+      const res = await fetch(`/api/admin/payouts?status=${encodeURIComponent(statusFilter)}&page=${page}&limit=${PAGE_SIZE}`, {
         headers,
         cache: 'no-store',
       });
@@ -70,6 +76,8 @@ export default function AdminPayoutRequestsPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setPayouts(data.payouts || []);
+        setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
         if (data.counts) {
           setCounts(data.counts);
         }
@@ -84,7 +92,7 @@ export default function AdminPayoutRequestsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   useEffect(() => {
     fetchPayouts();
@@ -206,7 +214,10 @@ export default function AdminPayoutRequestsPage() {
           <button
             key={f.id}
             type="button"
-            onClick={() => setStatusFilter(f.id)}
+            onClick={() => {
+              setStatusFilter(f.id);
+              setPage(1);
+            }}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all min-h-[44px] flex items-center gap-1.5 ${
               statusFilter === f.id
                 ? 'bg-blue-600 text-white shadow-xs'
@@ -398,6 +409,7 @@ export default function AdminPayoutRequestsPage() {
               );
             })}
           </div>
+          <AdminPagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} disabled={loading} onPageChange={setPage} />
         </div>
       )}
 

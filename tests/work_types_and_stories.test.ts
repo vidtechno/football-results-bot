@@ -11,10 +11,11 @@ describe('Kitob va hikoya turlari', () => {
     expect(read('src/components/layout/Footer.tsx')).toContain('href="/hikoyalar"');
   });
 
-  it('hikoyalar katalogini faqat hikoya turidan oladi', () => {
-    const page = read('src/app/hikoyalar/page.tsx');
-    expect(page).toContain("type: 'serialized_story'");
-    expect(page).toContain('<span>Hikoyalar</span>');
+  it('/hikoyalar qisqa manzili hikoyalar katalogiga yo‘naltiriladi', async () => {
+    const config = require('../next.config.js');
+    const redirects = await config.redirects();
+    const hikoyalar = redirects.find((r: any) => r.source === '/hikoyalar');
+    expect(hikoyalar.destination).toBe('/asarlar?type=serialized_story');
   });
 
   it('bosh sahifada hikoyalar uchun kafolatlangan alohida qator ajratadi', () => {

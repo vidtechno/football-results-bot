@@ -2,7 +2,7 @@
 
 **Manbora** — zamonaviy o‘zbek kitobxonlari va mualliflari platformasi. Mualliflar o‘z kitoblari va davomli (serialized) hikoyalarini nashr etadi, kitobxonlar esa erkin mutolaa qiladi hamda Manbora balansi orqali pullik boblar yoki to‘liq asarlarni xarid qiladi.
 
-Ishlab chiqilgan texnologiyalar: **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, **Supabase PostgreSQL**, **Row Level Security (RLS)**, **Vitest**, va **Zod**.
+Ishlab chiqilgan texnologiyalar: **Next.js 15 (App Router)**, **TypeScript**, **Tailwind CSS**, **Supabase PostgreSQL**, **Row Level Security (RLS)**, **Vitest**, va **Zod**.
 
 ---
 
@@ -34,26 +34,11 @@ Ishlab chiqilgan texnologiyalar: **Next.js 14 (App Router)**, **TypeScript**, **
 
 ## 🗄️ Ma’lumotlar bazasi va migratsiya
 
-Yangi ma’lumotlar bazasi tuzilmasi `supabase/migrations/011_manbora_platform_core.sql` faylida to‘liq jamlangan.
+Baza — Supabase loyihasi **Manbora** (Postgres 17, 40+ jadval, hammasida RLS yoqilgan). Sxema `supabase/migrations/` ichidagi **011 dan 051 gacha** fayllar ketma-ketligi bilan hosil bo‘ladi (011 — asosiy sxema, qolganlari — keyingi o‘zgarishlar). Fayllarni raqam tartibida qo‘llang.
 
-### Migratsiyani qo‘llash:
-1. Supabase Dashboard loyihangizga kiring: [https://supabase.com/dashboard](https://supabase.com/dashboard).
-2. **SQL Editor** bo‘limini oching.
-3. `supabase/migrations/011_manbora_platform_core.sql` fayli mazmunini nusxalab SQL Editorga joylang va **Run** tugmasini bosing.
-
-Migratsiya quyidagilarni o‘z ichiga oladi:
-- 14 ta jadval (`profiles`, `author_profiles`, `genres`, `works`, `work_genres`, `chapters`, `library_items`, `wallet_accounts`, `wallet_transactions`, `purchases`, `topup_requests`, `payout_requests`, `platform_settings`, `admin_audit_logs`).
-- Barcha jadvallarda Row Level Security (RLS) siyosatlari.
-- Tranzaksiyaviy atomik funksiyalar:
-  - `handle_new_user()`
-  - `admin_approve_topup(...)`
-  - `purchase_content(...)`
-  - `author_create_payout_request(...)`
-  - `admin_approve_payout_paid(...)`
-  - `admin_reject_payout(...)`
-- Birlamchi janrlar va platforma sozlamalari (`commission_percentage: 20`, `minimum_payout: 100000`).
-
----
+- Migratsiyalar hozircha Supabase SQL Editor orqali qo‘lda qo‘llangan, shuning uchun Supabase'dagi `supabase_migrations` tarixi bu fayllarni aks ettirmaydi. Batafsil: [`supabase/README.md`](supabase/README.md).
+- `supabase/legacy/` — boshqa loyihadan ("Bog‘lanish" katalogi) qolgan eski fayllar. Manbora uchun **qo‘llanmaydi**.
+- Asosiy atomik funksiyalar: `handle_new_user`, `purchase_content`, `admin_approve_topup`, `author_create_payout_request`, `admin_approve_payout_paid`, `admin_reject_payout`, `admin_adjust_wallet_balance`, `approve_work_revision`, `approve_chapter_revision` va boshqalar.
 
 ## 🛡️ Birinchi administratorni xavfsiz tayinlash
 
@@ -85,6 +70,10 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key-here
 # Bank kartalari shifrlash kaliti (AES-256-GCM uchun 32-baytlik kalit)
 # Generatsiya qilish: openssl rand -hex 32
 CARD_ENCRYPTION_KEY=your_64_hex_character_or_32_byte_secret_here
+
+# Qolganlari (to‘liq ro‘yxat va izohlar — .env.example): ADMIN_EMAILS,
+# NEXT_PUBLIC_ADMIN_TELEGRAM_USERNAME, OPENAI_API_KEY (ixtiyoriy, import yordamchisi),
+# INDEXNOW_KEY, GOOGLE_SITE_VERIFICATION, YANDEX_SITE_VERIFICATION
 ```
 
 ---

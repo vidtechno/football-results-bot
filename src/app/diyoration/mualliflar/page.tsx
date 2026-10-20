@@ -21,9 +21,15 @@ import {
 import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { AdminPagination } from '@/components/admin/AdminPagination';
+
+const PAGE_SIZE = 15;
 
 export default function AdminAuthorsManagementPage() {
   const [authors, setAuthors] = useState<any[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [page, setPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
@@ -48,14 +54,16 @@ export default function AdminAuthorsManagementPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchAuthors = useCallback(async (q: string, filter: string) => {
+  const fetchAuthors = useCallback(async (q: string, filter: string, p: number = 1) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/authors?q=${encodeURIComponent(q)}&status=${encodeURIComponent(filter)}`);
+      const res = await fetch(`/api/admin/authors?q=${encodeURIComponent(q)}&status=${encodeURIComponent(filter)}&page=${p}&limit=${PAGE_SIZE}`);
       const data = await res.json();
       if (data.success) {
         setAuthors(data.authors || []);
+        setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
       } else {
         setError(data.error || 'Mualliflarni yuklab bo‘lmadi');
       }
@@ -67,15 +75,16 @@ export default function AdminAuthorsManagementPage() {
   }, []);
 
   useEffect(() => {
-    fetchAuthors(searchQuery, activeFilter);
+    fetchAuthors(searchQuery, activeFilter, page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchAuthors, activeFilter]);
+  }, [fetchAuthors, activeFilter, page]);
 
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      fetchAuthors(val, activeFilter);
+      setPage(1);
+      fetchAuthors(val, activeFilter, 1);
     }, 300);
   };
 
@@ -132,7 +141,7 @@ export default function AdminAuthorsManagementPage() {
 
       setActionModal(null);
       setReasonInput('');
-      fetchAuthors(searchQuery, activeFilter);
+      fetchAuthors(searchQuery, activeFilter, page);
       if (selectedAuthor) {
         openAuthorDrawer(selectedAuthor);
       }
@@ -165,7 +174,7 @@ export default function AdminAuthorsManagementPage() {
 
         <div className="flex items-center gap-2">
           <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-black min-h-[32px] inline-flex items-center">
-            {loading ? <Skeleton className="h-4 w-20" /> : `Jami: ${authors.length} nafar muallif`}
+            {loading ? <Skeleton className="h-4 w-20" /> : `Jami: ${total} nafar muallif`}
           </span>
         </div>
       </div>
@@ -179,7 +188,7 @@ export default function AdminAuthorsManagementPage() {
           </div>
           <button
             type="button"
-            onClick={() => fetchAuthors(searchQuery, activeFilter)}
+            onClick={() => fetchAuthors(searchQuery, activeFilter, page)}
             className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 transition-colors"
           >
             Qayta urinish
@@ -212,7 +221,10 @@ export default function AdminAuthorsManagementPage() {
               <button
                 key={f.id}
                 type="button"
-                onClick={() => setActiveFilter(f.id)}
+                onClick={() => {
+                  setActiveFilter(f.id);
+                  setPage(1);
+                }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all min-h-[44px] ${
                   activeFilter === f.id
                     ? 'bg-amber-600 text-white shadow-xs'
@@ -339,6 +351,7 @@ export default function AdminAuthorsManagementPage() {
             })}
           </div>
         )}
+        <AdminPagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} disabled={loading} onPageChange={setPage} />
       </div>
 
       {/* Author Details Drawer */}

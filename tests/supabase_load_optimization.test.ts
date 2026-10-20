@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readDbQueries } from './helpers/db-source';
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -59,7 +60,7 @@ describe('Supabase load optimization', () => {
   });
 
   it('caches public work metadata and chapters while keeping access checks separate', () => {
-    const queries = read('src/lib/db/queries.ts');
+    const queries = readDbQueries();
     expect(queries).toContain('getCachedPublicWorkBySlug');
     expect(queries).toContain('getCachedPublicChapters');
     expect(queries).toMatch(/\['public-work-by-slug-v2'\],[\s\S]{0,30}\{ revalidate: 60/);
@@ -67,7 +68,7 @@ describe('Supabase load optimization', () => {
   });
 
   it('skips paid access reads for free works and loads wallet only for a paywall', () => {
-    const queries = read('src/lib/db/queries.ts');
+    const queries = readDbQueries();
     expect(queries).toContain("const needsPaidAccessState = work.access_type !== 'free'");
     expect(queries).toContain('needsPaidAccessState && entitlements.length === 0');
     expect(queries).toContain('if (userId && !accessEval.canRead)');

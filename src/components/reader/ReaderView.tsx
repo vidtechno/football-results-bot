@@ -37,6 +37,7 @@ import { trackAnalytics } from '@/lib/analytics/client';
 import { CompletionCard } from './CompletionCard';
 import { getPublicWorkAuthorName } from '@/lib/utils/workAttribution';
 import { PlusBadge } from '@/components/plus/PlusBadge';
+import { isWorkFullyFree } from '@/lib/plus/rules';
 
 interface ReaderViewProps {
   work: Work;
@@ -1325,7 +1326,7 @@ export function ReaderView({
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Plus</span>
                           </span>
-                        ) : (work.access_type === 'free' && !work.is_plus) || access?.isFree || (!work.is_plus && chap.is_free) ? (
+                        ) : isWorkFullyFree(work) || access?.isFree || (!work.is_plus && chap.is_free) ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
                             <Unlock className="w-3 h-3" />
                             <span>Bepul</span>

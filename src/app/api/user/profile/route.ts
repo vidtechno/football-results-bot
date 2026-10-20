@@ -177,7 +177,6 @@ export async function PATCH(request: Request) {
     revalidateTag('public-catalogue');
     revalidatePath('/');
     revalidatePath('/asarlar');
-    revalidatePath('/hikoyalar');
     revalidatePath('/mualliflar');
     revalidatePath(`/mualliflar/${profile.username}`);
     revalidatePath(`/mualliflar/${updated.username}`);

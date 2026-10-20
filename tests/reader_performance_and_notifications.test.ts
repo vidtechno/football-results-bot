@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readDbQueries } from './helpers/db-source';
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -8,7 +9,7 @@ const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
 describe('reader performance and visible controls', () => {
   it('uses a lightweight metadata query and parallelizes independent reader requests', () => {
     const page = read('src/app/asarlar/[slug]/[chapterSlug]/page.tsx');
-    const queries = read('src/lib/db/queries.ts');
+    const queries = readDbQueries();
     expect(page).toContain('getChapterMetadata(params.slug, params.chapterSlug)');
     expect(queries).toContain('export async function getChapterMetadata');
     expect(queries).toContain('await Promise.all');

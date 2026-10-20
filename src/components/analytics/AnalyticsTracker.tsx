@@ -12,9 +12,20 @@ export function AnalyticsTracker() {
       sessionStorage.setItem('manbora_analytics_session', sessionId);
     }
     const key = `manbora_viewed:${pathname}`;
+    const SEEN_KEY = 'manbora_seen_ts';
+    const shouldTouch = () => {
+      try {
+        const last = Number(localStorage.getItem(SEEN_KEY) || 0);
+        if (Date.now() - last < 3 * 60 * 1000) return false;
+        localStorage.setItem(SEEN_KEY, String(Date.now()));
+        return true;
+      } catch {
+        return false;
+      }
+    };
     const send = (eventType: string) => fetch('/api/analytics/track', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-      body: JSON.stringify({ sessionId, eventType, path: pathname, referrerHost: document.referrer ? new URL(document.referrer).hostname : null, deviceType: innerWidth < 640 ? 'mobile' : innerWidth < 1024 ? 'tablet' : 'desktop' }),
+      body: JSON.stringify({ sessionId, eventType, touch: eventType === 'page_view' && shouldTouch(), path: pathname, referrerHost: document.referrer ? new URL(document.referrer).hostname : null, deviceType: innerWidth < 640 ? 'mobile' : innerWidth < 1024 ? 'tablet' : 'desktop' }),
     }).catch(() => {});
     const scheduleTracking = () => {
       if (!sessionStorage.getItem(key)) {

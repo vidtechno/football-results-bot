@@ -16,9 +16,14 @@ import { formatUZS } from '@/lib/utils/currency';
 import { formatUzbekDate } from '@/lib/utils/formatters';
 import { supabase } from '@/lib/supabase/client';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { AdminPagination } from '@/components/admin/AdminPagination';
+
+const PAGE_SIZE = 20;
 
 export default function AdminFinancialLedgerPage() {
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [total, setTotal] = useState<number>(0);
   const [platformRevenue, setPlatformRevenue] = useState<number>(0);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
@@ -58,26 +63,27 @@ export default function AdminFinancialLedgerPage() {
             account_type,
             profile:profiles (public_id, display_name)
           )
-        `)
+        `, { count: 'exact' })
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
       if (typeFilter !== 'all') {
         query = query.eq('transaction_type', typeFilter);
       }
 
-      const { data: txData, error: txErr } = await query;
+      const { data: txData, error: txErr, count } = await query;
       if (txErr) {
         setError('Tranzaksiyalar registrini yuklab bo‘lmadi');
       } else if (txData) {
         setTransactions(txData);
+        setTotal(count || 0);
       }
     } catch {
       setError('Tarmoq xatosi yuz berdi. Qayta urinib ko‘ring.');
     } finally {
       setLoading(false);
     }
-  }, [typeFilter]);
+  }, [typeFilter, page]);
 
   useEffect(() => {
     fetchFinancialData();
@@ -144,7 +150,10 @@ export default function AdminFinancialLedgerPage() {
           <button
             key={f.id}
             type="button"
-            onClick={() => setTypeFilter(f.id)}
+            onClick={() => {
+              setTypeFilter(f.id);
+              setPage(1);
+            }}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all min-h-[44px] ${
               typeFilter === f.id
                 ? 'bg-emerald-600 text-white shadow-xs'
@@ -231,6 +240,7 @@ export default function AdminFinancialLedgerPage() {
             </table>
           </div>
         )}
+        <AdminPagination page={page} totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))} total={total} pageSize={PAGE_SIZE} disabled={loading} onPageChange={setPage} />
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ interface PayoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   availableEarnings: number;
+  minimumAmount?: number;
   onSuccess?: () => void;
 }
 
@@ -15,10 +16,11 @@ export function PayoutModal({
   isOpen,
   onClose,
   availableEarnings,
+  minimumAmount = 100000,
   onSuccess,
 }: PayoutModalProps) {
   const [amount, setAmount] = useState<string>(
-    availableEarnings >= 100000 ? String(availableEarnings) : '100000',
+    availableEarnings >= minimumAmount ? String(availableEarnings) : String(minimumAmount),
   );
   const [legalName, setLegalName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
@@ -41,8 +43,8 @@ export function PayoutModal({
     e.preventDefault();
     const numAmount = Number(amount);
 
-    if (numAmount < 100000) {
-      setError("Minimal yechib olish summasi: 100 000 so'm");
+    if (numAmount < minimumAmount) {
+      setError(`Minimal yechib olish summasi: ${formatUZS(minimumAmount)}`);
       return;
     }
 
@@ -133,7 +135,7 @@ export function PayoutModal({
             </div>
 
             <p className="text-xs text-slate-600 mb-6 leading-relaxed">
-              Minimal yechib olish miqdori <strong>100 000 so‘m</strong>. Karta ma’lumotlaringiz xavfsiz tarzda saqlanadi.
+              Minimal yechib olish miqdori <strong>{formatUZS(minimumAmount)}</strong>. Karta ma’lumotlaringiz xavfsiz tarzda saqlanadi.
             </p>
 
             <div className="space-y-4 mb-6">
@@ -144,7 +146,7 @@ export function PayoutModal({
                 </label>
                 <input
                   type="number"
-                  min="100000"
+                  min={minimumAmount}
                   max={availableEarnings}
                   step="1000"
                   value={amount}
@@ -208,7 +210,7 @@ export function PayoutModal({
 
             <button
               type="submit"
-              disabled={loading || availableEarnings < 100000}
+              disabled={loading || availableEarnings < minimumAmount}
               className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-600/25 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? (

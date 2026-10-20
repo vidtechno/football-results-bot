@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { evaluateCanonicalChapterAccess } from '@/lib/security/access';
+import { readDbQueries } from './helpers/db-source';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 const base = {
@@ -98,13 +99,13 @@ describe('Manbora Plus MVP', () => {
   });
   it('filters the public catalogue and renders one shared badge', () => {
     expect(read('src/app/plus/page.tsx')).toContain('isPlus: true');
-    expect(read('src/lib/db/queries.ts')).toContain(".eq('status', 'published')");
+    expect(readDbQueries()).toContain(".eq('status', 'published')");
     expect(read('src/components/work/WorkCard.tsx')).toContain('<PlusBadge');
     expect(read('src/app/asarlar/[slug]/page.tsx')).toContain('<PlusBadge');
   });
   it('does not select locked chapter content before server authorization', () => {
     const access = read('src/lib/security/access.ts');
-    const readerQuery = read('src/lib/db/queries.ts');
+    const readerQuery = readDbQueries();
     expect(access).toContain('if (evalResult.canRead)');
     expect(access).toContain("content: ''");
     expect(readerQuery).toContain('hasPlusSubscription: activePlus');

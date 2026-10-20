@@ -33,6 +33,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, counted: true });
     }
 
+    // Oxirgi kirish vaqti: mijoz 3 daqiqada bir marta `touch` yuboradi, mehmonlar uchun hech narsa qilinmaydi.
+    if (body.touch === true && body.eventType === 'page_view') {
+      const visitor = await getCurrentProfile(req.headers.get('Authorization'));
+      if (visitor) await admin.rpc('touch_user_seen', { p_user_id: visitor.id });
+    }
+
     await admin.from('analytics_events').insert({
       session_id: body.sessionId,
       ...common,
